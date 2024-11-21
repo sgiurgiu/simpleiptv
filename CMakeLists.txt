@@ -1,0 +1,152 @@
+cmake_minimum_required(VERSION 3.18)
+
+option(ENABLE_TESTS "Build tests" ON)
+option(ASAN_ENABLE "Build with sanitization on" OFF)
+
+if(ENABLE_TESTS)
+  list(APPEND VCPKG_MANIFEST_FEATURES "tests")
+endif()
+
+project(simpleiptv LANGUAGES C CXX
+    VERSION 0.0.1
+    DESCRIPTION "Simple IPTV"
+    )
+
+SET(SIMPLEIPTV_VERSION_MAJOR "0")
+SET(SIMPLEIPTV_VERSION_MINOR "0")
+SET(SIMPLEIPTV_VERSION_PATCH "1")
+
+if(DEFINED ENV{SIMPLEIPTV_VERSION_MAJOR})
+    SET(SIMPLEIPTV_VERSION_MAJOR "$ENV{SIMPLEIPTV_VERSION_MAJOR}")
+endif()
+if(DEFINED ENV{SIMPLEIPTV_VERSION_MINOR})
+    SET(SIMPLEIPTV_VERSION_MINOR "$ENV{SIMPLEIPTV_VERSION_MINOR}")
+endif()
+if(DEFINED ENV{SIMPLEIPTV_VERSION_PATCH})
+    SET(SIMPLEIPTV_VERSION_PATCH "$ENV{SIMPLEIPTV_VERSION_PATCH}")
+endif()
+
+add_definitions(-DSIMPLEIPTV_VERSION="${SIMPLEIPTV_VERSION_MAJOR}.${SIMPLEIPTV_VERSION_MINOR}.${SIMPLEIPTV_VERSION_PATCH}")
+add_definitions(-DSIMPLEIPTV_STRING="Simple IPTV v${SIMPLEIPTV_VERSION_MAJOR}.${SIMPLEIPTV_VERSION_MINOR}.${SIMPLEIPTV_VERSION_PATCH}")
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
+if(UNIX AND NOT APPLE)
+    set(LINUX TRUE)
+endif()
+
+if(MSVC)
+    set(WIN32_APP_OPTIONS WIN32)
+endif()
+
+set(Boost_USE_MULTITHREADED      ON)
+set(OpenGL_GL_PREFERENCE GLVND)
+
+find_package(Threads REQUIRED)
+
+set(STV_LIBARIES ${CMAKE_DL_LIBS} Threads::Threads)
+set(STV_INCLUDES)
+
+set(Boost_USE_STATIC_LIBS    ON)
+# Boost doesn't provide a pkgconfig file, so we just have to have it installed
+# and discoverable by cmake
+find_package(Boost 1.74 REQUIRED system filesystem program_options)
+list(APPEND STV_LIBARIES Boost::boost Boost::system Boost::filesystem)
+
+if(VCPKG_TOOLCHAIN)
+    set(Boost_USE_STATIC_RUNTIME ON)
+    find_package(OpenGL COMPONENTS OpenGL REQUIRED)
+    find_package(GLEW REQUIRED)
+    find_package(glfw3 CONFIG REQUIRED)
+    find_package(OpenSSL REQUIRED)
+    find_package(spdlog CONFIG REQUIRED)
+    find_package(fmt CONFIG REQUIRED)
+    find_package(freetype CONFIG REQUIRED)
+    find_package(unofficial-sqlite3 CONFIG REQUIRED)
+    find_package(SOCI CONFIG REQUIRED)
+    find_package(imgui CONFIG REQUIRED)
+
+    if(UNIX)
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(MPV REQUIRED IMPORTED_TARGET mpv)
+        list(APPEND STV_LIBARIES PkgConfig::MPV)
+    endif()
+
+    list(APPEND STV_LIBARIES OpenGL::GL glfw GLEW::GLEW freetype imgui::imgui)
+    list(APPEND STV_LIBARIES OpenSSL::SSL)
+    list(APPEND STV_LIBARIES spdlog::spdlog_header_only fmt::fmt-header-only)
+    list(APPEND STV_LIBARIES unofficial::sqlite3::sqlite3 SOCI::soci_sqlite3_static)
+else()
+    message(FATAL "VCPKG is required")
+endif()
+
+if(WIN32)
+    find_library(LIBMPV mpv ${LIBMPV_DIR})
+    list(APPEND STV_LIBARIES ${LIBMPV} "crypt32.lib")
+    list(APPEND STV_INCLUDES "win" ${LIBMPV_INCLUDE})
+endif()
+
+
+if(LINUX)
+    add_definitions(-DSTV_LINUX)
+endif()
+if(WIN32)
+    add_definitions(-DSTV_WINDOWS)
+endif()
+if(APPLE)
+    add_definitions(-DSTV_APPLE)
+endif()
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+set(EXECUTABLE_NAME simpleiptv)
+
+add_subdirectory(src)
+
+if(ENABLE_TESTS)
+    enable_testing()
+    add_subdirectory(test)
+endif()
+
+SET(CPACK_PACKAGE_NAME "simpleiptv")
+SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Simple IPTV")
+SET(CPACK_RESOURCE_FILE_LICENSE_PROVIDED FALSE)
+SET(CPACK_INTERACTIVE FALSE)
+SET(CPACK_INCLUDE_SUBDIR TRUE)
+SET(CPACK_PACKAGE_VERSION_MAJOR ${SIMPLEIPTV_VERSION_MAJOR})
+SET(CPACK_PACKAGE_VERSION_MINOR ${SIMPLEIPTV_VERSION_MINOR})
+SET(CPACK_PACKAGE_VERSION_PATCH ${SIMPLEIPTV_VERSION_PATCH})
+SET(CPACK_PACKAGE_CONTACT "Sergiu Giurgiu <sgiurgiu11@gmail.com>")
+set(CPACK_RPM_PACKAGE_LICENSE "GPLv3")
+SET(CPACK_PACKAGE_VENDOR "Sergiu Giurgiu <sgiurgiu11@gmail.com>")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libmpv1, libfreetype6, libopengl0")
+set(CPACK_FREEBSD_PACKAGE_MAINTAINER "Sergiu Giurgiu <sgiurgiu11@gmail.com>")
+set(CPACK_FREEBSD_PACKAGE_DEPS "multimedia/mpv" "security/openssl" "print/freetype2" "graphics/glew" "graphics/mesa-dri")
+set(CPACK_RPM_RELOCATION_PATHS "/${CMAKE_INSTALL_SYSCONFDIR}" "${CMAKE_INSTALL_BINDIR}")
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY 0) # don't prepend package name
+#set(CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
+#set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/postinstall")
+
+SET(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+
+if(CPACK_DISTRIBUTION)
+    SET(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}-${CPACK_DISTRIBUTION}")
+endif()
+
+set(CPACK_PACKAGE_EXECUTABLES "${EXECUTABLE_NAME};Simple IPTV")
+if(CPACK_GENERATOR STREQUAL "WIX")
+    set(CPACK_WIX_UPGRADE_GUID "c68b00de-fa4f-4f48-9e15-6c55bcf04b2f")
+    set(CPACK_WIX_PROGRAM_MENU_FOLDER "Simple IPTV")
+    set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/gpl-3.0.rtf")
+    set(CPACK_PACKAGE_INSTALL_DIRECTORY "Simple IPTV")	
+endif()
+
+
+
+INCLUDE(CPack)

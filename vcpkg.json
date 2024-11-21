@@ -1,0 +1,47 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "simpleiptv",
+  "version-string": "0.0.1",
+  "dependencies": [
+    "boost-asio",
+    "boost-algorithm",
+    "boost-beast",
+    "boost-system",
+    "boost-filesystem",
+    "boost-program-options",
+    "glew",
+    "fmt",
+    "spdlog",
+    "sqlite3",
+    "freetype",
+    "opengl",
+    "openssl",
+    "zlib",
+    "glfw3",
+    {
+        "name":"imgui",
+        "default-features":false,
+        "features":[
+            "opengl3-binding",
+            "glfw-binding",
+            "freetype-lunasvg"
+        ]
+    },
+    {
+        "name":"soci",
+        "default-features":false,
+        "features":[
+            "sqlite3"
+        ]
+    }
+  ],
+  "features": {
+    "app": {
+      "description": "Simple IPTV"
+    },
+    "tests": {
+      "description": "Build tests",
+      "dependencies": [ "gtest" ]
+    }
+  }
+}
