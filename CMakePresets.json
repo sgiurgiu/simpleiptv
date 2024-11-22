@@ -64,11 +64,13 @@
         {
             "name": "release",
             "configurePreset": "release",
+            "cleanFirst": true,
             "jobs": 8
         },
         {
             "name": "release-windows",
             "configurePreset": "release-windows",
+            "cleanFirst": true,
             "jobs": 4
         }
     ],

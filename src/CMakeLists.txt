@@ -1,5 +1,58 @@
+if(MSVC)
+    set(WIN32_APP_OPTIONS WIN32)
+endif()
+
+set(Boost_USE_MULTITHREADED      ON)
+set(OpenGL_GL_PREFERENCE GLVND)
+
+find_package(Threads REQUIRED)
+
+set(STV_LIBARIES ${CMAKE_DL_LIBS} Threads::Threads)
+set(STV_INCLUDES)
+
+set(Boost_USE_STATIC_LIBS    ON)
+# Boost doesn't provide a pkgconfig file, so we just have to have it installed
+# and discoverable by cmake
+find_package(Boost 1.74 REQUIRED system filesystem program_options)
+list(APPEND STV_LIBARIES Boost::boost Boost::system Boost::filesystem)
+
+if(VCPKG_TOOLCHAIN)
+    set(Boost_USE_STATIC_RUNTIME ON)
+    find_package(OpenGL COMPONENTS OpenGL REQUIRED)
+    find_package(GLEW REQUIRED)
+    find_package(glfw3 CONFIG REQUIRED)
+    find_package(OpenSSL REQUIRED)
+    find_package(spdlog CONFIG REQUIRED)
+    find_package(fmt CONFIG REQUIRED)
+    find_package(freetype CONFIG REQUIRED)
+    find_package(unofficial-sqlite3 CONFIG REQUIRED)
+    find_package(SOCI CONFIG REQUIRED)
+    find_package(imgui CONFIG REQUIRED)
+
+    if(UNIX)
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(MPV REQUIRED IMPORTED_TARGET mpv)
+        list(APPEND STV_LIBARIES PkgConfig::MPV)
+    endif()
+
+    list(APPEND STV_LIBARIES OpenGL::GL glfw GLEW::GLEW freetype imgui::imgui)
+    list(APPEND STV_LIBARIES OpenSSL::SSL)
+    list(APPEND STV_LIBARIES spdlog::spdlog_header_only fmt::fmt-header-only)
+    list(APPEND STV_LIBARIES unofficial::sqlite3::sqlite3 SOCI::soci_sqlite3_static)
+else()
+    message(FATAL "VCPKG is required")
+endif()
+
+if(WIN32)
+    find_library(LIBMPV mpv ${LIBMPV_DIR})
+    list(APPEND STV_LIBARIES ${LIBMPV} "crypt32.lib")
+    list(APPEND STV_INCLUDES "win" ${LIBMPV_INCLUDE})
+endif()
+
+
 
 set(STV_SRCS main.cpp
+    mpvplayer.cpp
     )
 
 
@@ -51,5 +104,3 @@ if(WIN32)
     file(REAL_PATH ${LIBMPV_DIR} MPV_DIR)    
     install(FILES "${MPV_DIR}/mpv-2.dll"  DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
-
-
