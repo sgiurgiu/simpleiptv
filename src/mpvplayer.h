@@ -27,6 +27,7 @@ private:
     static void mpvRenderUpdate(void* ctx);
     static void onMpvEvents(void* ctx);
     void compileShaders();
+    void initializeVAO();
 
 private:
     const boost::asio::any_io_executor& ui_executor;
@@ -48,4 +49,5 @@ private:
     int height = 100;
     GLuint frameShaderProgram;
     GLint videoFrameUniformLocation;
+    GLuint VAO;
 };

@@ -44,8 +44,8 @@ void main()
 enum
 {
     ATTRIB_VERTEX,
-    ATTRIB_COLOR,
     ATTRIB_TEXTUREPOSITON,
+    ATTRIB_COLOR,
     NUM_ATTRIBUTES
 };
 
@@ -132,6 +132,7 @@ void MpvPlayer::initializeMpvGL()
                                            &MpvPlayer::mpvRenderUpdate, this);
     compileShaders();
     createFrameBuffers();
+    initializeVAO();
 }
 
 void MpvPlayer::compileShaders()
@@ -372,18 +373,9 @@ void MpvPlayer::mpvRenderFrame()
                                   { MPV_RENDER_PARAM_INVALID, 0 } };
     mpv_render_context_render(mpvRenderContext, params);
 }
-
-void MpvPlayer::render()
+void MpvPlayer::initializeVAO()
 {
-    if (mediaFrameTexture)
-    {
-        // glViewport(0, 0, width, height);
-        //  glBindFramebuffer(GL_FRAMEBUFFER, mediaFramebufferObject);
-        //    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        //    glClear(GL_COLOR_BUFFER_BIT);
-
-        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        // clang-format off
+    // clang-format off
         static const GLfloat squareVertices[] = {
             -1.0f, -1.0f, 
             1.0f, -1.0f, 
@@ -397,24 +389,60 @@ void MpvPlayer::render()
             0.0f, 1.0f, 
             0.0f, 0.0f,
         };
-        // clang-format on
+    // clang-format on
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+    GLuint buffs[2];
+    glGenBuffers(2, buffs);
+    glBindBuffer(GL_ARRAY_BUFFER, buffs[0]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(squareVertices), squareVertices,
+                 GL_STATIC_DRAW);
+    glVertexAttribPointer(ATTRIB_VERTEX, 2, GL_FLOAT, 0, 0, squareVertices);
+    glEnableVertexAttribArray(ATTRIB_VERTEX);
+
+    glBindBuffer(GL_ARRAY_BUFFER, buffs[1]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(textureVertices), textureVertices,
+                 GL_STATIC_DRAW);
+    glVertexAttribPointer(ATTRIB_TEXTUREPOSITON, 2, GL_FLOAT, 0, 0,
+                          textureVertices);
+    glEnableVertexAttribArray(ATTRIB_TEXTUREPOSITON);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+}
+void MpvPlayer::render()
+{
+    if (mediaFrameTexture)
+    {
+        // glViewport(0, 0, width, height);
+        //  glBindFramebuffer(GL_FRAMEBUFFER, mediaFramebufferObject);
+        //    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        //    glClear(GL_COLOR_BUFFER_BIT);
+
+        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
         glUseProgram(frameShaderProgram);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, mediaFrameTexture);
 
         glUniform1i(videoFrameUniformLocation, 0);
 
-        glVertexAttribPointer(ATTRIB_VERTEX, 2, GL_FLOAT, 0, 0, squareVertices);
-        glEnableVertexAttribArray(ATTRIB_VERTEX);
+        /*glVertexAttribPointer(ATTRIB_VERTEX, 2, GL_FLOAT, 0, 0,
+        squareVertices); glEnableVertexAttribArray(ATTRIB_VERTEX);
         glVertexAttribPointer(ATTRIB_TEXTUREPOSITON, 2, GL_FLOAT, 0, 0,
                               textureVertices);
-        glEnableVertexAttribArray(ATTRIB_TEXTUREPOSITON);
+        glEnableVertexAttribArray(ATTRIB_TEXTUREPOSITON);*/
+
+        glBindVertexArray(VAO);
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
+        glBindVertexArray(0);
+
         glUseProgram(0);
+
         glBindTexture(GL_TEXTURE_2D, 0);
-        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         /*ImGui::Image((void *)(intptr_t)mediaFrameTexture, ImVec2(width,
            height), ImVec2(0, 0), ImVec2(1, 1));*/

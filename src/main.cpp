@@ -74,6 +74,10 @@ int main(int /*argc*/, char** /*argv*/)
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(nullptr);
 
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(MessageCallback, nullptr);
+
     runMainLoop(window, io);
 
     // Cleanup
@@ -115,9 +119,6 @@ void runMainLoop(GLFWwindow* window, ImGuiIO& io)
     player.play("/home/sergiu/metallica_seattle.avi");
     // Main loop
     bool done = false;
-    glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback(MessageCallback, nullptr);
 
     while (!done)
     {
