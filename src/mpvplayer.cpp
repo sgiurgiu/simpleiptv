@@ -364,7 +364,7 @@ void MpvPlayer::mpvRenderFrame()
     }
 
     mpv_opengl_fbo mpfbo{ (int)mediaFramebufferObject, width, height, GL_RGBA };
-    int flip_y = 1;
+    int flip_y = 0;
     int skipRendering = 0;
     if (/*!shouldRenderMedia || window()->isMinimized()*/ false)
     {
@@ -389,10 +389,10 @@ void MpvPlayer::initializeVAO()
         };
 
         static const GLfloat textureVertices[] = {
-            1.0f, 1.0f, 
-            1.0f, 0.0f, 
             0.0f, 1.0f, 
-            0.0f, 0.0f,
+            1.0f, 1.0f, 
+            0.0f, 0.0f, 
+            1.0f, 0.0f,
         };
     // clang-format on
 
@@ -426,24 +426,12 @@ void MpvPlayer::render()
 {
     if (mediaFrameTexture)
     {
-        // glViewport(0, 0, width, height);
-        //  glBindFramebuffer(GL_FRAMEBUFFER, mediaFramebufferObject);
-        //    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        //    glClear(GL_COLOR_BUFFER_BIT);
-
-        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         glUseProgram(frameShaderProgram);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, mediaFrameTexture);
 
         glUniform1i(videoFrameUniformLocation, 0);
-
-        /*glVertexAttribPointer(ATTRIB_VERTEX, 2, GL_FLOAT, 0, 0,
-        squareVertices); glEnableVertexAttribArray(ATTRIB_VERTEX);
-        glVertexAttribPointer(ATTRIB_TEXTUREPOSITON, 2, GL_FLOAT, 0, 0,
-                              textureVertices);
-        glEnableVertexAttribArray(ATTRIB_TEXTUREPOSITON);*/
 
         glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
                          shaderPositionAttribLocation, buffs[0]);
@@ -464,16 +452,6 @@ void MpvPlayer::render()
         glBindTexture(GL_TEXTURE_2D, 0);
         glUseProgram(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        /*ImGui::Image((void *)(intptr_t)mediaFrameTexture, ImVec2(width,
-           height), ImVec2(0, 0), ImVec2(1, 1));*/
-
-        /*glBindFramebuffer(GL_READ_FRAMEBUFFER, mediaFramebufferObject);
-        glReadBuffer(GL_COLOR_ATTACHMENT0);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // if not already bound
-        // glViewport(0, 0, width, height);
-        glBlitFramebuffer(0, 0, width, height, 0, 0, width, height,
-                          GL_COLOR_BUFFER_BIT, GL_NEAREST);*/
     }
 }
 void MpvPlayer::setSize(int width, int height)
