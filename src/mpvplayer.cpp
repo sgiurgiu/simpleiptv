@@ -43,9 +43,9 @@ void main()
 
 enum
 {
-    ATTRIB_VERTEX,
-    ATTRIB_TEXTUREPOSITON,
+    ATTRIB_VERTEX = 0,
     ATTRIB_COLOR,
+    ATTRIB_TEXTUREPOSITON,
     NUM_ATTRIBUTES
 };
 
@@ -107,6 +107,7 @@ MpvPlayer::~MpvPlayer()
     }
     destroyFrameBuffers();
     glDeleteProgram(frameShaderProgram);
+    glDeleteBuffers(2, buffs);
 }
 
 void MpvPlayer::initializeMpvGL()
@@ -188,6 +189,10 @@ void MpvPlayer::compileShaders()
     glDeleteShader(fragmentShader);
     videoFrameUniformLocation =
         glGetUniformLocation(frameShaderProgram, "videoFrame");
+    shaderPositionAttribLocation =
+        glGetAttribLocation(frameShaderProgram, "position");
+    shaderTextCoordinateLocation =
+        glGetAttribLocation(frameShaderProgram, "inputTextureCoordinate");
 }
 
 void MpvPlayer::createFrameBuffers()
@@ -390,24 +395,31 @@ void MpvPlayer::initializeVAO()
             0.0f, 0.0f,
         };
     // clang-format on
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-    GLuint buffs[2];
+
     glGenBuffers(2, buffs);
     glBindBuffer(GL_ARRAY_BUFFER, buffs[0]);
     glBufferData(GL_ARRAY_BUFFER, sizeof(squareVertices), squareVertices,
                  GL_STATIC_DRAW);
-    glVertexAttribPointer(ATTRIB_VERTEX, 2, GL_FLOAT, 0, 0, squareVertices);
-    glEnableVertexAttribArray(ATTRIB_VERTEX);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     glBindBuffer(GL_ARRAY_BUFFER, buffs[1]);
     glBufferData(GL_ARRAY_BUFFER, sizeof(textureVertices), textureVertices,
                  GL_STATIC_DRAW);
-    glVertexAttribPointer(ATTRIB_TEXTUREPOSITON, 2, GL_FLOAT, 0, 0,
-                          textureVertices);
-    glEnableVertexAttribArray(ATTRIB_TEXTUREPOSITON);
-
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, buffs[0]);
+    glEnableVertexAttribArray(shaderPositionAttribLocation);
+    glVertexAttribPointer(shaderPositionAttribLocation, 2, GL_FLOAT, 0, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, buffs[1]);
+    glEnableVertexAttribArray(shaderTextCoordinateLocation);
+    glVertexAttribPointer(shaderTextCoordinateLocation, 2, GL_FLOAT, 0, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
     glBindVertexArray(0);
 }
 void MpvPlayer::render()
@@ -433,15 +445,24 @@ void MpvPlayer::render()
                               textureVertices);
         glEnableVertexAttribArray(ATTRIB_TEXTUREPOSITON);*/
 
+        glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
+                         shaderPositionAttribLocation, buffs[0]);
+        glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
+                         shaderTextCoordinateLocation, buffs[1]);
+
         glBindVertexArray(VAO);
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         glBindVertexArray(0);
 
-        glUseProgram(0);
+        glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
+                         shaderPositionAttribLocation, 0);
+        glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
+                         shaderTextCoordinateLocation, 0);
 
         glBindTexture(GL_TEXTURE_2D, 0);
+        glUseProgram(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         /*ImGui::Image((void *)(intptr_t)mediaFrameTexture, ImVec2(width,

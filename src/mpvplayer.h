@@ -49,5 +49,10 @@ private:
     int height = 100;
     GLuint frameShaderProgram;
     GLint videoFrameUniformLocation;
+
+    GLint shaderPositionAttribLocation;
+    GLint shaderTextCoordinateLocation;
+
     GLuint VAO;
+    GLuint buffs[2];
 };
