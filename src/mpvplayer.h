@@ -2,6 +2,7 @@
 
 #include <GL/gl.h>
 #include <boost/asio/any_io_executor.hpp>
+#include <boost/asio/steady_timer.hpp>
 
 struct mpv_handle;
 struct mpv_render_context;
@@ -14,10 +15,11 @@ public:
     ~MpvPlayer();
     void initializeMpvGL();
     void render();
-    void setSize(int width, int height);
+    void setSizeAsync(int width, int height);
     void play(const std::string& file);
 
 private:
+    void setSize(int width, int height);
     void handleMpvEvent(mpv_event* event);
     void handleMpvEvents();
     void mpvRenderFrame();
@@ -31,6 +33,7 @@ private:
 
 private:
     const boost::asio::any_io_executor& ui_executor;
+    boost::asio::steady_timer resize_timer;
     mpv_handle* mpv = nullptr;
     mpv_render_context* mpvRenderContext = nullptr;
     double volume = 100.0;
@@ -44,7 +47,7 @@ private:
     MediaState mediaState;
     GLuint mediaFramebufferObject = 0;
     GLuint mediaFrameTexture = 0;
-    GLuint mediaFrameRenderBufferObject = 0;
+    // GLuint mediaFrameRenderBufferObject = 0;
     int width = 100;
     int height = 100;
     GLuint frameShaderProgram;

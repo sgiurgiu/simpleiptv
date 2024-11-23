@@ -2,6 +2,7 @@
 
 #include <GLFW/glfw3.h>
 #include <boost/asio/post.hpp>
+#include <chrono>
 #include <mpv/client.h>
 #include <mpv/render_gl.h>
 #include <stdexcept>
@@ -52,7 +53,7 @@ enum
 } // namespace
 
 MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor)
-: ui_executor{ ui_executor }
+: ui_executor{ ui_executor }, resize_timer{ this->ui_executor }
 {
     mpv = mpv_create();
     if (!mpv)
@@ -108,6 +109,7 @@ MpvPlayer::~MpvPlayer()
     destroyFrameBuffers();
     glDeleteProgram(frameShaderProgram);
     glDeleteBuffers(2, buffs);
+    glDeleteVertexArrays(1, &VAO);
 }
 
 void MpvPlayer::initializeMpvGL()
@@ -214,17 +216,17 @@ void MpvPlayer::createFrameBuffers()
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                            mediaFrameTexture, 0);
 
-    glGenRenderbuffers(1, &mediaFrameRenderBufferObject);
+    /*glGenRenderbuffers(1, &mediaFrameRenderBufferObject);
     glBindRenderbuffer(GL_RENDERBUFFER, mediaFrameRenderBufferObject);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
-                              GL_RENDERBUFFER, mediaFrameRenderBufferObject);
+                              GL_RENDERBUFFER, mediaFrameRenderBufferObject);*/
 
     assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    // glBindRenderbuffer(GL_RENDERBUFFER, 0);
 }
 void MpvPlayer::destroyFrameBuffers()
 {
@@ -233,11 +235,11 @@ void MpvPlayer::destroyFrameBuffers()
         glDeleteTextures(1, &mediaFrameTexture);
         mediaFrameTexture = 0;
     }
-    if (mediaFrameRenderBufferObject > 0)
+    /*if (mediaFrameRenderBufferObject > 0)
     {
         glDeleteRenderbuffers(1, &mediaFrameRenderBufferObject);
         mediaFrameRenderBufferObject = 0;
-    }
+    }*/
 
     if (mediaFramebufferObject > 0)
     {
@@ -254,17 +256,17 @@ void MpvPlayer::rescaleFrameBuffers()
     }
     glBindFramebuffer(GL_FRAMEBUFFER, mediaFramebufferObject);
     glBindTexture(GL_TEXTURE_2D, mediaFrameTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
-                 GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (int)width, (int)height, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                            mediaFrameTexture, 0);
 
-    glBindRenderbuffer(GL_RENDERBUFFER, mediaFrameRenderBufferObject);
+    /*glBindRenderbuffer(GL_RENDERBUFFER, mediaFrameRenderBufferObject);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
-                              GL_RENDERBUFFER, mediaFrameRenderBufferObject);
+                              GL_RENDERBUFFER, mediaFrameRenderBufferObject);*/
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -454,13 +456,25 @@ void MpvPlayer::render()
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 }
-void MpvPlayer::setSize(int width, int height)
+void MpvPlayer::setSizeAsync(int width, int height)
 {
     if (width == this->width && height == this->height)
         return;
+    glViewport(0, 0, width, height);
+    resize_timer.expires_after(std::chrono::milliseconds(10));
+    resize_timer.async_wait(
+        [this, width, height](const boost::system::error_code &error)
+        {
+            if (error != boost::asio::error::operation_aborted)
+            {
+                setSize(width, height);
+            }
+        });
+}
+void MpvPlayer::setSize(int width, int height)
+{
     this->width = width;
     this->height = height;
-    glViewport(0, 0, width, height);
     rescaleFrameBuffers();
 }
 

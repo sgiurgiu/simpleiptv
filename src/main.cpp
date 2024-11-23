@@ -2,11 +2,11 @@
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <boost/asio/io_context.hpp>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
-
-#include <boost/asio/io_context.hpp>
+#include <spdlog/spdlog.h>
 
 #include "mpvplayer.h"
 
@@ -14,7 +14,7 @@ void runMainLoop(GLFWwindow* window, ImGuiIO& io);
 
 static void glfw_error_callback(int error, const char* description)
 {
-    std::cerr << "GLFW Error " << error << ": " << description << std::endl;
+    spdlog::error("GLFW Error {}:{}", error, description);
 }
 
 static void GLAPIENTRY MessageCallback(GLenum source,
@@ -25,10 +25,17 @@ static void GLAPIENTRY MessageCallback(GLenum source,
                                        const GLchar* message,
                                        const void* userParam)
 {
-    std::cerr << "GL CALLBACK:"
-              << (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "")
-              << ", type: " << type << ", severity:" << severity
-              << ", message:" << message << std::endl;
+    switch (type)
+    {
+    case GL_DEBUG_TYPE_ERROR:
+        spdlog::error("GL CALLBACK: type:{}, severity:{}, message:{}", type,
+                      severity, message);
+        break;
+    default:
+        spdlog::info("GL CALLBACK: type:{}, severity:{}, message:{}", type,
+                     severity, message);
+        break;
+    }
 }
 
 #if defined(WIN32_WINMAIN)
@@ -40,6 +47,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance,
 int main(int /*argc*/, char** /*argv*/)
 #endif
 {
+    spdlog::default_logger()->set_level(spdlog::level::trace);
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
     {
@@ -101,7 +109,7 @@ void runMainLoop(GLFWwindow* window, ImGuiIO& io)
     auto executor = uiContext.get_executor();
     MpvPlayer player{ executor };
 
-    player.setSize(1280, 720);
+    player.setSizeAsync(1280, 720);
     player.initializeMpvGL();
 
     glfwSetWindowUserPointer(window, &player);
@@ -112,9 +120,10 @@ void runMainLoop(GLFWwindow* window, ImGuiIO& io)
         {
             MpvPlayer* desktop =
                 reinterpret_cast<MpvPlayer*>(glfwGetWindowUserPointer(window));
-            desktop->setSize(width, height);
+            desktop->setSizeAsync(width, height);
         });
     glfwSetWindowSize(window, 1280, 720);
+    glClearColor(0.3f, 0.3f, 0.3f, 1.f);
 
     player.play("/home/sergiu/metallica_seattle.avi");
     // Main loop
@@ -138,7 +147,6 @@ void runMainLoop(GLFWwindow* window, ImGuiIO& io)
         // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
-        glClearColor(0.3f, 0.3f, 0.3f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui::NewFrame();
 
