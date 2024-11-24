@@ -53,6 +53,9 @@ endif()
 
 set(STV_SRCS main.cpp
     mpvplayer.cpp
+    simpleiptv.cpp
+    channels_window.cpp
+    utils.cpp
     )
 
 

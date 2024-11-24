@@ -123,7 +123,7 @@ void MpvPlayer::initializeMpvGL()
         { MPV_RENDER_PARAM_API_TYPE,
           const_cast<char *>(MPV_RENDER_API_TYPE_OPENGL) },
         { MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &gl_params },
-    // { MPV_RENDER_PARAM_ADVANCED_CONTROL, &mpv_advanced_control },
+        { MPV_RENDER_PARAM_ADVANCED_CONTROL, &mpv_advanced_control },
 #ifdef STV_UNIX
         { display },
 #endif
@@ -335,13 +335,24 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
     {
         mpv_event_end_file *end_file =
             static_cast<mpv_event_end_file *>(event->data);
-        if (end_file->error < 0)
+        switch (end_file->reason)
         {
+        case mpv_end_file_reason::MPV_END_FILE_REASON_ERROR:
+            playerState = PlayerState::LOADING_ERROR;
             // notifyOfErrors(end_file->error);
+            break;
+        case mpv_end_file_reason::MPV_END_FILE_REASON_EOF:
+            [[fallthrough]];
+        case mpv_end_file_reason::MPV_END_FILE_REASON_STOP:
+            playerState = PlayerState::STOPPED;
+            break;
+        default:
+            break;
         }
     }
     break;
     case MPV_EVENT_FILE_LOADED:
+        playerState = PlayerState::PLAYING;
         // startRenderingMedia();
         // emit fileLoaded();
         break;
@@ -426,35 +437,31 @@ void MpvPlayer::initializeVAO()
 }
 void MpvPlayer::render()
 {
-    if (mediaFrameTexture)
-    {
+    glUseProgram(frameShaderProgram);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, mediaFrameTexture);
 
-        glUseProgram(frameShaderProgram);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, mediaFrameTexture);
+    glUniform1i(videoFrameUniformLocation, 0);
 
-        glUniform1i(videoFrameUniformLocation, 0);
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, shaderPositionAttribLocation,
+                     buffs[0]);
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, shaderTextCoordinateLocation,
+                     buffs[1]);
 
-        glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
-                         shaderPositionAttribLocation, buffs[0]);
-        glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
-                         shaderTextCoordinateLocation, buffs[1]);
+    glBindVertexArray(VAO);
 
-        glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
 
-        glBindVertexArray(0);
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, shaderPositionAttribLocation,
+                     0);
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, shaderTextCoordinateLocation,
+                     0);
 
-        glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
-                         shaderPositionAttribLocation, 0);
-        glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
-                         shaderTextCoordinateLocation, 0);
-
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glUseProgram(0);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glUseProgram(0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 void MpvPlayer::setSizeAsync(int width, int height)
 {
@@ -482,4 +489,9 @@ void MpvPlayer::play(const std::string &file)
 {
     const char *cmd[] = { "loadfile", file.c_str(), nullptr };
     mpv_command_async(mpv, 0, cmd);
+}
+
+PlayerState MpvPlayer::getPlayerState() const
+{
+    return playerState;
 }

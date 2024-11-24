@@ -8,6 +8,14 @@ struct mpv_handle;
 struct mpv_render_context;
 struct mpv_event;
 
+enum class PlayerState
+{
+    STOPPED,
+    PLAYING,
+    PAUSED,
+    LOADING_ERROR
+};
+
 class MpvPlayer
 {
 public:
@@ -17,6 +25,7 @@ public:
     void render();
     void setSizeAsync(int width, int height);
     void play(const std::string& file);
+    PlayerState getPlayerState() const;
 
 private:
     void setSize(int width, int height);
@@ -58,4 +67,6 @@ private:
 
     GLuint VAO;
     GLuint buffs[2];
+
+    PlayerState playerState = PlayerState::STOPPED;
 };

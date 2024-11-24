@@ -1,5 +1,3 @@
-#include <iostream>
-
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <boost/asio/io_context.hpp>
@@ -8,9 +6,10 @@
 #include <imgui_impl_opengl3.h>
 #include <spdlog/spdlog.h>
 
-#include "mpvplayer.h"
+#include "simpleiptv.h"
+#include "utils.h"
 
-void runMainLoop(GLFWwindow* window, ImGuiIO& io);
+void runMainLoop(GLFWwindow* window);
 
 static void glfw_error_callback(int error, const char* description)
 {
@@ -25,6 +24,10 @@ static void GLAPIENTRY MessageCallback(GLenum source,
                                        const GLchar* message,
                                        const void* userParam)
 {
+    (void)source;
+    (void)id;
+    (void)length;
+    (void)userParam;
     switch (type)
     {
     case GL_DEBUG_TYPE_ERROR:
@@ -76,17 +79,22 @@ int main(int /*argc*/, char** /*argv*/)
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |=
         ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+    auto appConfigFolder = Utils::GetAppConfigFolder();
+    auto iniFilePathString = (appConfigFolder / "imgui.ini").string();
+    io.IniFilename = iniFilePathString.c_str();
 
     ImGui::StyleColorsDark();
     // Setup Platform/Renderer backends
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(nullptr);
 
-    glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    // glEnable(GL_DEBUG_OUTPUT);
+    // glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(MessageCallback, nullptr);
 
-    runMainLoop(window, io);
+    Utils::LoadFonts();
+
+    runMainLoop(window);
 
     // Cleanup
     ImGui_ImplOpenGL3_Shutdown();
@@ -99,33 +107,28 @@ int main(int /*argc*/, char** /*argv*/)
     return EXIT_SUCCESS;
 }
 
-void runMainLoop(GLFWwindow* window, ImGuiIO& io)
+void runMainLoop(GLFWwindow* window)
 {
 #ifdef STV_DEBUG
     bool show_demo_window = true;
 #endif
     boost::asio::io_context uiContext;
     auto work = boost::asio::make_work_guard(uiContext);
-    auto executor = uiContext.get_executor();
-    MpvPlayer player{ executor };
+    SimpleIPTV iptv{ uiContext };
 
-    player.setSizeAsync(1280, 720);
-    player.initializeMpvGL();
-
-    glfwSetWindowUserPointer(window, &player);
+    glfwSetWindowUserPointer(window, &iptv);
 
     glfwSetFramebufferSizeCallback(
         window,
         [](GLFWwindow* window, int width, int height)
         {
-            MpvPlayer* desktop =
-                reinterpret_cast<MpvPlayer*>(glfwGetWindowUserPointer(window));
-            desktop->setSizeAsync(width, height);
+            SimpleIPTV* desktop =
+                reinterpret_cast<SimpleIPTV*>(glfwGetWindowUserPointer(window));
+            desktop->setSize(width, height);
         });
     glfwSetWindowSize(window, 1280, 720);
     glClearColor(0.3f, 0.3f, 0.3f, 1.f);
 
-    player.play("/home/sergiu/metallica_seattle.avi");
     // Main loop
     bool done = false;
 
@@ -139,20 +142,18 @@ void runMainLoop(GLFWwindow* window, ImGuiIO& io)
         glfwPollEvents();
 
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS ||
-            glfwGetKey(window, GLFW_KEY_Q | GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
+            (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS &&
+             glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS))
         {
             glfwSetWindowShouldClose(window, true);
         }
 
+        glClear(GL_COLOR_BUFFER_BIT);
+
         // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
-        glClear(GL_COLOR_BUFFER_BIT);
         ImGui::NewFrame();
-
-        int windowWidth;
-        int windowHeight;
-        glfwGetFramebufferSize(window, &windowWidth, &windowHeight);
 
 #ifdef STV_DEBUG
         // 1. Show the big demo window (Most of the sample code is in
@@ -163,17 +164,11 @@ void runMainLoop(GLFWwindow* window, ImGuiIO& io)
             ImGui::ShowDemoWindow(&show_demo_window);
 #endif
 
+        // rendering stuff
+        iptv.showDesktop();
+
         ImGui::Render();
 
-        // rendering stuff
-        player.render();
-
-        // glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
-        //  const auto& backgroundColor = desktop->getBackgroundColor();
-        //  glClearColor(backgroundColor.x, backgroundColor.y,
-        //  backgroundColor.z, backgroundColor.w);
-        // glClearColor(0.3f, 0.3f, 0.3f, 1.f);
-        // glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
