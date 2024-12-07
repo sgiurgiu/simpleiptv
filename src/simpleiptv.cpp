@@ -1,5 +1,7 @@
 #include "simpleiptv.h"
 
+#include <imgui.h>
+
 SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext)
 : ui_executor{ uiContext.get_executor() }
 , channels{ ui_executor }
@@ -19,6 +21,11 @@ void SimpleIPTV::setSize(int width, int height)
 
 void SimpleIPTV::showDesktop()
 {
+    if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Q)) &&
+        ImGui::GetIO().KeyCtrl)
+    {
+        quit = true;
+    }
     channels.showWindow();
     if (player.getPlayerState() == PlayerState::PLAYING)
     {

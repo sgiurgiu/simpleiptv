@@ -13,7 +13,7 @@ set(STV_INCLUDES)
 set(Boost_USE_STATIC_LIBS    ON)
 # Boost doesn't provide a pkgconfig file, so we just have to have it installed
 # and discoverable by cmake
-find_package(Boost 1.74 REQUIRED system filesystem program_options)
+find_package(Boost 1.74 REQUIRED system filesystem program_options asio signals2)
 list(APPEND STV_LIBARIES Boost::boost Boost::system Boost::filesystem)
 
 if(VCPKG_TOOLCHAIN)
@@ -56,6 +56,8 @@ set(STV_SRCS main.cpp
     simpleiptv.cpp
     channels_window.cpp
     utils.cpp
+    serverpopup.cpp
+    dbconnection_pool.cpp
     )
 
 

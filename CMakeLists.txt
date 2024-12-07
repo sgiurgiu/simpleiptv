@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.30)
 
 option(ENABLE_TESTS "Build tests" ON)
 option(ASAN_ENABLE "Build with sanitization on" OFF)

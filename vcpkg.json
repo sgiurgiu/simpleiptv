@@ -9,6 +9,7 @@
     "boost-system",
     "boost-filesystem",
     "boost-program-options",
+    "boost-signals2",
     "glew",
     "fmt",
     "spdlog",

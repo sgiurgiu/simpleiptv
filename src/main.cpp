@@ -6,6 +6,7 @@
 #include <imgui_impl_opengl3.h>
 #include <spdlog/spdlog.h>
 
+#include "dbconnection_pool.h"
 #include "simpleiptv.h"
 #include "utils.h"
 
@@ -93,6 +94,7 @@ int main(int /*argc*/, char** /*argv*/)
     glDebugMessageCallback(MessageCallback, nullptr);
 
     Utils::LoadFonts();
+    DatabaseConnections::Initialize();
 
     runMainLoop(window);
 
@@ -141,9 +143,7 @@ void runMainLoop(GLFWwindow* window)
 
         glfwPollEvents();
 
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS ||
-            (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS &&
-             glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS))
+        if (iptv.shouldQuit())
         {
             glfwSetWindowShouldClose(window, true);
         }
