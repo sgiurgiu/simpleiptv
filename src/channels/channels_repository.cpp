@@ -2,8 +2,12 @@
 
 #include "../dbconnection_pool.h"
 
+#include <algorithm>
 #include <boost/asio/post.hpp>
+#include <boost/asio/use_future.hpp>
+#include <ranges>
 #include <soci/soci.h>
+#include <spdlog/spdlog.h>
 
 ChannelsRepository::ChannelsRepository(Key,
                                        const boost::asio::any_io_executor& executor)
@@ -16,22 +20,32 @@ ChannelsRepository::Create(const boost::asio::any_io_executor& executor)
     return std::make_shared<ChannelsRepository>(Key{}, executor);
 }
 
-void ChannelsRepository::LoadChannelsAndGroups(LoadRootCallback cb)
+void ChannelsRepository::LoadChannelsAndGroups(
+    LoadRootCallback cb, const boost::asio::any_io_executor& cb_executor)
 {
-    boost::asio::post(executor, [self = shared_from_this(), cb]()
-                      { cb(self->loadAllChannels()); });
+    boost::asio::post(executor,
+                      [self = shared_from_this(), cb, cb_executor]()
+                      {
+                          auto root = self->loadAllChannels(cb_executor);
+                          boost::asio::post(cb_executor,
+                                            [root, cb]() { cb(root); });
+                      });
 }
-RootChannelsGroupPtr ChannelsRepository::loadAllChannels()
+RootChannelsGroupPtr ChannelsRepository::loadAllChannels(
+    const boost::asio::any_io_executor& cb_executor)
 {
     auto root = std::make_shared<RootChannelsGroup>();
     root->AddFavouriteChannels(loadFavourites());
     auto rootGroups = loadGroups({});
     root->AddChannelGroups(rootGroups);
-    for (auto group : rootGroups)
-    {
-        loadGroup(group);
-    }
     root->AddChannels(loadChannels({}));
+
+    for (auto& group : rootGroups)
+    {
+        boost::asio::post(executor,
+                          [self = shared_from_this(), cb_executor, group]()
+                          { self->loadGroup(group, cb_executor); });
+    }
     return root;
 }
 std::vector<ChannelPtr> ChannelsRepository::loadFavourites()
@@ -73,15 +87,21 @@ ChannelsRepository::loadGroups(std::optional<int> parentId)
 
     return groups;
 }
-void ChannelsRepository::loadGroup(ChannelsGroupPtr group)
+void ChannelsRepository::loadGroup(ChannelsGroupPtr group,
+                                   const boost::asio::any_io_executor& cb_executor)
 {
     auto groups = loadGroups(group->GetId());
-    group->AddChannelGroups(groups);
+    boost::asio::post(cb_executor,
+                      [group, groups]() { group->AddChannelGroups(groups); });
+
     for (auto g : groups)
     {
-        loadGroup(g);
+        boost::asio::post(executor, [self = shared_from_this(), cb_executor, g]()
+                          { self->loadGroup(g, cb_executor); });
     }
-    group->AddChannels(loadChannels(group));
+    auto channels = loadChannels(group);
+    boost::asio::post(cb_executor,
+                      [group, channels]() { group->AddChannels(channels); });
 }
 
 std::vector<ChannelPtr> ChannelsRepository::loadChannels(ChannelsGroupPtr group)

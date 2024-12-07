@@ -1,8 +1,9 @@
 #include "channels_window.h"
 
+#include <boost/asio/post.hpp>
+#include <chrono>
 #include <imgui.h>
 #include <imgui_internal.h>
-
 #include <spdlog/spdlog.h>
 
 namespace
@@ -100,8 +101,20 @@ void ChannelsWindow::showRemoteChannelsTab()
 
 void ChannelsWindow::loadLocalChannels()
 {
+    auto start = std::chrono::high_resolution_clock::now();
+    spdlog::debug("starting to load channels");
     workersProvider.GetChannelsRepository()->LoadChannelsAndGroups(
-        [this](RootChannelsGroupPtr root) { this->root = root; });
+        [this, start](RootChannelsGroupPtr root)
+        {
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration = end - start;
+            spdlog::debug(
+                "done loading channels. duration: {} ms",
+                std::chrono::duration_cast<std::chrono::milliseconds>(duration)
+                    .count());
+            this->root = root;
+        },
+        ui_executor);
 }
 
 void ChannelsWindow::showMenu()

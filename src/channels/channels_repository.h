@@ -21,13 +21,17 @@ public:
     Create(const boost::asio::any_io_executor& executor);
 
     using LoadRootCallback = std::function<void(RootChannelsGroupPtr)>;
-    void LoadChannelsAndGroups(LoadRootCallback cb);
+    // the callback will be called on the cb_executor provided
+    void LoadChannelsAndGroups(LoadRootCallback cb,
+                               const boost::asio::any_io_executor& cb_executor);
 
 private:
-    RootChannelsGroupPtr loadAllChannels();
+    RootChannelsGroupPtr
+    loadAllChannels(const boost::asio::any_io_executor& cb_executor);
     std::vector<ChannelPtr> loadFavourites();
     std::vector<ChannelsGroupPtr> loadGroups(std::optional<int> parentId);
-    void loadGroup(ChannelsGroupPtr group);
+    void loadGroup(ChannelsGroupPtr group,
+                   const boost::asio::any_io_executor& cb_executor);
     std::vector<ChannelPtr> loadChannels(ChannelsGroupPtr group);
 
 private:
