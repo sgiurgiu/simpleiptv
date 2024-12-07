@@ -1,6 +1,5 @@
 #include "utils.h"
 
-#include "fonts/fonts.h"
 #include <imgui.h>
 
 #ifdef STV_WINDOWS
@@ -12,28 +11,48 @@
 #include <unistd.h>
 #endif
 
-void Utils::AddFont(const unsigned int* fontData,
+namespace
+{
+#include "fonts/fonts.h"
+}
+
+void Utils::AddFont(const unsigned char* fontData,
                     const unsigned int fontDataSize,
                     float fontSize)
 {
-    ImFontConfig config;
-    config.MergeMode = true;
-    config.GlyphMinAdvanceX =
+    ImFontConfig fontAwesomeConfig;
+    fontAwesomeConfig.MergeMode = true;
+    fontAwesomeConfig.GlyphMinAdvanceX =
         fontSize; // Use if you want to make the icon monospaced
     static const ImWchar icon_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+    // clang-format off
+    static const ImWchar font_ranges[] = { 0x0020, 0x052F,
+                                           0x1AB0, 0x1ABE,
+                                           0x1C80, 0x1C88,
+                                           0x1D00, 0x1DFF,
+                                           0x1E00, 0x1FFE,
+                                           0x2000, 0x2189,
+                                           0x2C60, 0x2E44,
+                                           0xA640, 0xAB65,
+                                           0xFB00, 0xFB06,
+                                           0xFE00, 0xFEFF,
+                                           0 };
+    // clang-format on
+    ImFontConfig fontConfig;
+    fontConfig.MergeMode = false;
+    fontConfig.FontDataOwnedByAtlas = false;
 
-    ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(fontData, fontDataSize,
-                                                         fontSize);
+    ImGui::GetIO().Fonts->AddFontFromMemoryTTF(
+        (void*)fontData, fontDataSize, fontSize, &fontConfig, font_ranges);
     ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(
         FontAwesome_compressed_data, FontAwesome_compressed_size, fontSize,
-        &config, icon_ranges);
+        &fontAwesomeConfig, icon_ranges);
 }
 
 void Utils::LoadFonts()
 {
     ImGui::GetIO().Fonts->Clear();
-    AddFont(Roboto_Regular_ttf_compressed_data,
-            Roboto_Regular_ttf_compressed_size, 16.0f);
+    AddFont(NotoSans_Regular_ttf, NotoSans_Regular_ttf_len, 16.0f);
 }
 
 std::filesystem::path Utils::GetHomeFolder()

@@ -9,6 +9,7 @@
 #include "dbconnection_pool.h"
 #include "simpleiptv.h"
 #include "utils.h"
+#include "workers_provider.h"
 
 void runMainLoop(GLFWwindow* window);
 
@@ -116,7 +117,8 @@ void runMainLoop(GLFWwindow* window)
 #endif
     boost::asio::io_context uiContext;
     auto work = boost::asio::make_work_guard(uiContext);
-    SimpleIPTV iptv{ uiContext };
+    WorkersProvider workersProvider;
+    SimpleIPTV iptv{ uiContext, workersProvider };
 
     glfwSetWindowUserPointer(window, &iptv);
 

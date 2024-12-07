@@ -58,6 +58,11 @@ set(STV_SRCS main.cpp
     utils.cpp
     serverpopup.cpp
     dbconnection_pool.cpp
+    workers_provider.cpp
+    channels/channels_repository.cpp
+    channels/channels_group.cpp
+    channels/channel.cpp
+    channels/root_channel_group.cpp
     )
 
 

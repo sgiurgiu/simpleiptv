@@ -11,15 +11,13 @@ constexpr float MAX_TIMEOUT = 10.f;
 constexpr float INITIAL_BG_ALPHA = 0.5f;
 } // namespace
 
-ChannelsWindow::ChannelsWindow(const boost::asio::any_io_executor& ui_executor)
-: ui_executor{ ui_executor }, remote_loading_pool{ 6 }, bgAlpha{ INITIAL_BG_ALPHA }
+ChannelsWindow::ChannelsWindow(const boost::asio::any_io_executor& ui_executor,
+                               WorkersProvider& workersProvider)
+: ui_executor{ ui_executor }
+, workersProvider{ workersProvider }
+, bgAlpha{ INITIAL_BG_ALPHA }
 {
     loadLocalChannels();
-}
-ChannelsWindow::~ChannelsWindow()
-{
-    remote_loading_pool.stop();
-    remote_loading_pool.join();
 }
 
 void ChannelsWindow::showWindow()
@@ -30,7 +28,7 @@ void ChannelsWindow::showWindow()
         return;
     }
 
-    if (ImGui::GetCurrentContext()->MouseStationaryTimer > 3.f)
+    if (ImGui::GetCurrentContext()->MouseStationaryTimer > (MAX_TIMEOUT / 3.f))
     {
         bgAlpha = (-INITIAL_BG_ALPHA / MAX_TIMEOUT) *
                       ImGui::GetCurrentContext()->MouseStationaryTimer +
@@ -81,6 +79,20 @@ void ChannelsWindow::showWindow()
 
 void ChannelsWindow::showLocalChannelsTab()
 {
+    if (!root)
+        return;
+
+    root->IterateGroups(
+        [](ChannelsGroupPtr group)
+        {
+            if (ImGui::TreeNode(group->GetName().c_str()))
+            {
+                group->IterateChannels(
+                    [](ChannelPtr channel)
+                    { ImGui::BulletText(channel->GetName().c_str()); });
+                ImGui::TreePop();
+            }
+        });
 }
 void ChannelsWindow::showRemoteChannelsTab()
 {
@@ -88,6 +100,8 @@ void ChannelsWindow::showRemoteChannelsTab()
 
 void ChannelsWindow::loadLocalChannels()
 {
+    workersProvider.GetChannelsRepository()->LoadChannelsAndGroups(
+        [this](RootChannelsGroupPtr root) { this->root = root; });
 }
 
 void ChannelsWindow::showMenu()

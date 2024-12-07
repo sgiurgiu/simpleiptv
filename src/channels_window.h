@@ -1,15 +1,16 @@
 #pragma once
 
 #include <boost/asio/any_io_executor.hpp>
-#include <boost/asio/thread_pool.hpp>
 
+#include "channels/root_channel_group.h"
 #include "serverpopup.h"
+#include "workers_provider.h"
 
 class ChannelsWindow
 {
 public:
-    ChannelsWindow(const boost::asio::any_io_executor& ui_executor);
-    ~ChannelsWindow();
+    ChannelsWindow(const boost::asio::any_io_executor& ui_executor,
+                   WorkersProvider& workersProvider);
     void showWindow();
     bool shouldQuit() const
     {
@@ -24,7 +25,8 @@ private:
 
 private:
     const boost::asio::any_io_executor& ui_executor;
-    boost::asio::thread_pool remote_loading_pool;
+    WorkersProvider& workersProvider;
     float bgAlpha = 0.f;
     bool quit = false;
+    RootChannelsGroupPtr root;
 };

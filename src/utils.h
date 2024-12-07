@@ -10,7 +10,7 @@ public:
     static void LoadFonts();
 
 private:
-    static void AddFont(const unsigned int* fontData,
+    static void AddFont(const unsigned char* fontData,
                         const unsigned int fontDataSize,
                         float fontSize);
 };
