@@ -12,13 +12,23 @@ constexpr float MAX_TIMEOUT = 10.f;
 constexpr float INITIAL_BG_ALPHA = 0.5f;
 } // namespace
 
-ChannelsWindow::ChannelsWindow(const boost::asio::any_io_executor& ui_executor,
+std::shared_ptr<ChannelsWindow>
+ChannelsWindow::Create(const boost::asio::any_io_executor& executor,
+                       WorkersProvider& workersProvider)
+{
+    auto window =
+        std::make_shared<ChannelsWindow>(Key{}, executor, workersProvider);
+    window->loadLocalChannels();
+    return window;
+}
+
+ChannelsWindow::ChannelsWindow(Key,
+                               const boost::asio::any_io_executor& ui_executor,
                                WorkersProvider& workersProvider)
 : ui_executor{ ui_executor }
 , workersProvider{ workersProvider }
 , bgAlpha{ INITIAL_BG_ALPHA }
 {
-    loadLocalChannels();
 }
 
 void ChannelsWindow::showWindow()
@@ -104,7 +114,7 @@ void ChannelsWindow::loadLocalChannels()
     auto start = std::chrono::high_resolution_clock::now();
     spdlog::debug("starting to load channels");
     workersProvider.GetChannelsRepository()->LoadChannelsAndGroups(
-        [this, start](RootChannelsGroupPtr root)
+        [weak = weak_from_this(), start](RootChannelsGroupPtr root)
         {
             auto end = std::chrono::high_resolution_clock::now();
             auto duration = end - start;
@@ -112,7 +122,11 @@ void ChannelsWindow::loadLocalChannels()
                 "done loading channels. duration: {} ms",
                 std::chrono::duration_cast<std::chrono::milliseconds>(duration)
                     .count());
-            this->root = root;
+            auto self = weak.lock();
+            if (!self)
+                return;
+
+            self->root = root;
         },
         ui_executor);
 }

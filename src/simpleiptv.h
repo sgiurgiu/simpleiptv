@@ -14,13 +14,13 @@ public:
 
     bool shouldQuit() const
     {
-        return channels.shouldQuit() || quit;
+        return channelsWindow->shouldQuit() || quit;
     }
 
 private:
     boost::asio::any_io_executor ui_executor;
     WorkersProvider& workersProvider;
-    ChannelsWindow channels;
+    std::shared_ptr<ChannelsWindow> channelsWindow;
     MpvPlayer player;
     int width = 0;
     int height = 0;

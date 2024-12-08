@@ -6,7 +6,7 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
                        WorkersProvider& workersProvider)
 : ui_executor{ uiContext.get_executor() }
 , workersProvider{ workersProvider }
-, channels{ ui_executor, workersProvider }
+, channelsWindow{ ChannelsWindow::Create(ui_executor, workersProvider) }
 , player{ ui_executor }
 {
     setSize(1280, 720);
@@ -27,7 +27,7 @@ void SimpleIPTV::showDesktop()
     {
         quit = true;
     }
-    channels.showWindow();
+    channelsWindow->showWindow();
     if (player.getPlayerState() == PlayerState::PLAYING)
     {
         player.render();
