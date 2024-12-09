@@ -3,6 +3,7 @@
 #include "../dbconnection_pool.h"
 
 #include <algorithm>
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/use_future.hpp>
 #include <ranges>
@@ -35,31 +36,40 @@ RootChannelsGroupPtr ChannelsRepository::loadAllChannels(
     const boost::asio::any_io_executor& cb_executor)
 {
     auto root = std::make_shared<RootChannelsGroup>();
-    root->AddFavouriteChannels(loadFavourites());
-    auto rootGroups = loadGroups({});
-    root->AddChannelGroups(rootGroups);
-    root->AddChannels(loadChannels({}));
+    auto favourites = loadFavourites();
+    root->AddFavouriteChannels(favourites);
+    boost::asio::post(
+        executor,
+        [self = shared_from_this(), cb_executor, root]()
+        {
+            auto rootGroups = self->loadGroups({});
+            root->AddChannelGroups(rootGroups);
+            root->AddChannels(self->loadChannels({}));
+            for (auto& group : rootGroups)
+            {
+                boost::asio::post(
+                    self->executor,
+                    [self = self->shared_from_this(), cb_executor, group]()
+                    { self->loadGroup(group, cb_executor); });
+            }
+        });
 
-    for (auto& group : rootGroups)
-    {
-        boost::asio::post(executor,
-                          [self = shared_from_this(), cb_executor, group]()
-                          { self->loadGroup(group, cb_executor); });
-    }
     return root;
 }
 std::vector<ChannelPtr> ChannelsRepository::loadFavourites()
 {
     std::vector<ChannelPtr> channels;
     auto session = DatabaseConnections::GetConnection();
-    soci::rowset<soci::row> rows = {
-        session.prepare
-        << "SELECT CHANNEL_ID, NAME FROM CHANNELS WHERE FAVOURITE=TRUE"
-    };
+    soci::rowset<soci::row> rows = { session.prepare
+                                     << "SELECT CHANNEL_ID, NAME FROM CHANNELS "
+                                        "WHERE FAVOURITE=TRUE ORDER BY NAME" };
     for (const auto& r : rows)
     {
-        auto channel =
-            std::make_shared<Channel>(r.get<int>(0), r.get<std::string>(1));
+        int id = r.get<int>(0);
+        auto name = r.get<std::string>(1);
+        boost::algorithm::replace_all(name, "#",
+                                      reinterpret_cast<const char*>(u8"\u2E30"));
+        auto channel = std::make_shared<Channel>(id, name);
         channels.push_back(channel);
     }
     return channels;
@@ -76,7 +86,8 @@ ChannelsRepository::loadGroups(std::optional<int> parentId)
     soci::rowset<soci::row> rows = { (
         session.prepare << "SELECT GROUP_ID, NAME FROM "
                            "CHANNEL_GROUPS WHERE IIF(:id IS NULL, "
-                           "PARENT_GROUP_ID IS NULL, PARENT_GROUP_ID=:id)",
+                           "PARENT_GROUP_ID IS NULL, PARENT_GROUP_ID=:id) "
+                           "ORDER BY GROUP_ID",
         soci::use(id, ind, "id")) };
     for (const auto& r : rows)
     {
@@ -112,16 +123,20 @@ std::vector<ChannelPtr> ChannelsRepository::loadChannels(ChannelsGroupPtr group)
     int id = group ? group->GetId() : 0;
     auto ind = group ? soci::i_ok : soci::i_null;
 
-    soci::rowset<soci::row> rows = { (session.prepare
-                                          << "SELECT CHANNEL_ID, NAME FROM "
-                                             "CHANNELS WHERE IIF(:id IS NULL, "
-                                             "GROUP_ID IS NULL, GROUP_ID=:id)",
-                                      soci::use(id, ind, "id")) };
+    soci::rowset<soci::row> rows = { (
+        session.prepare
+            << "SELECT CHANNEL_ID, NAME FROM "
+               "CHANNELS WHERE IIF(:id IS NULL, "
+               "GROUP_ID IS NULL, GROUP_ID=:id)  ORDER BY CHANNEL_ID",
+        soci::use(id, ind, "id")) };
 
     for (const auto& r : rows)
     {
-        auto channel =
-            std::make_shared<Channel>(r.get<int>(0), r.get<std::string>(1));
+        int id = r.get<int>(0);
+        auto name = r.get<std::string>(1);
+        boost::algorithm::replace_all(name, "#",
+                                      reinterpret_cast<const char*>(u8"\u2E30"));
+        auto channel = std::make_shared<Channel>(id, name);
         channels.push_back(channel);
     }
     return channels;

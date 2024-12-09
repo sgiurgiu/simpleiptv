@@ -9,10 +9,12 @@ ChannelsGroup::ChannelsGroup(int id, std::string name)
 void ChannelsGroup::AddChannelGroup(ChannelsGroupPtr group)
 {
     groups.push_back(group);
+    groupsLoaded = true;
 }
 void ChannelsGroup::AddChannel(ChannelPtr channel)
 {
     channels.push_back(channel);
+    channelsLoaded = true;
 }
 void ChannelsGroup::RemoveChannelGroup(int id)
 {
@@ -31,8 +33,10 @@ void ChannelsGroup::RemoveChannel(int id)
 void ChannelsGroup::AddChannels(std::vector<ChannelPtr> channels)
 {
     this->channels.insert(this->channels.end(), channels.begin(), channels.end());
+    channelsLoaded = true;
 }
 void ChannelsGroup::AddChannelGroups(std::vector<ChannelsGroupPtr> groups)
 {
     this->groups.insert(this->groups.end(), groups.begin(), groups.end());
+    groupsLoaded = true;
 }

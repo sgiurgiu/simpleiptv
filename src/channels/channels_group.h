@@ -34,6 +34,14 @@ public:
     {
         return name;
     }
+    bool AreChannelsLoaded() const
+    {
+        return channelsLoaded;
+    }
+    bool AreGroupsLoaded() const
+    {
+        return groupsLoaded;
+    }
 
     template <typename P>
     void IterateGroups(P pred)
@@ -57,4 +65,6 @@ protected:
     std::string name;
     std::vector<ChannelsGroupPtr> groups;
     std::vector<ChannelPtr> channels;
+    bool channelsLoaded = false;
+    bool groupsLoaded = false;
 };

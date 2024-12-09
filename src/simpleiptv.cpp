@@ -27,7 +27,7 @@ void SimpleIPTV::showDesktop()
     {
         quit = true;
     }
-    channelsWindow->showWindow();
+    channelsWindow->showWindow(player.getPlayerState() != PlayerState::PLAYING);
     if (player.getPlayerState() == PlayerState::PLAYING)
     {
         player.render();

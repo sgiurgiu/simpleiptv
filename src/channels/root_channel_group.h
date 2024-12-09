@@ -9,6 +9,10 @@ public:
     void AddFavouriteChannel(ChannelPtr channel);
     void AddFavouriteChannels(std::vector<ChannelPtr> channels);
     void RemoveFavouriteChannel(int id);
+    bool AreFavouritesLoaded() const
+    {
+        return favouritesLoaded;
+    }
     template <typename P>
     void IterateFavouriteChannels(P pred)
     {
@@ -20,5 +24,6 @@ public:
 
 private:
     std::vector<ChannelPtr> favourites;
+    bool favouritesLoaded = false;
 };
 using RootChannelsGroupPtr = std::shared_ptr<RootChannelsGroup>;

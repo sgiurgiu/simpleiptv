@@ -7,6 +7,7 @@ RootChannelsGroup::RootChannelsGroup() : ChannelsGroup(-1, "Root")
 void RootChannelsGroup::AddFavouriteChannel(ChannelPtr channel)
 {
     favourites.push_back(channel);
+    favouritesLoaded = true;
 }
 void RootChannelsGroup::RemoveFavouriteChannel(int id)
 {
@@ -18,4 +19,5 @@ void RootChannelsGroup::RemoveFavouriteChannel(int id)
 void RootChannelsGroup::AddFavouriteChannels(std::vector<ChannelPtr> channels)
 {
     favourites.insert(favourites.end(), channels.begin(), channels.end());
+    favouritesLoaded = true;
 }
