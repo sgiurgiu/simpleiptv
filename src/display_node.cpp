@@ -86,10 +86,11 @@ void DisplayRootChannelsGroup::setRoot(RootChannelsGroupPtr root)
 
 void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNodes)
 {
-    if (ImGui::Selectable(channel->GetName().c_str(), selected))
+    const bool isSelected = selected;
+    if (ImGui::Selectable(channel->GetName().c_str(), isSelected))
     {
         selected = !selected;
-        if (ImGui::IsKeyDown(ImGuiMod_Ctrl))
+        if (ImGui::GetIO().KeyCtrl)
         {
             // just this item changed selection
             if (selected)
@@ -101,7 +102,7 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
                 selectedNodes.erase(this);
             }
         }
-        else if (ImGui::IsKeyDown(ImGuiMod_Shift))
+        else if (ImGui::GetIO().KeyShift)
         {
             // TODO: this is tricky
             if (selected)
@@ -130,6 +131,11 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
                 selectedNodes.erase(this);
             }
         }
+    }
+    if (ImGui::IsItemHovered() &&
+        ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+    {
+        activatedChannelSignal(channel);
     }
 }
 void DisplayChannelsGroup::renderGroup(std::unordered_set<DisplayNode*>& selectedNodes)
@@ -190,6 +196,10 @@ DisplayNode::DisplayNode(DisplayNode* parent) : DisplayNode{ "", parent }
 DisplayNode::DisplayNode(const std::string& name, DisplayNode* parent)
 : parent{ parent }, name{ name }
 {
+    if (parent)
+    {
+        activatedChannelSignal.connect(parent->activatedChannelSignal);
+    }
 }
 DisplayFavouritesChannelsGroup::DisplayFavouritesChannelsGroup(
     DisplayRootChannelsGroup* parent)

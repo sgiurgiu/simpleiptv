@@ -6,7 +6,7 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
                        WorkersProvider& workersProvider)
 : ui_executor{ uiContext.get_executor() }
 , workersProvider{ workersProvider }
-, channelsWindow{ ChannelsWindow::Create(ui_executor, workersProvider) }
+, channelsWindow{ ChannelsWindow::Create(ui_executor, this->workersProvider) }
 , player{ ui_executor }
 {
     setSize(1280, 720);

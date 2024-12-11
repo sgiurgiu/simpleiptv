@@ -22,7 +22,9 @@
             "description": "Default build using Ninja generator",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "ENABLE_TESTS": "ON"
+                "ENABLE_TESTS": "ON",
+                "CMAKE_C_COMPILER":"/usr/bin/clang",
+                "CMAKE_CXX_COMPILER":"/usr/bin/clang++"
             }
         },
         {

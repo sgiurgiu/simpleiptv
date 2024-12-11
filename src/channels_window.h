@@ -31,6 +31,8 @@ public:
         return quit;
     }
 
+    void channelActivated(ChannelPtr channel);
+
 private:
     void loadLocalChannels();
     void showLocalChannelsTab();

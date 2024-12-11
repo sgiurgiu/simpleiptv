@@ -7,9 +7,12 @@
 #include <unordered_set>
 #include <vector>
 
+#include <boost/signals2.hpp>
+
 struct DisplayNode
 {
 public:
+    using ActivatedChannelSignal = boost::signals2::signal<void(ChannelPtr)>;
     DisplayNode();
     DisplayNode(DisplayNode* parent);
     DisplayNode(const std::string& name, DisplayNode* parent);
@@ -24,6 +27,7 @@ public:
     bool selected = false;
     bool isOpen = false;
     std::vector<std::unique_ptr<DisplayNode>> children;
+    ActivatedChannelSignal activatedChannelSignal;
 };
 struct DisplayChannelsGroup : public DisplayNode
 {
