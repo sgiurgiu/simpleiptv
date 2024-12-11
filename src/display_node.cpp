@@ -1,0 +1,201 @@
+#include "display_node.h"
+
+#include <imgui.h>
+
+#include "fonts/IconsFontAwesome4.h"
+
+namespace
+{
+void clearSelectedNodes(std::unordered_set<DisplayNode*>& selectedNodes)
+{
+    for (DisplayNode* node : selectedNodes)
+    {
+        node->selected = false;
+    }
+    selectedNodes.clear();
+}
+void clearSelectedChildren(DisplayNode* node,
+                           std::unordered_set<DisplayNode*>& selectedNodes)
+{
+    node->selected = false;
+    selectedNodes.erase(node);
+    for (auto& node : node->children)
+    {
+        clearSelectedChildren(node.get(), selectedNodes);
+    }
+}
+} // namespace
+
+void DisplayRootChannelsGroup::renderGroup(
+    std::unordered_set<DisplayNode*>& selectedNodes)
+{
+    if (!root || !root->AreGroupsLoaded())
+    {
+        return;
+    }
+
+    if (children.size() < 2 && root->AreGroupsLoaded())
+    {
+        root->IterateGroups(
+            [this](ChannelsGroupPtr group)
+            {
+                children.emplace_back(
+                    std::make_unique<DisplayChannelsGroup>(group, this));
+            });
+    }
+    for (auto& g : children)
+    {
+        g->render(selectedNodes);
+    }
+}
+
+DisplayNode* DisplayNode::getNextNode()
+{
+    if (isOpen)
+    {
+        if (!children.empty())
+        {
+            return children.at(0).get();
+        }
+    }
+    DisplayNode* curr_node = this;
+    while (curr_node->parent != nullptr)
+    {
+        if (curr_node->indexInParent + 1 < (int)curr_node->parent->children.size())
+        {
+            return curr_node->parent->children.at(curr_node->indexInParent + 1).get();
+        }
+        curr_node = curr_node->parent;
+    }
+    return nullptr;
+}
+
+void DisplayRootChannelsGroup::setRoot(RootChannelsGroupPtr root)
+{
+    this->root = root;
+    this->group = root;
+    favouritesGroup = std::make_unique<DisplayFavouritesChannelsGroup>(this);
+    root->IterateFavouriteChannels(
+        [this](ChannelPtr channel)
+        {
+            favouritesGroup->children.emplace_back(
+                std::make_unique<DisplayChannel>(channel, this));
+        });
+    children.push_back(std::move(favouritesGroup));
+}
+
+void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNodes)
+{
+    if (ImGui::Selectable(channel->GetName().c_str(), selected))
+    {
+        selected = !selected;
+        if (ImGui::IsKeyDown(ImGuiMod_Ctrl))
+        {
+            // just this item changed selection
+            if (selected)
+            {
+                selectedNodes.insert(this);
+            }
+            else
+            {
+                selectedNodes.erase(this);
+            }
+        }
+        else if (ImGui::IsKeyDown(ImGuiMod_Shift))
+        {
+            // TODO: this is tricky
+            if (selected)
+            {
+                selectedNodes.insert(this);
+            }
+            else
+            {
+                selectedNodes.erase(this);
+            }
+        }
+        else
+        {
+            // if we were selected, and toggled
+            if (!selected && !selectedNodes.empty())
+                selected = true;
+
+            if (selected)
+            {
+                clearSelectedNodes(selectedNodes);
+                selectedNodes.insert(this);
+                selected = true;
+            }
+            else
+            {
+                selectedNodes.erase(this);
+            }
+        }
+    }
+}
+void DisplayChannelsGroup::renderGroup(std::unordered_set<DisplayNode*>& selectedNodes)
+{
+    ImGuiTreeNodeFlags tree_node_flags = ImGuiTreeNodeFlags_SpanAvailWidth |
+                                         ImGuiTreeNodeFlags_OpenOnArrow |
+                                         ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    if (selected)
+    {
+        tree_node_flags |= ImGuiTreeNodeFlags_Selected;
+    }
+    if (openByDefault)
+    {
+        tree_node_flags |= ImGuiTreeNodeFlags_DefaultOpen;
+    }
+
+    if (ImGui::TreeNodeEx(name.c_str(), tree_node_flags))
+    {
+        if (group && !group->AreChannelsLoaded())
+        {
+            ImGui::Text("Loading...");
+        }
+        else
+        {
+            isOpen = true;
+            if (children.empty() && group)
+            {
+                group->IterateChannels(
+                    [this](auto& channel)
+                    {
+                        children.emplace_back(
+                            std::make_unique<DisplayChannel>(channel, this));
+                    });
+            }
+            for (auto& c : children)
+            {
+                c->render(selectedNodes);
+            }
+        }
+        ImGui::TreePop();
+    }
+    else if (ImGui::IsItemToggledOpen())
+    {
+        isOpen = false;
+        clearSelectedChildren(this, selectedNodes);
+    }
+
+    if (ImGui::IsItemHovered())
+    {
+    }
+}
+DisplayNode::DisplayNode() : DisplayNode{ nullptr }
+{
+}
+DisplayNode::DisplayNode(DisplayNode* parent) : DisplayNode{ "", parent }
+{
+}
+DisplayNode::DisplayNode(const std::string& name, DisplayNode* parent)
+: parent{ parent }, name{ name }
+{
+}
+DisplayFavouritesChannelsGroup::DisplayFavouritesChannelsGroup(
+    DisplayRootChannelsGroup* parent)
+: DisplayChannelsGroup{
+    reinterpret_cast<const char*>(ICON_FA_STAR " Favourites"), parent
+}
+{
+    openByDefault = true;
+}
