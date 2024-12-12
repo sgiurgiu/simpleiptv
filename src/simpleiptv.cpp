@@ -1,23 +1,27 @@
 #include "simpleiptv.h"
 
 #include <imgui.h>
+#include <spdlog/spdlog.h>
 
 SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
                        WorkersProvider& workersProvider)
 : ui_executor{ uiContext.get_executor() }
 , workersProvider{ workersProvider }
 , channelsWindow{ ChannelsWindow::Create(ui_executor, this->workersProvider) }
-, player{ ui_executor }
+, player{ ui_executor, workersProvider }
 {
     setSize(1280, 720);
-    player.initializeMpvGL();
+    player.InitializeMpvGL();
+    using namespace std::placeholders;
+    channelsWindow->addChannelActivatedListener(
+        std::bind(&SimpleIPTV::channelActivated, this, _1));
 }
 
 void SimpleIPTV::setSize(int width, int height)
 {
     this->width = width;
     this->height = height;
-    player.setSizeAsync(width, height);
+    player.SetSizeAsync(width, height);
 }
 
 void SimpleIPTV::showDesktop()
@@ -27,9 +31,14 @@ void SimpleIPTV::showDesktop()
     {
         quit = true;
     }
-    channelsWindow->showWindow(player.getPlayerState() != PlayerState::PLAYING);
-    if (player.getPlayerState() == PlayerState::PLAYING)
+    channelsWindow->showWindow(player.GetPlayerState() != PlayerState::PLAYING);
+    if (player.GetPlayerState() == PlayerState::PLAYING)
     {
-        player.render();
+        player.Render();
     }
+}
+void SimpleIPTV::channelActivated(ChannelPtr channel)
+{
+    spdlog::debug("{} activated", channel->GetName());
+    player.Play(channel);
 }

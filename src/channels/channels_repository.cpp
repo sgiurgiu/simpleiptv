@@ -5,8 +5,6 @@
 #include <algorithm>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/asio/post.hpp>
-#include <boost/asio/use_future.hpp>
-#include <ranges>
 #include <soci/soci.h>
 #include <spdlog/spdlog.h>
 
@@ -60,17 +58,15 @@ std::vector<ChannelPtr> ChannelsRepository::loadFavourites()
 {
     std::vector<ChannelPtr> channels;
     auto session = DatabaseConnections::GetConnection();
-    soci::rowset<soci::row> rows = { session.prepare
-                                     << "SELECT CHANNEL_ID, NAME FROM CHANNELS "
-                                        "WHERE FAVOURITE=TRUE ORDER BY NAME" };
+    soci::rowset<soci::row> rows = {
+        session.prepare
+        << "SELECT CHANNEL_ID, NAME, URI, LOGO_URI, LOGO, EPG_CHANNEL_URI, "
+           "EPG_CHANNEL_ID, XSTREAM_SERVER_ID FROM CHANNELS "
+           "WHERE FAVOURITE=TRUE ORDER BY NAME"
+    };
     for (const auto& r : rows)
     {
-        int id = r.get<int>(0);
-        auto name = r.get<std::string>(1);
-        boost::algorithm::replace_all(name, "#",
-                                      reinterpret_cast<const char*>(u8"\u2E30"));
-        auto channel = std::make_shared<Channel>(id, name);
-        channels.push_back(channel);
+        channels.push_back(loadChannel(r));
     }
     return channels;
 }
@@ -125,19 +121,34 @@ std::vector<ChannelPtr> ChannelsRepository::loadChannels(ChannelsGroupPtr group)
 
     soci::rowset<soci::row> rows = { (
         session.prepare
-            << "SELECT CHANNEL_ID, NAME FROM "
-               "CHANNELS WHERE IIF(:id IS NULL, "
+            << "SELECT CHANNEL_ID, NAME, URI, LOGO_URI, LOGO, EPG_CHANNEL_URI, "
+               "EPG_CHANNEL_ID, XSTREAM_SERVER_ID FROM CHANNELS "
+               " WHERE IIF(:id IS NULL, "
                "GROUP_ID IS NULL, GROUP_ID=:id)  ORDER BY CHANNEL_ID",
         soci::use(id, ind, "id")) };
 
     for (const auto& r : rows)
     {
-        int id = r.get<int>(0);
-        auto name = r.get<std::string>(1);
-        boost::algorithm::replace_all(name, "#",
-                                      reinterpret_cast<const char*>(u8"\u2E30"));
-        auto channel = std::make_shared<Channel>(id, name);
-        channels.push_back(channel);
+        channels.push_back(loadChannel(r));
     }
     return channels;
+}
+
+ChannelPtr ChannelsRepository::loadChannel(const soci::row& r)
+{
+    int id = r.get<int>(0, -1);
+    auto name = r.get<std::string>(1, "");
+    auto uri = r.get<std::string>(2, "");
+    auto logo_uri = r.get<std::string>(3, "");
+    auto logo = r.get<std::string>(4, "");
+    auto epgChannelUri = r.get<std::string>(5, "");
+    auto epgChannelId = r.get<std::string>(6, "");
+    int xstreamServerId = r.get<int>(7, -1);
+
+    boost::algorithm::replace_all(name, "#",
+                                  reinterpret_cast<const char*>(u8"\u2E30"));
+    return std::make_shared<Channel>(id, std::move(name), std::move(uri),
+                                     std::move(logo_uri), std::move(logo),
+                                     std::move(epgChannelUri),
+                                     std::move(epgChannelId), xstreamServerId);
 }

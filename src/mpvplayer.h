@@ -4,6 +4,9 @@
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/steady_timer.hpp>
 
+#include "channels/channel.h"
+#include "workers_provider.h"
+
 struct mpv_handle;
 struct mpv_render_context;
 struct mpv_event;
@@ -19,13 +22,14 @@ enum class PlayerState
 class MpvPlayer
 {
 public:
-    MpvPlayer(const boost::asio::any_io_executor& ui_executor);
+    MpvPlayer(const boost::asio::any_io_executor& ui_executor,
+              WorkersProvider& workersProvider);
     ~MpvPlayer();
-    void initializeMpvGL();
-    void render();
-    void setSizeAsync(int width, int height);
-    void play(const std::string& file);
-    PlayerState getPlayerState() const;
+    void InitializeMpvGL();
+    void Render();
+    void SetSizeAsync(int width, int height);
+    void Play(ChannelPtr channel);
+    PlayerState GetPlayerState() const;
 
 private:
     void setSize(int width, int height);
@@ -42,6 +46,7 @@ private:
 
 private:
     const boost::asio::any_io_executor& ui_executor;
+    WorkersProvider& workersProvider;
     boost::asio::steady_timer resize_timer;
     mpv_handle* mpv = nullptr;
     mpv_render_context* mpvRenderContext = nullptr;
@@ -69,4 +74,5 @@ private:
     GLuint buffs[2];
 
     PlayerState playerState = PlayerState::STOPPED;
+    ChannelPtr currentlyPlayingChannel;
 };

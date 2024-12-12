@@ -34,9 +34,7 @@ ChannelsWindow::ChannelsWindow(Key,
 , workersProvider{ workersProvider }
 , bgAlpha{ INITIAL_BG_ALPHA }
 {
-    using namespace std::placeholders;
-    rootNode.activatedChannelSignal.connect(
-        std::bind(&ChannelsWindow::channelActivated, this, _1));
+    rootNode.activatedChannelSignal.connect(channelActivatedSignal);
 }
 
 void ChannelsWindow::showWindow(bool forceDisplay)
@@ -157,9 +155,4 @@ void ChannelsWindow::showMenu()
         }
         ImGui::EndMenuBar();
     }
-}
-
-void ChannelsWindow::channelActivated(ChannelPtr channel)
-{
-    spdlog::debug("{} activated", channel->GetName());
 }

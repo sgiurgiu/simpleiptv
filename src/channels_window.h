@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/asio/any_io_executor.hpp>
+#include <boost/signals2.hpp>
 #include <imgui.h>
 #include <memory>
 
@@ -30,8 +31,11 @@ public:
     {
         return quit;
     }
-
-    void channelActivated(ChannelPtr channel);
+    template <typename S>
+    void addChannelActivatedListener(S slot)
+    {
+        channelActivatedSignal.connect(slot);
+    }
 
 private:
     void loadLocalChannels();
@@ -46,4 +50,6 @@ private:
     bool quit = false;
     DisplayRootChannelsGroup rootNode;
     std::string channelsFilter;
+    using ChannelActivatedSignal = boost::signals2::signal<void(ChannelPtr)>;
+    ChannelActivatedSignal channelActivatedSignal;
 };

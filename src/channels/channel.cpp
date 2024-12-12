@@ -1,5 +1,20 @@
 #include "channel.h"
 
-Channel::Channel(int id, std::string name) : id{ id }, name{ std::move(name) }
+Channel::Channel(int id,
+                 std::string name,
+                 std::string uri,
+                 std::string logoUri,
+                 std::string logo,
+                 std::string epgChannelUri,
+                 std::string epgChannelId,
+                 int xstreamServerId)
+: id{ id }
+, name{ std::move(name) }
+, uri{ std::move(uri) }
+, logoUri{ std::move(logoUri) }
+, logo{ std::move(logo) }
+, epgChannelUri{ std::move(epgChannelUri) }
+, epgChannelId{ std::move(epgChannelId) }
+, xstreamServerId{ xstreamServerId }
 {
 }

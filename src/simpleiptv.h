@@ -18,6 +18,9 @@ public:
     }
 
 private:
+    void channelActivated(ChannelPtr channel);
+
+private:
     boost::asio::any_io_executor ui_executor;
     WorkersProvider& workersProvider;
     std::shared_ptr<ChannelsWindow> channelsWindow;

@@ -52,8 +52,11 @@ enum
 
 } // namespace
 
-MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor)
-: ui_executor{ ui_executor }, resize_timer{ this->ui_executor }
+MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
+                     WorkersProvider &workersProvider)
+: ui_executor{ ui_executor }
+, workersProvider{ workersProvider }
+, resize_timer{ this->ui_executor }
 {
     mpv = mpv_create();
     if (!mpv)
@@ -74,11 +77,19 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor)
     mpv_set_property(mpv, "cache-secs", MPV_FORMAT_INT64, &cacheSecs);
     mpv_set_property(mpv, "demuxer-readahead-secs", MPV_FORMAT_INT64, &cacheSecs);
 
-    // mpv_set_option_string(mpv, "http-proxy", proxyUrl.toStdString().c_str());
-
-    if (mpv_initialize(mpv) < 0)
-        throw std::runtime_error("could not initialize mpv context");
-
+    this->workersProvider.GetProxyRepository()->LoadConfiguredProxy(
+        [this](auto proxy)
+        {
+            if (proxy.use)
+            {
+                auto proxyUrl =
+                    fmt::format("http://{}:{}", proxy.host, proxy.port);
+                mpv_set_option_string(mpv, "http-proxy", proxyUrl.c_str());
+            }
+            if (mpv_initialize(mpv) < 0)
+                throw std::runtime_error("could not initialize mpv context");
+        },
+        ui_executor);
     mpv_set_option_string(mpv, "hwdec", "auto");
     // mpv_set_option_string(mpv, "gpu-debug", "true");
     mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
@@ -112,7 +123,7 @@ MpvPlayer::~MpvPlayer()
     glDeleteVertexArrays(1, &VAO);
 }
 
-void MpvPlayer::initializeMpvGL()
+void MpvPlayer::InitializeMpvGL()
 {
 #ifdef STV_UNIX
     mpv_render_param display{ MPV_RENDER_PARAM_X11_DISPLAY, glfwGetX11Display() };
@@ -435,7 +446,7 @@ void MpvPlayer::initializeVAO()
 
     glBindVertexArray(0);
 }
-void MpvPlayer::render()
+void MpvPlayer::Render()
 {
     glUseProgram(frameShaderProgram);
     glActiveTexture(GL_TEXTURE0);
@@ -463,7 +474,7 @@ void MpvPlayer::render()
     glUseProgram(0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
-void MpvPlayer::setSizeAsync(int width, int height)
+void MpvPlayer::SetSizeAsync(int width, int height)
 {
     if (width == this->width && height == this->height)
         return;
@@ -485,13 +496,17 @@ void MpvPlayer::setSize(int width, int height)
     rescaleFrameBuffers();
 }
 
-void MpvPlayer::play(const std::string &file)
+void MpvPlayer::Play(ChannelPtr channel)
 {
-    const char *cmd[] = { "loadfile", file.c_str(), nullptr };
+    this->currentlyPlayingChannel = channel;
+    const char *cmd[] = { "loadfile", currentlyPlayingChannel->GetUri().c_str(),
+                          nullptr };
     mpv_command_async(mpv, 0, cmd);
+    mpv_set_property_string(mpv, "sid", "no");
+    mpv_set_property_string(mpv, "loop-playlist", "inf");
 }
 
-PlayerState MpvPlayer::getPlayerState() const
+PlayerState MpvPlayer::GetPlayerState() const
 {
     return playerState;
 }

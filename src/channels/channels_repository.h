@@ -7,6 +7,11 @@
 
 #include "root_channel_group.h"
 
+namespace soci
+{
+class row;
+}
+
 class ChannelsRepository : public std::enable_shared_from_this<ChannelsRepository>
 {
 private:
@@ -33,6 +38,7 @@ private:
     void loadGroup(ChannelsGroupPtr group,
                    const boost::asio::any_io_executor& cb_executor);
     std::vector<ChannelPtr> loadChannels(ChannelsGroupPtr group);
+    ChannelPtr loadChannel(const soci::row&);
 
 private:
     boost::asio::any_io_executor executor;

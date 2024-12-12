@@ -64,6 +64,7 @@ set(STV_SRCS main.cpp
     channels/channel.cpp
     channels/root_channel_group.cpp
     display_node.cpp
+    proxy_repository.cpp
     )
 
 
