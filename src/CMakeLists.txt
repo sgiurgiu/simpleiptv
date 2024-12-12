@@ -28,6 +28,7 @@ if(VCPKG_TOOLCHAIN)
     find_package(unofficial-sqlite3 CONFIG REQUIRED)
     find_package(SOCI CONFIG REQUIRED)
     find_package(imgui CONFIG REQUIRED)
+    find_package(sdbus-c++ CONFIG REQUIRED)
 
     if(UNIX)
         find_package(PkgConfig REQUIRED)
@@ -35,10 +36,17 @@ if(VCPKG_TOOLCHAIN)
         list(APPEND STV_LIBARIES PkgConfig::MPV)
     endif()
 
+    if(UNIX AND NOT APPLE) # freebsd ... sorry
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(Systemd REQUIRED IMPORTED_TARGET libsystemd)
+        list(APPEND STV_LIBARIES PkgConfig::Systemd)
+    endif()
+
     list(APPEND STV_LIBARIES OpenGL::GL glfw GLEW::GLEW freetype imgui::imgui)
     list(APPEND STV_LIBARIES OpenSSL::SSL)
     list(APPEND STV_LIBARIES spdlog::spdlog_header_only fmt::fmt-header-only)
     list(APPEND STV_LIBARIES unofficial::sqlite3::sqlite3 SOCI::soci_sqlite3_static)
+    list(APPEND STV_LIBARIES SDBusCpp::sdbus-c++)
 else()
     message(FATAL "VCPKG is required")
 endif()
@@ -49,7 +57,20 @@ if(WIN32)
     list(APPEND STV_INCLUDES "win" ${LIBMPV_INCLUDE})
 endif()
 
+if(UNIX AND NOT APPLE)
+    set(DBUS_FILES dbus/org.freedesktop.ScreenSaver.xml)
+    find_program(SDBUS-XML2CPP sdbus-c++-xml2cpp DOC "SDBUS XML2CPP program")
 
+    foreach(FILE ${DBUS_FILES})
+        file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/include/dbus)
+        execute_process(
+            COMMAND ${SDBUS-XML2CPP} --proxy=${CMAKE_BINARY_DIR}/include/${FILE}.h ${CMAKE_CURRENT_SOURCE_DIR}/${FILE}
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            COMMAND_ECHO STDOUT)
+    endforeach()
+
+    list(APPEND STV_INCLUDES ${CMAKE_BINARY_DIR}/include)
+endif()
 
 set(STV_SRCS main.cpp
     mpvplayer.cpp

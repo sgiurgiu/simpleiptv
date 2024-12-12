@@ -1,6 +1,7 @@
 #include "utils.h"
 
 #include <imgui.h>
+#include <spdlog/spdlog.h>
 
 #ifdef STV_WINDOWS
 #include <shlobj.h>
@@ -11,12 +12,42 @@
 #include <unistd.h>
 #endif
 
+#ifdef STV_UNIX
+#include <dbus/org.freedesktop.ScreenSaver.xml.h>
+#include <sdbus-c++/sdbus-c++.h>
+#endif
+
 namespace
 {
-#include "fonts/fonts.h"
-}
+#ifdef STV_UNIX
+static uint32_t screenSaverDBusCookie = 0;
 
-void Utils::AddFont(const unsigned char* fontData,
+class ScreenSaverProxy final
+: public sdbus::ProxyInterfaces<org::freedesktop::ScreenSaver_proxy>
+{
+public:
+    ScreenSaverProxy(sdbus::IConnection &connection,
+                     sdbus::ServiceName destination,
+                     sdbus::ObjectPath path)
+    : ProxyInterfaces(connection, std::move(destination), std::move(path))
+    {
+        registerProxy();
+    }
+
+    ~ScreenSaverProxy()
+    {
+        unregisterProxy();
+    }
+
+    void onActiveChanged(const bool &)
+    {
+    }
+};
+#endif
+#include "fonts/fonts.h"
+} // namespace
+
+void Utils::AddFont(const unsigned char *fontData,
                     const unsigned int fontDataSize,
                     float fontSize)
 {
@@ -43,7 +74,7 @@ void Utils::AddFont(const unsigned char* fontData,
     fontConfig.FontDataOwnedByAtlas = false;
 
     ImGui::GetIO().Fonts->AddFontFromMemoryTTF(
-        (void*)fontData, fontDataSize, fontSize, &fontConfig, font_ranges);
+        (void *)fontData, fontDataSize, fontSize, &fontConfig, font_ranges);
     ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(
         FontAwesome_compressed_data, FontAwesome_compressed_size, fontSize,
         &fontAwesomeConfig, icon_ranges);
@@ -96,4 +127,56 @@ std::filesystem::path Utils::GetAppConfigFolder()
     std::filesystem::path configFolder = homePath / relativeConfigFolder;
     std::filesystem::create_directories(configFolder);
     return configFolder;
+}
+
+void Utils::disableComputerSleep()
+{
+    setComputerSleep(false);
+}
+void Utils::enableComputerSleep()
+{
+    setComputerSleep(true);
+}
+void Utils::setComputerSleep(bool flag)
+{
+#ifdef STV_UNIX
+    try
+    {
+        auto connection = sdbus::createSessionBusConnection();
+        sdbus::ServiceName destination{ "org.freedesktop.ScreenSaver" };
+        sdbus::ObjectPath objectPath{ "/org/freedesktop/ScreenSaver" };
+
+        auto screenSaverProxy = std::make_unique<ScreenSaverProxy>(
+            *connection, std::move(destination), std::move(objectPath));
+
+        if (!flag)
+        {
+            screenSaverDBusCookie =
+                screenSaverProxy->Inhibit("simpleiptv", "playing video");
+        }
+        else
+        {
+            screenSaverProxy->UnInhibit(screenSaverDBusCookie);
+        }
+    }
+    catch (const sdbus::Error &er)
+    {
+        spdlog::error("Error making dbus call to ScreenSaver service: {} - {}",
+                      er.getName(), er.getMessage());
+    }
+
+#elif defined STV_WIN
+
+    EXECUTION_STATE result;
+
+    if (!flag)
+        result = SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED |
+                                         ES_DISPLAY_REQUIRED);
+    else
+        result = SetThreadExecutionState(ES_CONTINUOUS);
+
+    if (result == nullptr)
+        spdlog::debug("EXECUTION_STATE failed");
+
+#endif
 }

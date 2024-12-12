@@ -12,8 +12,8 @@
 
 namespace
 {
-constexpr float MAX_TIMEOUT = 5.f;
-constexpr float INITIAL_BG_ALPHA = 0.7f;
+// constexpr float MAX_TIMEOUT = 5.f;
+constexpr float INITIAL_BG_ALPHA = 0.6f;
 static std::unordered_set<DisplayNode*> localSelectedNodes;
 } // namespace
 
@@ -37,7 +37,7 @@ ChannelsWindow::ChannelsWindow(Key,
     rootNode.activatedChannelSignal.connect(channelActivatedSignal);
 }
 
-void ChannelsWindow::showWindow(bool forceDisplay)
+void ChannelsWindow::showWindow()
 {
     /*if (!forceDisplay)
     {

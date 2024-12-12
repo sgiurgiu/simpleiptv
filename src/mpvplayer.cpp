@@ -14,8 +14,12 @@
 #endif
 #include <fmt/format.h>
 
+#include "utils.h"
+#include <spdlog/spdlog.h>
+
 namespace
 {
+
 static void *get_proc_address(void *, const char *name)
 {
     return (void *)glfwGetProcAddress(name);
@@ -122,6 +126,7 @@ MpvPlayer::~MpvPlayer()
     glDeleteProgram(frameShaderProgram);
     glDeleteBuffers(2, buffs);
     glDeleteVertexArrays(1, &VAO);
+    Utils::enableComputerSleep();
 }
 
 void MpvPlayer::InitializeMpvGL()
@@ -372,10 +377,12 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
         default:
             break;
         }
+        Utils::enableComputerSleep();
     }
     break;
     case MPV_EVENT_FILE_LOADED:
         playerState = PlayerState::PLAYING;
+        Utils::disableComputerSleep();
         // startRenderingMedia();
         // emit fileLoaded();
         break;

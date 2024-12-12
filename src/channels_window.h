@@ -2,6 +2,7 @@
 
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/signals2.hpp>
+#include <chrono>
 #include <imgui.h>
 #include <memory>
 
@@ -26,7 +27,7 @@ public:
     Create(const boost::asio::any_io_executor& executor,
            WorkersProvider& workersProvider);
 
-    void showWindow(bool forceDisplay);
+    void showWindow();
     bool shouldQuit() const
     {
         return quit;

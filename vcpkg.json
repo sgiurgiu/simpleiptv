@@ -37,6 +37,10 @@
         "features":[
             "sqlite3"
         ]
+    },
+    {
+      "name":"sdbus-cpp",
+      "features": ["tool"]
     }
   ],
   "features": {

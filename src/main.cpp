@@ -18,13 +18,13 @@ static void glfw_error_callback(int error, const char* description)
     spdlog::error("GLFW Error {}:{}", error, description);
 }
 
-static void GLAPIENTRY MessageCallback(GLenum source,
-                                       GLenum type,
-                                       GLuint id,
-                                       GLenum severity,
-                                       GLsizei length,
-                                       const GLchar* message,
-                                       const void* userParam)
+static void GLAPIENTRY GLMessageCallback(GLenum source,
+                                         GLenum type,
+                                         GLuint id,
+                                         GLenum severity,
+                                         GLsizei length,
+                                         const GLchar* message,
+                                         const void* userParam)
 {
     (void)source;
     (void)id;
@@ -53,6 +53,8 @@ int main(int /*argc*/, char** /*argv*/)
 #endif
 {
     spdlog::default_logger()->set_level(spdlog::level::trace);
+    DatabaseConnections::Initialize();
+
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
     {
@@ -64,8 +66,13 @@ int main(int /*argc*/, char** /*argv*/)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
 
     // Create window with graphics context
+#ifdef STV_DEBUG
+    std::string title = "Simple IPTV - Debug";
+#else
+    std::string title = "Simple IPTV";
+#endif
     GLFWwindow* window =
-        glfwCreateWindow(1280, 720, "Simple IPTV", nullptr, nullptr);
+        glfwCreateWindow(1280, 720, title.c_str(), nullptr, nullptr);
     if (window == nullptr)
     {
         return EXIT_FAILURE;
@@ -92,10 +99,9 @@ int main(int /*argc*/, char** /*argv*/)
 
     // glEnable(GL_DEBUG_OUTPUT);
     // glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback(MessageCallback, nullptr);
+    glDebugMessageCallback(GLMessageCallback, nullptr);
 
     Utils::LoadFonts();
-    DatabaseConnections::Initialize();
 
     runMainLoop(window);
 

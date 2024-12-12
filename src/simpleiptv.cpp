@@ -5,6 +5,11 @@
 #include <imgui_internal.h>
 #include <spdlog/spdlog.h>
 
+namespace
+{
+static constexpr auto ChannelsWindowTimerExpiry = std::chrono::seconds(5);
+}
+
 SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
                        WorkersProvider& workersProvider)
 : ui_executor{ uiContext.get_executor() }
@@ -29,13 +34,14 @@ void SimpleIPTV::setSize(int width, int height)
 
 void SimpleIPTV::rearmChannelsShowingTimer()
 {
-    channelsShowingTimer.expires_after(std::chrono::seconds(5));
+    channelsShowingTimer.expires_after(ChannelsWindowTimerExpiry);
     channelsShowingTimer.async_wait(
         [this](auto ec)
         {
             if (!ec)
             {
-                if (ImGui::GetCurrentContext()->MouseStationaryTimer >= 5.f)
+                if (ImGui::GetCurrentContext()->MouseStationaryTimer >=
+                    ChannelsWindowTimerExpiry.count())
                 {
                     showChannels = false;
                 }
@@ -61,8 +67,9 @@ void SimpleIPTV::showDesktop()
     }
     else
     {
-        if (showChannels &&
-            channelsShowingTimer.expiry() < std::chrono::steady_clock::now())
+        auto expiryDuration =
+            channelsShowingTimer.expiry() - std::chrono::steady_clock::now();
+        if (showChannels && expiryDuration.count() <= 0)
         {
             showChannels = false;
         }
@@ -74,7 +81,7 @@ void SimpleIPTV::showDesktop()
     }
     if (showChannels)
     {
-        channelsWindow->showWindow(true);
+        channelsWindow->showWindow();
     }
 
     if (player.GetPlayerState() == PlayerState::PLAYING)
