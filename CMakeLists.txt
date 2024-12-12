@@ -80,6 +80,15 @@ if(CPACK_DISTRIBUTION)
     SET(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}-${CPACK_DISTRIBUTION}")
 endif()
 
+install(FILES "${CMAKE_SOURCE_DIR}/icons/simpleiptv-icon_24.png"  DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/24x24/apps" RENAME "simpleiptv-icon.png")
+install(FILES "${CMAKE_SOURCE_DIR}/icons/simpleiptv-icon_32.png"  DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/32x32/apps" RENAME "simpleiptv-icon.png")
+install(FILES "${CMAKE_SOURCE_DIR}/icons/simpleiptv-icon_64.png"  DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/64x64/apps" RENAME "simpleiptv-icon.png")
+install(FILES "${CMAKE_SOURCE_DIR}/icons/simpleiptv-icon_128.png" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/128x128/apps" RENAME "simpleiptv-icon.png")
+install(FILES "${CMAKE_SOURCE_DIR}/icons/simpleiptv-icon_256.png" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/256x256/apps" RENAME "simpleiptv-icon.png")
+install(FILES "${CMAKE_SOURCE_DIR}/simpleiptv.desktop" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications" RENAME "simpleiptv.desktop")
+
+
+
 set(CPACK_PACKAGE_EXECUTABLES "${EXECUTABLE_NAME};Simple IPTV")
 if(CPACK_GENERATOR STREQUAL "WIX")
     set(CPACK_WIX_UPGRADE_GUID "c68b00de-fa4f-4f48-9e15-6c55bcf04b2f")

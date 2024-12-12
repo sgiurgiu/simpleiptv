@@ -9,6 +9,7 @@
 
 #ifdef STV_UNIX
 #define GLFW_EXPOSE_NATIVE_X11
+#define GLFW_EXPOSE_NATIVE_WAYLAND
 #include <GLFW/glfw3native.h>
 #endif
 #include <fmt/format.h>
@@ -126,7 +127,18 @@ MpvPlayer::~MpvPlayer()
 void MpvPlayer::InitializeMpvGL()
 {
 #ifdef STV_UNIX
-    mpv_render_param display{ MPV_RENDER_PARAM_X11_DISPLAY, glfwGetX11Display() };
+    int platform = glfwGetPlatform();
+    mpv_render_param display{ MPV_RENDER_PARAM_INVALID, nullptr };
+    if (platform == GLFW_PLATFORM_X11)
+    {
+        display.type = MPV_RENDER_PARAM_X11_DISPLAY;
+        display.data = glfwGetX11Display();
+    }
+    else if (platform == GLFW_PLATFORM_WAYLAND)
+    {
+        display.type = MPV_RENDER_PARAM_WL_DISPLAY;
+        display.data = glfwGetWaylandDisplay();
+    }
 #endif
     mpv_opengl_init_params gl_params = { get_proc_address, nullptr };
     int mpv_advanced_control = 0;

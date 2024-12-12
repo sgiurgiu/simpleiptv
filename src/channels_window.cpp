@@ -12,7 +12,7 @@
 
 namespace
 {
-constexpr float MAX_TIMEOUT = 10.f;
+constexpr float MAX_TIMEOUT = 5.f;
 constexpr float INITIAL_BG_ALPHA = 0.5f;
 static std::unordered_set<DisplayNode*> localSelectedNodes;
 } // namespace
