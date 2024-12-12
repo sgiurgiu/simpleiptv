@@ -1,5 +1,7 @@
 #pragma once
 
+#include <boost/asio/steady_timer.hpp>
+
 #include "channels_window.h"
 #include "mpvplayer.h"
 #include "workers_provider.h"
@@ -19,6 +21,7 @@ public:
 
 private:
     void channelActivated(ChannelPtr channel);
+    void rearmChannelsShowingTimer();
 
 private:
     boost::asio::any_io_executor ui_executor;
@@ -28,4 +31,6 @@ private:
     int width = 0;
     int height = 0;
     bool quit = false;
+    boost::asio::steady_timer channelsShowingTimer;
+    bool showChannels = true;
 };

@@ -60,6 +60,7 @@ struct DisplayChannel : public DisplayNode
     }
     void renderChannel(std::unordered_set<DisplayNode*>& selectedNodes);
     ChannelPtr channel;
+    bool isActivated = false;
 };
 struct DisplayRootChannelsGroup : public DisplayChannelsGroup
 {

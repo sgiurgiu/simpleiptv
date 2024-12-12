@@ -13,7 +13,7 @@
 namespace
 {
 constexpr float MAX_TIMEOUT = 5.f;
-constexpr float INITIAL_BG_ALPHA = 0.5f;
+constexpr float INITIAL_BG_ALPHA = 0.7f;
 static std::unordered_set<DisplayNode*> localSelectedNodes;
 } // namespace
 
@@ -39,7 +39,7 @@ ChannelsWindow::ChannelsWindow(Key,
 
 void ChannelsWindow::showWindow(bool forceDisplay)
 {
-    if (!forceDisplay)
+    /*if (!forceDisplay)
     {
         if (ImGui::GetCurrentContext()->MouseStationaryTimer >= MAX_TIMEOUT)
         {
@@ -47,7 +47,8 @@ void ChannelsWindow::showWindow(bool forceDisplay)
             return;
         }
 
-        if (ImGui::GetCurrentContext()->MouseStationaryTimer > (MAX_TIMEOUT / 3.f))
+        if (ImGui::GetCurrentContext()->MouseStationaryTimer > (MAX_TIMEOUT
+    / 3.f))
         {
             bgAlpha = (-INITIAL_BG_ALPHA / MAX_TIMEOUT) *
                           ImGui::GetCurrentContext()->MouseStationaryTimer +
@@ -61,7 +62,7 @@ void ChannelsWindow::showWindow(bool forceDisplay)
     else
     {
         bgAlpha = INITIAL_BG_ALPHA;
-    }
+    }*/
 
     auto mainViewport = ImGui::GetMainViewport();
 

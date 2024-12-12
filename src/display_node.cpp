@@ -1,6 +1,7 @@
 #include "display_node.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 
 #include "fonts/IconsFontAwesome4.h"
 
@@ -24,6 +25,8 @@ void clearSelectedChildren(DisplayNode* node,
         clearSelectedChildren(node.get(), selectedNodes);
     }
 }
+static DisplayChannel* activatedChannel = nullptr;
+
 } // namespace
 
 void DisplayRootChannelsGroup::renderGroup(
@@ -87,7 +90,18 @@ void DisplayRootChannelsGroup::setRoot(RootChannelsGroupPtr root)
 void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNodes)
 {
     const bool isSelected = selected;
-    if (ImGui::Selectable(channel->GetName().c_str(), isSelected))
+
+    ImGuiSelectableFlags flags = ImGuiSelectableFlags_None;
+    if (isActivated && !isSelected)
+    {
+        flags |= ImGuiSelectableFlags_Highlight;
+
+        ImGui::PushStyleColor(
+            ImGuiCol_HeaderHovered,
+            ImVec4(103.f / 255.f, 135.f / 255.f, 104.f / 255.f, 1.f));
+    }
+
+    if (ImGui::Selectable(channel->GetName().c_str(), isSelected, flags))
     {
         selected = !selected;
         if (ImGui::GetIO().KeyCtrl)
@@ -132,10 +146,21 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
             }
         }
     }
+    if (isActivated && !isSelected)
+    {
+        ImGui::PopStyleColor(1);
+    }
+
     if (ImGui::IsItemHovered() &&
         ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
     {
+        if (activatedChannel)
+        {
+            activatedChannel->isActivated = false;
+        }
         activatedChannelSignal(channel);
+        isActivated = true;
+        activatedChannel = this;
     }
 }
 void DisplayChannelsGroup::renderGroup(std::unordered_set<DisplayNode*>& selectedNodes)
