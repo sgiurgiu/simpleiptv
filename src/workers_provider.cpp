@@ -1,6 +1,10 @@
 #include "workers_provider.h"
 
-WorkersProvider::WorkersProvider() : io_pool{ 6 }
+WorkersProvider::WorkersProvider()
+: io_pool{ 6 }
+, channelsRepository{ ChannelsRepository::Create(io_pool.get_executor()) }
+, proxyRepository{ ProxyRepository::Create(io_pool.get_executor()) }
+, dbusService{ DBusService::Create(io_pool.get_executor()) }
 {
 }
 WorkersProvider::~WorkersProvider()
@@ -10,13 +14,17 @@ WorkersProvider::~WorkersProvider()
 }
 std::shared_ptr<ChannelsRepository> WorkersProvider::GetChannelsRepository()
 {
-    return ChannelsRepository::Create(io_pool.get_executor());
+    return channelsRepository;
 }
 std::shared_ptr<ProxyRepository> WorkersProvider::GetProxyRepository()
 {
-    return ProxyRepository::Create(io_pool.get_executor());
+    return proxyRepository;
 }
 boost::asio::any_io_executor WorkersProvider::GetWorkersExecutor()
 {
     return io_pool.get_executor();
+}
+std::shared_ptr<DBusService> WorkersProvider::GetDBusService()
+{
+    return dbusService;
 }

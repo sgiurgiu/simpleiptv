@@ -126,7 +126,7 @@ MpvPlayer::~MpvPlayer()
     glDeleteProgram(frameShaderProgram);
     glDeleteBuffers(2, buffs);
     glDeleteVertexArrays(1, &VAO);
-    Utils::enableComputerSleep();
+    workersProvider.GetDBusService()->enableComputerSleep();
 }
 
 void MpvPlayer::InitializeMpvGL()
@@ -379,12 +379,12 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
         default:
             break;
         }
-        Utils::enableComputerSleep();
+        workersProvider.GetDBusService()->enableComputerSleep();
     }
     break;
     case MPV_EVENT_FILE_LOADED:
         playerState = PlayerState::PLAYING;
-        Utils::disableComputerSleep();
+        workersProvider.GetDBusService()->disableComputerSleep();
         skipRendering = 0;
         // startRenderingMedia();
         // emit fileLoaded();

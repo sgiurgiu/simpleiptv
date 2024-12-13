@@ -61,7 +61,8 @@ void SimpleIPTV::showDesktop()
         quit = true;
     }
 
-    if (player.GetPlayerState() != PlayerState::PLAYING)
+    if (player.GetPlayerState() != PlayerState::PLAYING ||
+        ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
     {
         showChannels = true;
     }
@@ -90,7 +91,8 @@ void SimpleIPTV::showDesktop()
         player.Render();
     }
 
-    if (!ImGui::IsAnyItemHovered())
+    if (!ImGui::IsAnyItemHovered() &&
+        !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
     {
         if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_M)))
         {

@@ -12,38 +12,8 @@
 #include <unistd.h>
 #endif
 
-#ifdef STV_UNIX
-#include <dbus/org.freedesktop.ScreenSaver.xml.h>
-#include <sdbus-c++/sdbus-c++.h>
-#endif
-
 namespace
 {
-#ifdef STV_UNIX
-static uint32_t screenSaverDBusCookie = 0;
-
-class ScreenSaverProxy final
-: public sdbus::ProxyInterfaces<org::freedesktop::ScreenSaver_proxy>
-{
-public:
-    ScreenSaverProxy(sdbus::IConnection &connection,
-                     sdbus::ServiceName destination,
-                     sdbus::ObjectPath path)
-    : ProxyInterfaces(connection, std::move(destination), std::move(path))
-    {
-        registerProxy();
-    }
-
-    ~ScreenSaverProxy()
-    {
-        unregisterProxy();
-    }
-
-    void onActiveChanged(const bool &)
-    {
-    }
-};
-#endif
 #include "fonts/fonts.h"
 } // namespace
 
@@ -127,58 +97,4 @@ std::filesystem::path Utils::GetAppConfigFolder()
     std::filesystem::path configFolder = homePath / relativeConfigFolder;
     std::filesystem::create_directories(configFolder);
     return configFolder;
-}
-
-void Utils::disableComputerSleep()
-{
-    spdlog::debug("disabling computer sleep");
-    setComputerSleep(false);
-}
-void Utils::enableComputerSleep()
-{
-    spdlog::debug("enabling computer sleep");
-    setComputerSleep(true);
-}
-void Utils::setComputerSleep(bool flag)
-{
-#ifdef STV_UNIX
-    try
-    {
-        static auto sessionConnection = sdbus::createSessionBusConnection();
-        sdbus::ServiceName destination{ "org.freedesktop.ScreenSaver" };
-        sdbus::ObjectPath objectPath{ "/org/freedesktop/ScreenSaver" };
-
-        auto screenSaverProxy = std::make_unique<ScreenSaverProxy>(
-            *sessionConnection, std::move(destination), std::move(objectPath));
-
-        if (!flag)
-        {
-            screenSaverDBusCookie =
-                screenSaverProxy->Inhibit("simpleiptv", "playing video");
-        }
-        else
-        {
-            screenSaverProxy->UnInhibit(screenSaverDBusCookie);
-        }
-    }
-    catch (const sdbus::Error &er)
-    {
-        spdlog::error("Error making dbus call to ScreenSaver service: {} - {}",
-                      er.getName(), er.getMessage());
-    }
-
-#elif defined STV_WIN
-
-    EXECUTION_STATE result;
-
-    if (!flag)
-        result = SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED |
-                                         ES_DISPLAY_REQUIRED);
-    else
-        result = SetThreadExecutionState(ES_CONTINUOUS);
-
-    if (result == nullptr)
-        spdlog::debug("EXECUTION_STATE failed");
-
-#endif
 }
