@@ -30,6 +30,9 @@ public:
     void SetSizeAsync(int width, int height);
     void Play(ChannelPtr channel);
     PlayerState GetPlayerState() const;
+    void VolumeToggleMute();
+    void VolumeIncrease();
+    void VolumeDecrease();
 
 private:
     void setSize(int width, int height);

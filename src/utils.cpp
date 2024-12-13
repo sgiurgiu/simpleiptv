@@ -131,10 +131,12 @@ std::filesystem::path Utils::GetAppConfigFolder()
 
 void Utils::disableComputerSleep()
 {
+    spdlog::debug("disabling computer sleep");
     setComputerSleep(false);
 }
 void Utils::enableComputerSleep()
 {
+    spdlog::debug("enabling computer sleep");
     setComputerSleep(true);
 }
 void Utils::setComputerSleep(bool flag)
@@ -142,12 +144,12 @@ void Utils::setComputerSleep(bool flag)
 #ifdef STV_UNIX
     try
     {
-        auto connection = sdbus::createSessionBusConnection();
+        static auto sessionConnection = sdbus::createSessionBusConnection();
         sdbus::ServiceName destination{ "org.freedesktop.ScreenSaver" };
         sdbus::ObjectPath objectPath{ "/org/freedesktop/ScreenSaver" };
 
         auto screenSaverProxy = std::make_unique<ScreenSaverProxy>(
-            *connection, std::move(destination), std::move(objectPath));
+            *sessionConnection, std::move(destination), std::move(objectPath));
 
         if (!flag)
         {

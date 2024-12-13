@@ -79,6 +79,7 @@ void SimpleIPTV::showDesktop()
             rearmChannelsShowingTimer();
         }
     }
+
     if (showChannels)
     {
         channelsWindow->showWindow();
@@ -87,6 +88,23 @@ void SimpleIPTV::showDesktop()
     if (player.GetPlayerState() == PlayerState::PLAYING)
     {
         player.Render();
+    }
+
+    if (!ImGui::IsAnyItemHovered())
+    {
+        if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_M)))
+        {
+            player.VolumeToggleMute();
+        }
+
+        if (ImGui::GetIO().MouseWheel > 0)
+        {
+            player.VolumeIncrease();
+        }
+        if (ImGui::GetIO().MouseWheel < 0)
+        {
+            player.VolumeDecrease();
+        }
     }
 }
 void SimpleIPTV::channelActivated(ChannelPtr channel)

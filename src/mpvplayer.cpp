@@ -529,3 +529,29 @@ PlayerState MpvPlayer::GetPlayerState() const
 {
     return playerState;
 }
+void MpvPlayer::VolumeToggleMute()
+{
+    int mute = 0;
+    mpv_get_property(mpv, "mute", MPV_FORMAT_FLAG, &mute);
+    mute = mute ? 0 : 1;
+    mpv_set_property(mpv, "mute", MPV_FORMAT_FLAG, &mute);
+    spdlog::debug("mute set to {}", mute);
+}
+void MpvPlayer::VolumeIncrease()
+{
+    int volume = 0;
+    mpv_get_property(mpv, "volume", MPV_FORMAT_INT64, &volume);
+    volume += 5;
+    mpv_set_property(mpv, "volume", MPV_FORMAT_INT64, &volume);
+    spdlog::debug("volume set to {}", volume);
+}
+void MpvPlayer::VolumeDecrease()
+{
+    int volume = 0;
+    mpv_get_property(mpv, "volume", MPV_FORMAT_INT64, &volume);
+    volume -= 5;
+    if (volume < 0)
+        volume = 0;
+    mpv_set_property(mpv, "volume", MPV_FORMAT_INT64, &volume);
+    spdlog::debug("volume set to {}", volume);
+}
