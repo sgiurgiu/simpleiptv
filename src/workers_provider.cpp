@@ -16,3 +16,7 @@ std::shared_ptr<ProxyRepository> WorkersProvider::GetProxyRepository()
 {
     return ProxyRepository::Create(io_pool.get_executor());
 }
+boost::asio::any_io_executor WorkersProvider::GetWorkersExecutor()
+{
+    return io_pool.get_executor();
+}

@@ -78,4 +78,5 @@ private:
 
     PlayerState playerState = PlayerState::STOPPED;
     ChannelPtr currentlyPlayingChannel;
+    int skipRendering = 0;
 };

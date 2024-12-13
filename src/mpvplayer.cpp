@@ -61,7 +61,7 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
                      WorkersProvider &workersProvider)
 : ui_executor{ ui_executor }
 , workersProvider{ workersProvider }
-, resize_timer{ this->ui_executor }
+, resize_timer{ this->workersProvider.GetWorkersExecutor() }
 {
     mpv = mpv_create();
     if (!mpv)
@@ -277,7 +277,9 @@ void MpvPlayer::destroyFrameBuffers()
 }
 void MpvPlayer::rescaleFrameBuffers()
 {
-    if (!mediaFramebufferObject)
+    destroyFrameBuffers();
+    createFrameBuffers();
+    /*if (!mediaFramebufferObject)
     {
         // createFrameBuffers();
         return;
@@ -289,7 +291,7 @@ void MpvPlayer::rescaleFrameBuffers()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                           mediaFrameTexture, 0);
+                           mediaFrameTexture, 0);*/
 
     /*glBindRenderbuffer(GL_RENDERBUFFER, mediaFrameRenderBufferObject);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
@@ -383,6 +385,7 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
     case MPV_EVENT_FILE_LOADED:
         playerState = PlayerState::PLAYING;
         Utils::disableComputerSleep();
+        skipRendering = 0;
         // startRenderingMedia();
         // emit fileLoaded();
         break;
@@ -408,11 +411,6 @@ void MpvPlayer::mpvRenderFrame()
 
     mpv_opengl_fbo mpfbo{ (int)mediaFramebufferObject, width, height, GL_RGBA };
     int flip_y = 0;
-    int skipRendering = 0;
-    if (/*!shouldRenderMedia || window()->isMinimized()*/ false)
-    {
-        skipRendering = 1;
-    }
 
     mpv_render_param params[] = { { MPV_RENDER_PARAM_OPENGL_FBO, &mpfbo },
                                   { MPV_RENDER_PARAM_FLIP_Y, &flip_y },
@@ -497,27 +495,34 @@ void MpvPlayer::SetSizeAsync(int width, int height)
 {
     if (width == this->width && height == this->height)
         return;
-    glViewport(0, 0, width, height);
-    resize_timer.expires_after(std::chrono::milliseconds(10));
+
+    // setSize(width, height);
+    resize_timer.expires_after(std::chrono::milliseconds(50));
     resize_timer.async_wait(
         [this, width, height](const boost::system::error_code &error)
         {
             if (error != boost::asio::error::operation_aborted)
             {
-                setSize(width, height);
+                boost::asio::post(ui_executor, [this, width, height]()
+                                  { setSize(width, height); });
             }
         });
 }
 void MpvPlayer::setSize(int width, int height)
 {
+    skipRendering = 1;
+    spdlog::debug("setSize({},{})", width, height);
     this->width = width;
     this->height = height;
+    glViewport(0, 0, width, height);
     rescaleFrameBuffers();
+    skipRendering = 0;
 }
 
 void MpvPlayer::Play(ChannelPtr channel)
 {
     this->currentlyPlayingChannel = channel;
+    skipRendering = 1;
     const char *cmd[] = { "loadfile", currentlyPlayingChannel->GetUri().c_str(),
                           nullptr };
     mpv_command_async(mpv, 0, cmd);
@@ -539,19 +544,15 @@ void MpvPlayer::VolumeToggleMute()
 }
 void MpvPlayer::VolumeIncrease()
 {
-    int volume = 0;
-    mpv_get_property(mpv, "volume", MPV_FORMAT_INT64, &volume);
-    volume += 5;
-    mpv_set_property(mpv, "volume", MPV_FORMAT_INT64, &volume);
+    volume += 5.0;
+    mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
     spdlog::debug("volume set to {}", volume);
 }
 void MpvPlayer::VolumeDecrease()
 {
-    int volume = 0;
-    mpv_get_property(mpv, "volume", MPV_FORMAT_INT64, &volume);
-    volume -= 5;
-    if (volume < 0)
-        volume = 0;
-    mpv_set_property(mpv, "volume", MPV_FORMAT_INT64, &volume);
+    volume -= 5.0;
+    if (volume < 0.0)
+        volume = 0.0;
+    mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
     spdlog::debug("volume set to {}", volume);
 }
