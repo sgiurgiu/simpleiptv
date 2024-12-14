@@ -5,6 +5,7 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <spdlog/spdlog.h>
+#include <thread>
 
 #include "dbconnection_pool.h"
 #include "simpleiptv.h"
@@ -12,6 +13,7 @@
 #include "workers_provider.h"
 
 void runMainLoop(GLFWwindow* window);
+void startGraphicalInterface();
 
 static void glfw_error_callback(int error, const char* description)
 {
@@ -52,18 +54,34 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance,
 int main(int /*argc*/, char** /*argv*/)
 #endif
 {
+#ifdef STV_DEBUG
     spdlog::default_logger()->set_level(spdlog::level::trace);
+#else
+    spdlog::default_logger()->set_level(spdlog::level::err);
+#endif
+
     DatabaseConnections::Initialize();
 
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
     {
+        spdlog::error("Cannot init GLFW");
         return EXIT_FAILURE;
     }
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
+
+    std::thread uiThread([]() { startGraphicalInterface(); });
+
+    uiThread.join();
+
+    return EXIT_SUCCESS;
+}
+
+void startGraphicalInterface()
+{
 
     // Create window with graphics context
 #ifdef STV_DEBUG
@@ -75,7 +93,8 @@ int main(int /*argc*/, char** /*argv*/)
         glfwCreateWindow(1280, 720, title.c_str(), nullptr, nullptr);
     if (window == nullptr)
     {
-        return EXIT_FAILURE;
+        spdlog::error("Cannot create Window");
+        return;
     }
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // Enable vsync
@@ -112,8 +131,6 @@ int main(int /*argc*/, char** /*argv*/)
 
     glfwDestroyWindow(window);
     glfwTerminate();
-
-    return EXIT_SUCCESS;
 }
 
 void runMainLoop(GLFWwindow* window)

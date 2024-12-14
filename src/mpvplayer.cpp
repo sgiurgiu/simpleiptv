@@ -406,7 +406,6 @@ void MpvPlayer::updateDisplay()
 {
     spdlog::debug("update display");
     mpvRenderFrame();
-    // Render();
 }
 
 void MpvPlayer::mpvRenderFrame()
