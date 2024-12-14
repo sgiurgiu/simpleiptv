@@ -33,4 +33,5 @@ private:
     bool quit = false;
     boost::asio::steady_timer channelsShowingTimer;
     bool showChannels = true;
+    bool completedResize = true;
 };

@@ -20,6 +20,7 @@
 namespace
 {
 
+constexpr std::chrono::milliseconds debounceDelay{ 100 };
 static void *get_proc_address(void *, const char *name)
 {
     return (void *)glfwGetProcAddress(name);
@@ -46,14 +47,6 @@ void main()
     color = texture2D(videoFrame, textureCoordinate);
 }
 )*";
-
-enum
-{
-    ATTRIB_VERTEX = 0,
-    ATTRIB_COLOR,
-    ATTRIB_TEXTUREPOSITON,
-    NUM_ATTRIBUTES
-};
 
 } // namespace
 
@@ -277,21 +270,28 @@ void MpvPlayer::destroyFrameBuffers()
 }
 void MpvPlayer::rescaleFrameBuffers()
 {
-    destroyFrameBuffers();
-    createFrameBuffers();
-    /*if (!mediaFramebufferObject)
+    // destroyFrameBuffers();
+    // createFrameBuffers();
+    if (!mediaFramebufferObject || !mediaFrameTexture)
     {
         // createFrameBuffers();
         return;
     }
-    glBindFramebuffer(GL_FRAMEBUFFER, mediaFramebufferObject);
+
+    glDeleteTextures(1, &mediaFrameTexture);
+    glGenTextures(1, &mediaFrameTexture);
     glBindTexture(GL_TEXTURE_2D, mediaFrameTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (int)width, (int)height, 0, GL_RGBA,
-                 GL_UNSIGNED_BYTE, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+#if defined(GL_UNPACK_ROW_LENGTH) && !defined(__EMSCRIPTEN__)
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (int)width, (int)height, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, nullptr);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, mediaFramebufferObject);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                           mediaFrameTexture, 0);*/
+                           mediaFrameTexture, 0);
 
     /*glBindRenderbuffer(GL_RENDERBUFFER, mediaFrameRenderBufferObject);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
@@ -399,8 +399,16 @@ void MpvPlayer::mpvRenderUpdate(void *ctx)
 {
     auto self = reinterpret_cast<MpvPlayer *>(ctx);
     boost::asio::post(self->ui_executor,
-                      std::bind(&MpvPlayer::mpvRenderFrame, self));
+                      std::bind(&MpvPlayer::updateDisplay, self));
 }
+
+void MpvPlayer::updateDisplay()
+{
+    spdlog::debug("update display");
+    mpvRenderFrame();
+    // Render();
+}
+
 void MpvPlayer::mpvRenderFrame()
 {
     uint64_t flags = mpv_render_context_update(mpvRenderContext);
@@ -465,6 +473,7 @@ void MpvPlayer::initializeVAO()
 }
 void MpvPlayer::Render()
 {
+    //
     glUseProgram(frameShaderProgram);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, mediaFrameTexture);
@@ -496,8 +505,8 @@ void MpvPlayer::SetSizeAsync(int width, int height)
     if (width == this->width && height == this->height)
         return;
 
-    // setSize(width, height);
-    resize_timer.expires_after(std::chrono::milliseconds(50));
+    setSize(width, height);
+    /*resize_timer.expires_after(std::chrono::milliseconds(50));
     resize_timer.async_wait(
         [this, width, height](const boost::system::error_code &error)
         {
@@ -506,17 +515,22 @@ void MpvPlayer::SetSizeAsync(int width, int height)
                 boost::asio::post(ui_executor, [this, width, height]()
                                   { setSize(width, height); });
             }
-        });
+        });*/
 }
 void MpvPlayer::setSize(int width, int height)
 {
-    skipRendering = 1;
-    spdlog::debug("setSize({},{})", width, height);
-    this->width = width;
-    this->height = height;
-    glViewport(0, 0, width, height);
-    rescaleFrameBuffers();
-    skipRendering = 0;
+    auto now = std::chrono::steady_clock::now();
+    if (now - lastResizeTime > debounceDelay)
+    {
+        skipRendering = 1;
+        spdlog::debug("setSize({},{})", width, height);
+        this->width = width;
+        this->height = height;
+        glViewport(0, 0, width, height);
+        rescaleFrameBuffers();
+        skipRendering = 0;
+        lastResizeTime = now;
+    }
 }
 
 void MpvPlayer::Play(ChannelPtr channel)

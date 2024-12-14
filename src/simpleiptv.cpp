@@ -5,6 +5,8 @@
 #include <imgui_internal.h>
 #include <spdlog/spdlog.h>
 
+#include <boost/asio/post.hpp>
+
 namespace
 {
 static constexpr auto ChannelsWindowTimerExpiry = std::chrono::seconds(5);
@@ -30,6 +32,14 @@ void SimpleIPTV::setSize(int width, int height)
     this->width = width;
     this->height = height;
     player.SetSizeAsync(width, height);
+    /*boost::asio::post(ui_executor,
+                      [this, width, height]()
+                      {
+                          this->width = width;
+                          this->height = height;
+                          player.SetSizeAsync(width, height);
+                          completedResize = true;
+                      });*/
 }
 
 void SimpleIPTV::rearmChannelsShowingTimer()

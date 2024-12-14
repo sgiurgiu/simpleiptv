@@ -2,18 +2,18 @@
 
 #include <algorithm>
 
-ChannelsGroup::ChannelsGroup(int id, std::string name)
-: id{ id }, name{ std::move(name) }
+ChannelsGroup::ChannelsGroup(int id, std::string name, std::optional<int> parentId)
+: id{ id }, name{ std::move(name) }, parentId{ std::move(parentId) }
 {
 }
 void ChannelsGroup::AddChannelGroup(ChannelsGroupPtr group)
 {
-    groups.push_back(group);
+    groups.push_back(std::move(group));
     groupsLoaded = true;
 }
 void ChannelsGroup::AddChannel(ChannelPtr channel)
 {
-    channels.push_back(channel);
+    channels.push_back(std::move(channel));
     channelsLoaded = true;
 }
 void ChannelsGroup::RemoveChannelGroup(int id)

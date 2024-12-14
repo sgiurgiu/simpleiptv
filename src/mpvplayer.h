@@ -3,6 +3,7 @@
 #include <GL/gl.h>
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <chrono>
 
 #include "channels/channel.h"
 #include "workers_provider.h"
@@ -47,6 +48,8 @@ private:
     void compileShaders();
     void initializeVAO();
 
+    void updateDisplay();
+
 private:
     const boost::asio::any_io_executor& ui_executor;
     WorkersProvider& workersProvider;
@@ -79,4 +82,5 @@ private:
     PlayerState playerState = PlayerState::STOPPED;
     ChannelPtr currentlyPlayingChannel;
     int skipRendering = 0;
+    std::chrono::steady_clock::time_point lastResizeTime;
 };

@@ -2,8 +2,10 @@
 
 #include <boost/asio/any_io_executor.hpp>
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
+#include <vector>
 
 #include "root_channel_group.h"
 
@@ -31,14 +33,16 @@ public:
                                const boost::asio::any_io_executor& cb_executor);
 
 private:
-    RootChannelsGroupPtr
-    loadAllChannels(const boost::asio::any_io_executor& cb_executor);
+    RootChannelsGroupPtr loadChannelsData();
     std::vector<ChannelPtr> loadFavourites();
     std::vector<ChannelsGroupPtr> loadGroups(std::optional<int> parentId);
     void loadGroup(ChannelsGroupPtr group,
                    const boost::asio::any_io_executor& cb_executor);
     std::vector<ChannelPtr> loadChannels(ChannelsGroupPtr group);
     ChannelPtr loadChannel(const soci::row&);
+
+    std::map<int, ChannelsGroupPtr> loadAllGroups();
+    std::vector<ChannelPtr> loadAllChannels();
 
 private:
     boost::asio::any_io_executor executor;

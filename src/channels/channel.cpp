@@ -7,7 +7,9 @@ Channel::Channel(int id,
                  std::string logo,
                  std::string epgChannelUri,
                  std::string epgChannelId,
-                 int xstreamServerId)
+                 int xstreamServerId,
+                 bool favourite,
+                 std::optional<int> parentId)
 : id{ id }
 , name{ std::move(name) }
 , uri{ std::move(uri) }
@@ -16,5 +18,7 @@ Channel::Channel(int id,
 , epgChannelUri{ std::move(epgChannelUri) }
 , epgChannelId{ std::move(epgChannelId) }
 , xstreamServerId{ xstreamServerId }
+, favourite{ favourite }
+, parentId{ std::move(parentId) }
 {
 }

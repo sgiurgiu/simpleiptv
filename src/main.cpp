@@ -146,9 +146,6 @@ void runMainLoop(GLFWwindow* window)
     {
         done = glfwWindowShouldClose(window);
 
-        // execute one unit of work in the UI thread
-        uiContext.poll_one();
-
         glfwPollEvents();
 
         if (iptv.shouldQuit())
@@ -162,6 +159,10 @@ void runMainLoop(GLFWwindow* window)
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+
+        // execute one unit of work in the UI thread
+        // this includes the mpv render part
+        uiContext.poll_one();
 
 #ifdef STV_DEBUG
         // 1. Show the big demo window (Most of the sample code is in

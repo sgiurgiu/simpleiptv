@@ -13,7 +13,9 @@ public:
             std::string logo,
             std::string epgChannelUri,
             std::string epgChannelId,
-            int xstreamServerId);
+            int xstreamServerId,
+            bool favourite,
+            std::optional<int> parentId);
     Channel(const Channel&) = default;
     Channel(Channel&&) = default;
     Channel& operator=(const Channel&) = default;
@@ -51,6 +53,14 @@ public:
     {
         return xstreamServerId;
     }
+    std::optional<int> GetParentId() const
+    {
+        return parentId;
+    }
+    int IsFavourite() const
+    {
+        return favourite;
+    }
 
 private:
     int id;
@@ -61,5 +71,7 @@ private:
     std::string epgChannelUri;
     std::string epgChannelId;
     int xstreamServerId;
+    bool favourite = false;
+    std::optional<int> parentId;
 };
 using ChannelPtr = std::shared_ptr<Channel>;

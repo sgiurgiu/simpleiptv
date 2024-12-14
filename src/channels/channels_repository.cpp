@@ -25,35 +25,100 @@ void ChannelsRepository::LoadChannelsAndGroups(
     boost::asio::post(executor,
                       [self = shared_from_this(), cb, cb_executor]()
                       {
-                          auto root = self->loadAllChannels(cb_executor);
+                          auto root = self->loadChannelsData();
                           boost::asio::post(cb_executor,
                                             [root, cb]() { cb(root); });
                       });
 }
-RootChannelsGroupPtr ChannelsRepository::loadAllChannels(
-    const boost::asio::any_io_executor& cb_executor)
+RootChannelsGroupPtr ChannelsRepository::loadChannelsData()
 {
     auto root = std::make_shared<RootChannelsGroup>();
-    auto favourites = loadFavourites();
-    root->AddFavouriteChannels(favourites);
-    boost::asio::post(
-        executor,
-        [self = shared_from_this(), cb_executor, root]()
+    auto groups = loadAllGroups();
+    auto channels = loadAllChannels();
+
+    for (const auto& channel : channels)
+    {
+        auto parentId = channel->GetParentId();
+        if (parentId.has_value())
         {
-            auto rootGroups = self->loadGroups({});
-            root->AddChannelGroups(rootGroups);
-            root->AddChannels(self->loadChannels({}));
-            for (auto& group : rootGroups)
+            auto it = groups.find(parentId.value());
+            if (it != groups.end())
             {
-                boost::asio::post(
-                    self->executor,
-                    [self = self->shared_from_this(), cb_executor, group]()
-                    { self->loadGroup(group, cb_executor); });
+                it->second->AddChannel(channel);
             }
-        });
+        }
+        else
+        {
+            root->AddChannel(channel);
+        }
+        if (channel->IsFavourite())
+        {
+            root->AddFavouriteChannel(channel);
+        }
+    }
+
+    for (const auto& entry : groups)
+    {
+        auto parentId = entry.second->GetParentId();
+        if (parentId.has_value())
+        {
+            auto it = groups.find(parentId.value());
+            if (it != groups.end())
+            {
+                it->second->AddChannelGroup(entry.second);
+            }
+        }
+        else
+        {
+            root->AddChannelGroup(entry.second);
+        }
+    }
 
     return root;
 }
+
+std::map<int, ChannelsGroupPtr> ChannelsRepository::loadAllGroups()
+{
+    std::map<int, ChannelsGroupPtr> groups;
+    auto session = DatabaseConnections::GetConnection();
+    soci::rowset<soci::row> rows = { (
+        session.prepare << "SELECT GROUP_ID, NAME, PARENT_GROUP_ID FROM "
+                           "CHANNEL_GROUPS ORDER BY GROUP_ID") };
+    for (const auto& r : rows)
+    {
+        int id = r.get<int>(0);
+        std::string name = r.get<std::string>(1);
+        std::optional<int> parentId;
+        if (r.get_indicator(2) == soci::i_ok)
+        {
+            parentId = r.get<int>(2);
+        }
+        auto group = std::make_shared<ChannelsGroup>(id, std::move(name),
+                                                     std::move(parentId));
+        groups.emplace(id, std::move(group));
+    }
+
+    return groups;
+}
+std::vector<ChannelPtr> ChannelsRepository::loadAllChannels()
+{
+    std::vector<ChannelPtr> channels;
+    auto session = DatabaseConnections::GetConnection();
+
+    soci::rowset<soci::row> rows = { (
+        session.prepare
+        << "SELECT CHANNEL_ID, NAME, URI, LOGO_URI, LOGO, EPG_CHANNEL_URI, "
+           "EPG_CHANNEL_ID, XSTREAM_SERVER_ID, FAVOURITE, GROUP_ID FROM "
+           "CHANNELS "
+           "  ORDER BY GROUP_ID,CHANNEL_ID") };
+
+    for (const auto& r : rows)
+    {
+        channels.push_back(loadChannel(r));
+    }
+    return channels;
+}
+
 std::vector<ChannelPtr> ChannelsRepository::loadFavourites()
 {
     std::vector<ChannelPtr> channels;
@@ -61,7 +126,8 @@ std::vector<ChannelPtr> ChannelsRepository::loadFavourites()
     soci::rowset<soci::row> rows = {
         session.prepare
         << "SELECT CHANNEL_ID, NAME, URI, LOGO_URI, LOGO, EPG_CHANNEL_URI, "
-           "EPG_CHANNEL_ID, XSTREAM_SERVER_ID FROM CHANNELS "
+           "EPG_CHANNEL_ID, XSTREAM_SERVER_ID, FAVOURITE, GROUP_ID FROM "
+           "CHANNELS "
            "WHERE FAVOURITE=TRUE ORDER BY NAME"
     };
     for (const auto& r : rows)
@@ -87,8 +153,8 @@ ChannelsRepository::loadGroups(std::optional<int> parentId)
         soci::use(id, ind, "id")) };
     for (const auto& r : rows)
     {
-        auto group = std::make_shared<ChannelsGroup>(r.get<int>(0),
-                                                     r.get<std::string>(1));
+        auto group = std::make_shared<ChannelsGroup>(
+            r.get<int>(0), r.get<std::string>(1), parentId);
         groups.push_back(group);
     }
 
@@ -122,7 +188,8 @@ std::vector<ChannelPtr> ChannelsRepository::loadChannels(ChannelsGroupPtr group)
     soci::rowset<soci::row> rows = { (
         session.prepare
             << "SELECT CHANNEL_ID, NAME, URI, LOGO_URI, LOGO, EPG_CHANNEL_URI, "
-               "EPG_CHANNEL_ID, XSTREAM_SERVER_ID FROM CHANNELS "
+               "EPG_CHANNEL_ID, XSTREAM_SERVER_ID, FAVOURITE, GROUP_ID FROM "
+               "CHANNELS "
                " WHERE IIF(:id IS NULL, "
                "GROUP_ID IS NULL, GROUP_ID=:id)  ORDER BY CHANNEL_ID",
         soci::use(id, ind, "id")) };
@@ -144,11 +211,17 @@ ChannelPtr ChannelsRepository::loadChannel(const soci::row& r)
     auto epgChannelUri = r.get<std::string>(5, "");
     auto epgChannelId = r.get<std::string>(6, "");
     int xstreamServerId = r.get<int>(7, -1);
+    int favourite = r.get<int>(8);
+    std::optional<int> groupId;
+    if (r.get_indicator(9) == soci::i_ok)
+    {
+        groupId = r.get<int>(9);
+    }
 
     boost::algorithm::replace_all(name, "#",
                                   reinterpret_cast<const char*>(u8"\u2E30"));
-    return std::make_shared<Channel>(id, std::move(name), std::move(uri),
-                                     std::move(logo_uri), std::move(logo),
-                                     std::move(epgChannelUri),
-                                     std::move(epgChannelId), xstreamServerId);
+    return std::make_shared<Channel>(
+        id, std::move(name), std::move(uri), std::move(logo_uri),
+        std::move(logo), std::move(epgChannelUri), std::move(epgChannelId),
+        xstreamServerId, favourite == 1, std::move(groupId));
 }

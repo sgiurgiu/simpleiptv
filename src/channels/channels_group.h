@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -12,7 +13,7 @@ using ChannelsGroupPtr = std::shared_ptr<ChannelsGroup>;
 class ChannelsGroup
 {
 public:
-    ChannelsGroup(int id, std::string name);
+    ChannelsGroup(int id, std::string name, std::optional<int> parentId);
     virtual ~ChannelsGroup() = default;
     ChannelsGroup(const ChannelsGroup&) = default;
     ChannelsGroup(ChannelsGroup&&) = default;
@@ -33,6 +34,10 @@ public:
     std::string GetName() const
     {
         return name;
+    }
+    std::optional<int> GetParentId() const
+    {
+        return parentId;
     }
     bool AreChannelsLoaded() const
     {
@@ -63,6 +68,7 @@ public:
 protected:
     int id;
     std::string name;
+    std::optional<int> parentId;
     std::vector<ChannelsGroupPtr> groups;
     std::vector<ChannelPtr> channels;
     bool channelsLoaded = false;
