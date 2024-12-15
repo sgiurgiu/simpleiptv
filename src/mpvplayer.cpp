@@ -2,7 +2,6 @@
 
 #include <GLFW/glfw3.h>
 #include <boost/asio/post.hpp>
-#include <chrono>
 #include <mpv/client.h>
 #include <mpv/render_gl.h>
 #include <stdexcept>
@@ -20,7 +19,6 @@
 namespace
 {
 
-constexpr std::chrono::milliseconds debounceDelay{ 100 };
 static void *get_proc_address(void *, const char *name)
 {
     return (void *)glfwGetProcAddress(name);
@@ -499,37 +497,14 @@ void MpvPlayer::Render()
     glUseProgram(0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
-void MpvPlayer::SetSizeAsync(int width, int height)
+void MpvPlayer::SetSize(int width, int height)
 {
     if (width == this->width && height == this->height)
         return;
-
-    setSize(width, height);
-    /*resize_timer.expires_after(std::chrono::milliseconds(50));
-    resize_timer.async_wait(
-        [this, width, height](const boost::system::error_code &error)
-        {
-            if (error != boost::asio::error::operation_aborted)
-            {
-                boost::asio::post(ui_executor, [this, width, height]()
-                                  { setSize(width, height); });
-            }
-        });*/
-}
-void MpvPlayer::setSize(int width, int height)
-{
-    auto now = std::chrono::steady_clock::now();
-    if (now - lastResizeTime > debounceDelay)
-    {
-        skipRendering = 1;
-        spdlog::debug("setSize({},{})", width, height);
-        this->width = width;
-        this->height = height;
-        glViewport(0, 0, width, height);
-        rescaleFrameBuffers();
-        skipRendering = 0;
-        lastResizeTime = now;
-    }
+    this->width = width;
+    this->height = height;
+    glViewport(0, 0, width, height);
+    rescaleFrameBuffers();
 }
 
 void MpvPlayer::Play(ChannelPtr channel)

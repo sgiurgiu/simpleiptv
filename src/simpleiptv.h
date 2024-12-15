@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/asio/steady_timer.hpp>
+#include <chrono>
 
 #include "channels_window.h"
 #include "mpvplayer.h"
@@ -33,5 +34,5 @@ private:
     bool quit = false;
     boost::asio::steady_timer channelsShowingTimer;
     bool showChannels = true;
-    bool completedResize = true;
+    std::chrono::steady_clock::time_point lastResizeTime;
 };

@@ -28,7 +28,7 @@ public:
     ~MpvPlayer();
     void InitializeMpvGL();
     void Render();
-    void SetSizeAsync(int width, int height);
+    void SetSize(int width, int height);
     void Play(ChannelPtr channel);
     PlayerState GetPlayerState() const;
     void VolumeToggleMute();
@@ -36,7 +36,6 @@ public:
     void VolumeDecrease();
 
 private:
-    void setSize(int width, int height);
     void handleMpvEvent(mpv_event* event);
     void handleMpvEvents();
     void mpvRenderFrame();
@@ -82,5 +81,4 @@ private:
     PlayerState playerState = PlayerState::STOPPED;
     ChannelPtr currentlyPlayingChannel;
     int skipRendering = 0;
-    std::chrono::steady_clock::time_point lastResizeTime;
 };

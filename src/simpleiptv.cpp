@@ -9,8 +9,9 @@
 
 namespace
 {
-static constexpr auto ChannelsWindowTimerExpiry = std::chrono::seconds(5);
-}
+static constexpr std::chrono::seconds ChannelsWindowTimerExpiry{ 5 };
+static constexpr std::chrono::milliseconds resizeDebounceDelay{ 100 };
+} // namespace
 
 SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
                        WorkersProvider& workersProvider)
@@ -29,17 +30,18 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
 
 void SimpleIPTV::setSize(int width, int height)
 {
-    this->width = width;
-    this->height = height;
-    player.SetSizeAsync(width, height);
-    /*boost::asio::post(ui_executor,
-                      [this, width, height]()
-                      {
-                          this->width = width;
-                          this->height = height;
-                          player.SetSizeAsync(width, height);
-                          completedResize = true;
-                      });*/
+    if (width == this->width && height == this->height)
+        return;
+
+    auto now = std::chrono::steady_clock::now();
+    if (now - lastResizeTime > resizeDebounceDelay)
+    {
+        this->width = width;
+        this->height = height;
+
+        player.SetSize(width, height);
+        lastResizeTime = now;
+    }
 }
 
 void SimpleIPTV::rearmChannelsShowingTimer()
@@ -72,7 +74,8 @@ void SimpleIPTV::showDesktop()
     }
 
     if (player.GetPlayerState() != PlayerState::PLAYING ||
-        ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
+        ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) ||
+        ImGui::IsMouseDown(ImGuiMouseButton_Left))
     {
         showChannels = true;
     }
@@ -91,7 +94,7 @@ void SimpleIPTV::showDesktop()
         }
     }
 
-    if (showChannels)
+    if (channelsWindow->isMustShow() || showChannels)
     {
         channelsWindow->showWindow();
     }

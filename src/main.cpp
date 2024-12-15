@@ -12,7 +12,7 @@
 #include "utils.h"
 #include "workers_provider.h"
 
-void runMainLoop(GLFWwindow* window);
+void runMainLoop(GLFWwindow* window, WorkersProvider& workersProvider);
 void startGraphicalInterface();
 
 static void glfw_error_callback(int error, const char* description)
@@ -73,34 +73,6 @@ int main(int /*argc*/, char** /*argv*/)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
 
-    std::thread uiThread([]() { startGraphicalInterface(); });
-
-    uiThread.join();
-
-    return EXIT_SUCCESS;
-}
-
-void startGraphicalInterface()
-{
-
-    // Create window with graphics context
-#ifdef STV_DEBUG
-    std::string title = "Simple IPTV - Debug";
-#else
-    std::string title = "Simple IPTV";
-#endif
-    GLFWwindow* window =
-        glfwCreateWindow(1280, 720, title.c_str(), nullptr, nullptr);
-    if (window == nullptr)
-    {
-        spdlog::error("Cannot create Window");
-        return;
-    }
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // Enable vsync
-
-    glewInit();
-
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -111,6 +83,42 @@ void startGraphicalInterface()
     auto iniFilePathString = (appConfigFolder / "imgui.ini").string();
     io.IniFilename = iniFilePathString.c_str();
 
+    Utils::LoadFonts();
+
+    std::thread uiThread([]() { startGraphicalInterface(); });
+
+    uiThread.join();
+
+    ImGui::DestroyContext();
+    glfwTerminate();
+
+    return EXIT_SUCCESS;
+}
+
+void startGraphicalInterface()
+{
+    WorkersProvider workersProvider;
+    auto settingsRepository = workersProvider.GetSettingsRepository();
+    // Create window with graphics context
+#ifdef STV_DEBUG
+    std::string title = "Simple IPTV - Debug";
+#else
+    std::string title = "Simple IPTV";
+#endif
+    GLFWwindow* window =
+        glfwCreateWindow(settingsRepository->GetWindowWidth(1280),
+                         settingsRepository->GetWindowHeight(720),
+                         title.c_str(), nullptr, nullptr);
+    if (window == nullptr)
+    {
+        spdlog::error("Cannot create Window");
+        return;
+    }
+    glfwMakeContextCurrent(window);
+    glfwSwapInterval(1); // Enable vsync
+
+    glewInit();
+
     ImGui::StyleColorsDark();
     // Setup Platform/Renderer backends
     ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -120,27 +128,27 @@ void startGraphicalInterface()
     // glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(GLMessageCallback, nullptr);
 
-    Utils::LoadFonts();
-
-    runMainLoop(window);
+    runMainLoop(window, workersProvider);
 
     // Cleanup
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
+    int width;
+    int height;
+    glfwGetWindowSize(window, &width, &height);
+    settingsRepository->SetWindowWidth(width);
+    settingsRepository->SetWindowHeight(height);
 
     glfwDestroyWindow(window);
-    glfwTerminate();
 }
 
-void runMainLoop(GLFWwindow* window)
+void runMainLoop(GLFWwindow* window, WorkersProvider& workersProvider)
 {
 #ifdef STV_DEBUG
     bool show_demo_window = true;
 #endif
     boost::asio::io_context uiContext;
     auto work = boost::asio::make_work_guard(uiContext);
-    WorkersProvider workersProvider;
     SimpleIPTV iptv{ uiContext, workersProvider };
 
     glfwSetWindowUserPointer(window, &iptv);

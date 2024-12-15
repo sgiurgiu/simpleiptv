@@ -5,6 +5,7 @@ WorkersProvider::WorkersProvider()
 , channelsRepository{ ChannelsRepository::Create(io_pool.get_executor()) }
 , proxyRepository{ ProxyRepository::Create(io_pool.get_executor()) }
 , dbusService{ DBusService::Create(io_pool.get_executor()) }
+, settingsRepository{ SettingsRepository::Create() }
 {
 }
 WorkersProvider::~WorkersProvider()
@@ -27,4 +28,8 @@ boost::asio::any_io_executor WorkersProvider::GetWorkersExecutor()
 std::shared_ptr<DBusService> WorkersProvider::GetDBusService()
 {
     return dbusService;
+}
+std::shared_ptr<SettingsRepository> WorkersProvider::GetSettingsRepository()
+{
+    return settingsRepository;
 }

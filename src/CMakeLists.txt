@@ -87,6 +87,7 @@ set(STV_SRCS main.cpp
     display_node.cpp
     proxy_repository.cpp
     dbus_service.cpp
+    settings_repository.cpp
     )
 
 
