@@ -82,6 +82,37 @@ void ChannelsWindow::showWindow()
         return;
     }
 
+    const ImGuiWindow* window = ImGui::GetCurrentWindow();
+    const ImRect titleBarRect = window->TitleBarRect();
+    const auto& style = ImGui::GetStyle();
+    ImGui::PushClipRect(titleBarRect.Min, titleBarRect.Max, false);
+    ImGui::SetCursorPos(ImVec2(
+        titleBarRect.Max.x - (ImGui::GetFontSize() + style.FramePadding.x), 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_Button,
+                          ImGui::GetStyleColorVec4(ImGui::IsWindowFocused()
+                                                       ? ImGuiCol_TitleBgActive
+                                                       : ImGuiCol_TitleBg));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,
+                          ImGui::GetStyleColorVec4(ImGui::IsWindowFocused()
+                                                       ? ImGuiCol_TitleBgActive
+                                                       : ImGuiCol_TitleBg));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
+                          ImGui::GetStyleColorVec4(ImGui::IsWindowFocused()
+                                                       ? ImGuiCol_TitleBgActive
+                                                       : ImGuiCol_TitleBg));
+    if (pinned)
+    {
+        if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_LOCK)))
+            pinned = false;
+    }
+    else
+    {
+        if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_UNLOCK_ALT)))
+            pinned = true;
+    }
+    ImGui::PopStyleColor(3);
+    ImGui::PopClipRect();
+
     showMenu();
 
     if (ImGui::BeginTabBar("ChannelsTabBar", ImGuiTabBarFlags_None))
