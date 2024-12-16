@@ -100,7 +100,6 @@ void ChannelsWindow::showWindow()
     }
 
     ImGui::End();
-    mustShowWindow = ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered();
 }
 
 void ChannelsWindow::showLocalChannelsTab()

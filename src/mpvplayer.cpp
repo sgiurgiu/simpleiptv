@@ -402,7 +402,7 @@ void MpvPlayer::mpvRenderUpdate(void *ctx)
 
 void MpvPlayer::updateDisplay()
 {
-    spdlog::debug("update display");
+    // spdlog::debug("update display");
     mpvRenderFrame();
 }
 

@@ -52,15 +52,7 @@ void SimpleIPTV::rearmChannelsShowingTimer()
         {
             if (!ec)
             {
-                if (ImGui::GetCurrentContext()->MouseStationaryTimer >=
-                    ChannelsWindowTimerExpiry.count())
-                {
-                    showChannels = false;
-                }
-                else
-                {
-                    rearmChannelsShowingTimer();
-                }
+                showChannels = false;
             }
         });
 }
@@ -74,27 +66,26 @@ void SimpleIPTV::showDesktop()
     }
 
     if (player.GetPlayerState() != PlayerState::PLAYING ||
-        ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) ||
-        ImGui::IsMouseDown(ImGuiMouseButton_Left))
+        ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
     {
+        lastActivityTime = std::chrono::steady_clock::now();
         showChannels = true;
     }
-    else
+    else if (!channelsWindow->isPinned())
     {
-        auto expiryDuration =
-            channelsShowingTimer.expiry() - std::chrono::steady_clock::now();
-        if (showChannels && expiryDuration.count() <= 0)
+        if (showChannels && lastActivityTime < (std::chrono::steady_clock::now() -
+                                                ChannelsWindowTimerExpiry))
         {
             showChannels = false;
         }
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
-        {
-            showChannels = true;
-            rearmChannelsShowingTimer();
-        }
+    }
+    if (ImGui::IsAnyMouseDown() || ImGui::GetIO().MouseWheel)
+    {
+        lastActivityTime = std::chrono::steady_clock::now();
+        showChannels = true;
     }
 
-    if (channelsWindow->isMustShow() || showChannels)
+    if (channelsWindow->isPinned() || showChannels)
     {
         channelsWindow->showWindow();
     }

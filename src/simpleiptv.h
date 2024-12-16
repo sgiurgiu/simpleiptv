@@ -35,4 +35,5 @@ private:
     boost::asio::steady_timer channelsShowingTimer;
     bool showChannels = true;
     std::chrono::steady_clock::time_point lastResizeTime;
+    std::chrono::steady_clock::time_point lastActivityTime;
 };

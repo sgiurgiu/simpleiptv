@@ -32,9 +32,9 @@ public:
     {
         return quit;
     }
-    bool isMustShow() const
+    bool isPinned() const
     {
-        return mustShowWindow;
+        return pinned;
     }
     template <typename S>
     void addChannelActivatedListener(S slot)
@@ -57,5 +57,5 @@ private:
     std::string channelsFilter;
     using ChannelActivatedSignal = boost::signals2::signal<void(ChannelPtr)>;
     ChannelActivatedSignal channelActivatedSignal;
-    bool mustShowWindow = false;
+    bool pinned = false;
 };
