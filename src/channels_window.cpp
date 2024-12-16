@@ -88,18 +88,9 @@ void ChannelsWindow::showWindow()
     ImGui::PushClipRect(titleBarRect.Min, titleBarRect.Max, false);
     ImGui::SetCursorPos(ImVec2(
         titleBarRect.Max.x - (ImGui::GetFontSize() + style.FramePadding.x), 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_Button,
-                          ImGui::GetStyleColorVec4(ImGui::IsWindowFocused()
-                                                       ? ImGuiCol_TitleBgActive
-                                                       : ImGuiCol_TitleBg));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,
-                          ImGui::GetStyleColorVec4(ImGui::IsWindowFocused()
-                                                       ? ImGuiCol_TitleBgActive
-                                                       : ImGuiCol_TitleBg));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
-                          ImGui::GetStyleColorVec4(ImGui::IsWindowFocused()
-                                                       ? ImGuiCol_TitleBgActive
-                                                       : ImGuiCol_TitleBg));
+    ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, 0x00000000);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0x00000000);
     if (pinned)
     {
         if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_LOCK)))
