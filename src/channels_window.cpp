@@ -37,7 +37,7 @@ ChannelsWindow::ChannelsWindow(Key,
     rootNode.activatedChannelSignal.connect(channelActivatedSignal);
 }
 
-void ChannelsWindow::showWindow()
+ImVec2 ChannelsWindow::ShowWindow(float playerBarHeight)
 {
     /*if (!forceDisplay)
     {
@@ -65,13 +65,14 @@ void ChannelsWindow::showWindow()
     }*/
 
     auto mainViewport = ImGui::GetMainViewport();
+    ImVec2 size;
+    size.x = mainViewport->WorkSize.x * 0.2f;
+    size.y = mainViewport->WorkSize.y - ImGui::GetStyle().WindowBorderSize -
+             playerBarHeight;
 
     ImGui::SetNextWindowPos(
         ImVec2(mainViewport->WorkPos.x, mainViewport->WorkPos.y));
-    ImGui::SetNextWindowSize(
-        ImVec2(mainViewport->WorkSize.x * 0.2f,
-               mainViewport->WorkSize.y - ImGui::GetStyle().WindowBorderSize),
-        ImGuiCond_None);
+    ImGui::SetNextWindowSize(size, ImGuiCond_None);
     ImGui::SetNextWindowBgAlpha(bgAlpha);
 
     if (!ImGui::Begin("Channels", nullptr,
@@ -79,30 +80,8 @@ void ChannelsWindow::showWindow()
                           ImGuiWindowFlags_MenuBar))
     {
         ImGui::End();
-        return;
+        return { 0, 0 };
     }
-
-    const ImGuiWindow* window = ImGui::GetCurrentWindow();
-    const ImRect titleBarRect = window->TitleBarRect();
-    const auto& style = ImGui::GetStyle();
-    ImGui::PushClipRect(titleBarRect.Min, titleBarRect.Max, false);
-    ImGui::SetCursorPos(ImVec2(
-        titleBarRect.Max.x - (ImGui::GetFontSize() + style.FramePadding.x), 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, 0x00000000);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0x00000000);
-    if (pinned)
-    {
-        if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_LOCK)))
-            pinned = false;
-    }
-    else
-    {
-        if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_UNLOCK_ALT)))
-            pinned = true;
-    }
-    ImGui::PopStyleColor(3);
-    ImGui::PopClipRect();
 
     showMenu();
 
@@ -122,6 +101,7 @@ void ChannelsWindow::showWindow()
     }
 
     ImGui::End();
+    return size;
 }
 
 void ChannelsWindow::showLocalChannelsTab()

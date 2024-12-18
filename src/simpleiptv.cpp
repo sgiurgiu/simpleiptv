@@ -18,13 +18,14 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
 : ui_executor{ uiContext.get_executor() }
 , workersProvider{ workersProvider }
 , channelsWindow{ ChannelsWindow::Create(ui_executor, this->workersProvider) }
+, playerBarWindow{ ui_executor }
 , player{ ui_executor, workersProvider }
 , channelsShowingTimer{ ui_executor }
 {
     setSize(1280, 720);
     player.InitializeMpvGL();
     using namespace std::placeholders;
-    channelsWindow->addChannelActivatedListener(
+    channelsWindow->AddChannelActivatedListener(
         std::bind(&SimpleIPTV::channelActivated, this, _1));
 }
 
@@ -71,7 +72,7 @@ void SimpleIPTV::showDesktop()
         lastActivityTime = std::chrono::steady_clock::now();
         showChannels = true;
     }
-    else if (!channelsWindow->isPinned())
+    else if (!channelsWindow->IsPinned())
     {
         if (showChannels && lastActivityTime < (std::chrono::steady_clock::now() -
                                                 ChannelsWindowTimerExpiry))
@@ -85,14 +86,19 @@ void SimpleIPTV::showDesktop()
         showChannels = true;
     }
 
-    if (channelsWindow->isPinned() || showChannels)
+    ImVec2 windowsSize = playerBarWindow.ShowWindow();
+    if (playerBarWindow.IsChannelListPressed())
     {
-        channelsWindow->showWindow();
+        windowsSize.x = channelsWindow->ShowWindow(windowsSize.y).x;
+    }
+    else
+    {
+        windowsSize.x = 0.f;
     }
 
     if (player.GetPlayerState() == PlayerState::PLAYING)
     {
-        player.Render();
+        player.Render(windowsSize);
     }
 
     if (!ImGui::IsAnyItemHovered() &&
@@ -116,5 +122,6 @@ void SimpleIPTV::showDesktop()
 void SimpleIPTV::channelActivated(ChannelPtr channel)
 {
     spdlog::debug("{} activated", channel->GetName());
+    playerBarWindow.SetCurrentChannel(channel);
     player.Play(channel);
 }

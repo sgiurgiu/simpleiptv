@@ -4,6 +4,7 @@
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <chrono>
+#include <imgui.h>
 
 #include "channels/channel.h"
 #include "workers_provider.h"
@@ -27,7 +28,7 @@ public:
               WorkersProvider& workersProvider);
     ~MpvPlayer();
     void InitializeMpvGL();
-    void Render();
+    void Render(const ImVec2& windowsSize);
     void SetSize(int width, int height);
     void Play(ChannelPtr channel);
     PlayerState GetPlayerState() const;
@@ -52,7 +53,7 @@ private:
 private:
     const boost::asio::any_io_executor& ui_executor;
     WorkersProvider& workersProvider;
-    boost::asio::steady_timer resize_timer;
+    boost::asio::steady_timer osdTimer;
     mpv_handle* mpv = nullptr;
     mpv_render_context* mpvRenderContext = nullptr;
     double volume = 100.0;
@@ -69,6 +70,9 @@ private:
     // GLuint mediaFrameRenderBufferObject = 0;
     int width = 100;
     int height = 100;
+    int frameWidth = width;
+    int frameHeight = width;
+    ImVec2 lastWindowSize = { 0, 0 };
     GLuint frameShaderProgram;
     GLint videoFrameUniformLocation;
 

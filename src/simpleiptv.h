@@ -5,6 +5,7 @@
 
 #include "channels_window.h"
 #include "mpvplayer.h"
+#include "playerbar_window.h"
 #include "workers_provider.h"
 
 class SimpleIPTV
@@ -17,7 +18,7 @@ public:
 
     bool shouldQuit() const
     {
-        return channelsWindow->shouldQuit() || quit;
+        return channelsWindow->ShouldQuit() || quit;
     }
 
 private:
@@ -28,6 +29,7 @@ private:
     boost::asio::any_io_executor ui_executor;
     WorkersProvider& workersProvider;
     std::shared_ptr<ChannelsWindow> channelsWindow;
+    PlayerBarWindow playerBarWindow;
     MpvPlayer player;
     int width = 0;
     int height = 0;

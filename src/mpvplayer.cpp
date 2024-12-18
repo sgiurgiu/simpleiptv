@@ -13,6 +13,7 @@
 #endif
 #include <fmt/format.h>
 
+#include "mpvhelper.h"
 #include "utils.h"
 #include <spdlog/spdlog.h>
 
@@ -52,7 +53,7 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
                      WorkersProvider &workersProvider)
 : ui_executor{ ui_executor }
 , workersProvider{ workersProvider }
-, resize_timer{ this->workersProvider.GetWorkersExecutor() }
+, osdTimer{ this->workersProvider.GetWorkersExecutor() }
 {
     mpv = mpv_create();
     if (!mpv)
@@ -230,8 +231,8 @@ void MpvPlayer::createFrameBuffers()
 #if defined(GL_UNPACK_ROW_LENGTH) && !defined(__EMSCRIPTEN__)
     glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 #endif
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (int)width, (int)height, 0, GL_RGBA,
-                 GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (int)frameWidth, (int)frameHeight,
+                 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                            mediaFrameTexture, 0);
 
@@ -284,8 +285,8 @@ void MpvPlayer::rescaleFrameBuffers()
 #if defined(GL_UNPACK_ROW_LENGTH) && !defined(__EMSCRIPTEN__)
     glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 #endif
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (int)width, (int)height, 0, GL_RGBA,
-                 GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (int)frameWidth, (int)frameHeight,
+                 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
     glBindFramebuffer(GL_FRAMEBUFFER, mediaFramebufferObject);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
@@ -402,7 +403,6 @@ void MpvPlayer::mpvRenderUpdate(void *ctx)
 
 void MpvPlayer::updateDisplay()
 {
-    // spdlog::debug("update display");
     mpvRenderFrame();
 }
 
@@ -414,7 +414,8 @@ void MpvPlayer::mpvRenderFrame()
         return;
     }
 
-    mpv_opengl_fbo mpfbo{ (int)mediaFramebufferObject, width, height, GL_RGBA };
+    mpv_opengl_fbo mpfbo{ (int)mediaFramebufferObject, frameWidth, frameHeight,
+                          GL_RGBA };
     int flip_y = 0;
 
     mpv_render_param params[] = { { MPV_RENDER_PARAM_OPENGL_FBO, &mpfbo },
@@ -468,9 +469,21 @@ void MpvPlayer::initializeVAO()
 
     glBindVertexArray(0);
 }
-void MpvPlayer::Render()
+void MpvPlayer::Render(const ImVec2 &windowsSize)
 {
-    //
+    if (lastWindowSize.x != windowsSize.x || lastWindowSize.y != windowsSize.y)
+    {
+        lastWindowSize = windowsSize;
+        frameWidth = width - lastWindowSize.x;
+        frameHeight = height - lastWindowSize.y;
+        spdlog::debug("lastWindowSize:{},{} ,frameWidth={}, frameHeight={}",
+                      lastWindowSize.x, lastWindowSize.y, frameWidth,
+                      frameHeight);
+        rescaleFrameBuffers();
+        mpvRenderFrame();
+    }
+    glViewport(lastWindowSize.x, lastWindowSize.y, frameWidth, frameHeight);
+
     glUseProgram(frameShaderProgram);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, mediaFrameTexture);
@@ -503,7 +516,9 @@ void MpvPlayer::SetSize(int width, int height)
         return;
     this->width = width;
     this->height = height;
-    glViewport(0, 0, width, height);
+    frameWidth = width - lastWindowSize.x;
+    frameHeight = height - lastWindowSize.y;
+
     rescaleFrameBuffers();
 }
 
@@ -543,4 +558,53 @@ void MpvPlayer::VolumeDecrease()
         volume = 0.0;
     mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
     spdlog::debug("volume set to {}", volume);
+
+    mpv_node node;
+    node.format = MPV_FORMAT_NODE_MAP;
+    mpv_node_list map;
+    node.u.list = &map;
+    char *keys[6];
+    mpv_node values[6];
+    map.keys = keys;
+    map.values = values;
+    map.num = 6;
+
+    keys[0] = "name";
+    mpv_node name_node;
+    name_node.format = MPV_FORMAT_STRING;
+    name_node.u.string = "osd-overlay";
+    values[0] = name_node;
+
+    keys[1] = "id";
+    mpv_node id_node;
+    id_node.format = MPV_FORMAT_INT64;
+    id_node.u.int64 = 1;
+    values[1] = id_node;
+
+    keys[2] = "format";
+    mpv_node format_node;
+    format_node.format = MPV_FORMAT_STRING;
+    format_node.u.string = "ass-events";
+    values[2] = format_node;
+
+    keys[3] = "res_x";
+    mpv_node width_node;
+    width_node.format = MPV_FORMAT_INT64;
+    width_node.u.int64 = width;
+    values[3] = width_node;
+
+    keys[4] = "res_y";
+    mpv_node height_node;
+    height_node.format = MPV_FORMAT_INT64;
+    height_node.u.int64 = height;
+    values[4] = height_node;
+
+    keys[5] = "data";
+    mpv_node data_node;
+    data_node.format = MPV_FORMAT_STRING;
+    auto volString = fmt::format("{{\\an9\\fs36}}Volume {}", volume);
+    data_node.u.string = const_cast<char *>(volString.c_str());
+    values[5] = data_node;
+
+    mpv_command_node(mpv, &node, nullptr);
 }

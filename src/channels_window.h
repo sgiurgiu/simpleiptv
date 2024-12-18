@@ -27,17 +27,17 @@ public:
     Create(const boost::asio::any_io_executor& executor,
            WorkersProvider& workersProvider);
 
-    void showWindow();
-    bool shouldQuit() const
+    ImVec2 ShowWindow(float playerBarHeight);
+    bool ShouldQuit() const
     {
         return quit;
     }
-    bool isPinned() const
+    bool IsPinned() const
     {
         return pinned;
     }
     template <typename S>
-    void addChannelActivatedListener(S slot)
+    void AddChannelActivatedListener(S slot)
     {
         channelActivatedSignal.connect(slot);
     }

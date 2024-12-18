@@ -88,6 +88,7 @@ set(STV_SRCS main.cpp
     proxy_repository.cpp
     dbus_service.cpp
     settings_repository.cpp
+    playerbar_window.cpp
     )
 
 
