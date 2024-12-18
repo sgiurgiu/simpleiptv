@@ -47,6 +47,9 @@ void main()
 }
 )*";
 
+constexpr int VOLUME_OSD_ID = 1;
+constexpr std::chrono::duration OSD_DURATION = std::chrono::seconds{ 3 };
+
 } // namespace
 
 MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
@@ -476,9 +479,6 @@ void MpvPlayer::Render(const ImVec2 &windowsSize)
         lastWindowSize = windowsSize;
         frameWidth = width - lastWindowSize.x;
         frameHeight = height - lastWindowSize.y;
-        spdlog::debug("lastWindowSize:{},{} ,frameWidth={}, frameHeight={}",
-                      lastWindowSize.x, lastWindowSize.y, frameWidth,
-                      frameHeight);
         rescaleFrameBuffers();
         mpvRenderFrame();
     }
@@ -544,12 +544,38 @@ void MpvPlayer::VolumeToggleMute()
     mute = mute ? 0 : 1;
     mpv_set_property(mpv, "mute", MPV_FORMAT_FLAG, &mute);
     spdlog::debug("mute set to {}", mute);
+    NodeVariant node = NodeVariantMap{
+        { "name", { "osd-overlay" } },
+        { "id", { 1 } },
+        { "format", { "ass-events" } },
+        { "res_x", { width } },
+        { "res_y", { height } },
+        { "data", { fmt::format("{{\\an9\\fs36}}Mute {}", mute ? "on" : "off") } }
+    };
+    NodeBuilder builder{ node };
+    mpv_command_node(mpv, builder.GetNode(), nullptr);
+    using namespace std::placeholders;
+    osdTimer.expires_after(OSD_DURATION);
+    osdTimer.async_wait(std::bind(&MpvPlayer::removeVolumeOsd, this, _1));
 }
 void MpvPlayer::VolumeIncrease()
 {
     volume += 5.0;
     mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
     spdlog::debug("volume set to {}", volume);
+    NodeVariant node = NodeVariantMap{
+        { "name", { "osd-overlay" } },
+        { "id", { VOLUME_OSD_ID } },
+        { "format", { "ass-events" } },
+        { "res_x", { width } },
+        { "res_y", { height } },
+        { "data", { fmt::format("{{\\an9\\fs36}}Volume {}", volume) } }
+    };
+    NodeBuilder builder{ node };
+    mpv_command_node(mpv, builder.GetNode(), nullptr);
+    using namespace std::placeholders;
+    osdTimer.expires_after(OSD_DURATION);
+    osdTimer.async_wait(std::bind(&MpvPlayer::removeVolumeOsd, this, _1));
 }
 void MpvPlayer::VolumeDecrease()
 {
@@ -559,52 +585,29 @@ void MpvPlayer::VolumeDecrease()
     mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
     spdlog::debug("volume set to {}", volume);
 
-    mpv_node node;
-    node.format = MPV_FORMAT_NODE_MAP;
-    mpv_node_list map;
-    node.u.list = &map;
-    char *keys[6];
-    mpv_node values[6];
-    map.keys = keys;
-    map.values = values;
-    map.num = 6;
-
-    keys[0] = "name";
-    mpv_node name_node;
-    name_node.format = MPV_FORMAT_STRING;
-    name_node.u.string = "osd-overlay";
-    values[0] = name_node;
-
-    keys[1] = "id";
-    mpv_node id_node;
-    id_node.format = MPV_FORMAT_INT64;
-    id_node.u.int64 = 1;
-    values[1] = id_node;
-
-    keys[2] = "format";
-    mpv_node format_node;
-    format_node.format = MPV_FORMAT_STRING;
-    format_node.u.string = "ass-events";
-    values[2] = format_node;
-
-    keys[3] = "res_x";
-    mpv_node width_node;
-    width_node.format = MPV_FORMAT_INT64;
-    width_node.u.int64 = width;
-    values[3] = width_node;
-
-    keys[4] = "res_y";
-    mpv_node height_node;
-    height_node.format = MPV_FORMAT_INT64;
-    height_node.u.int64 = height;
-    values[4] = height_node;
-
-    keys[5] = "data";
-    mpv_node data_node;
-    data_node.format = MPV_FORMAT_STRING;
-    auto volString = fmt::format("{{\\an9\\fs36}}Volume {}", volume);
-    data_node.u.string = const_cast<char *>(volString.c_str());
-    values[5] = data_node;
-
-    mpv_command_node(mpv, &node, nullptr);
+    NodeVariant node = NodeVariantMap{
+        { "name", { "osd-overlay" } },
+        { "id", { VOLUME_OSD_ID } },
+        { "format", { "ass-events" } },
+        { "res_x", { width } },
+        { "res_y", { height } },
+        { "data", { fmt::format("{{\\an9\\fs36}}Volume {}", volume) } }
+    };
+    NodeBuilder builder{ node };
+    mpv_command_node(mpv, builder.GetNode(), nullptr);
+    using namespace std::placeholders;
+    osdTimer.expires_after(OSD_DURATION);
+    osdTimer.async_wait(std::bind(&MpvPlayer::removeVolumeOsd, this, _1));
+}
+void MpvPlayer::removeVolumeOsd(const boost::system::error_code &ec)
+{
+    if (!ec)
+    {
+        NodeVariant node = NodeVariantMap{ { "name", { "osd-overlay" } },
+                                           { "id", { VOLUME_OSD_ID } },
+                                           { "format", { "none" } },
+                                           { "data", { "" } } };
+        NodeBuilder builder{ node };
+        mpv_command_node(mpv, builder.GetNode(), nullptr);
+    }
 }

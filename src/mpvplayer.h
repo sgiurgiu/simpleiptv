@@ -49,6 +49,7 @@ private:
     void initializeVAO();
 
     void updateDisplay();
+    void removeVolumeOsd(const boost::system::error_code& ec);
 
 private:
     const boost::asio::any_io_executor& ui_executor;
