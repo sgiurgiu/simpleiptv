@@ -53,6 +53,10 @@ public:
     {
         return channelListPressed;
     }
+    void SetChannelListPressed(bool flag)
+    {
+        channelListPressed = flag;
+    }
 
 private:
     boost::asio::any_io_executor ui_executor;

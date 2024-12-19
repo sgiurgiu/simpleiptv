@@ -73,24 +73,10 @@ void SimpleIPTV::showDesktop()
         quit = true;
     }
 
-    if (player.GetPlayerState() != PlayerState::PLAYING ||
-        ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::GetIO().KeyCtrl)
     {
-        lastActivityTime = std::chrono::steady_clock::now();
-        showChannels = true;
-    }
-    else if (!channelsWindow->IsPinned())
-    {
-        if (showChannels && lastActivityTime < (std::chrono::steady_clock::now() -
-                                                ChannelsWindowTimerExpiry))
-        {
-            showChannels = false;
-        }
-    }
-    if (ImGui::IsAnyMouseDown() || ImGui::GetIO().MouseWheel)
-    {
-        lastActivityTime = std::chrono::steady_clock::now();
-        showChannels = true;
+        playerBarWindow.SetChannelListPressed(
+            !playerBarWindow.IsChannelListPressed());
     }
 
     ImVec2 windowsSize = playerBarWindow.ShowWindow();

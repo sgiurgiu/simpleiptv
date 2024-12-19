@@ -108,6 +108,9 @@ ImVec2 PlayerBarWindow::ShowWindow()
         channelListPressed = !channelListPressed;
     }
 
+    ImGui::SetItemTooltip(
+        "Show/Hide Channels window (Ctrl+Click anywhere to toggle)");
+
     ImGui::PopStyleColor(2);
 
     ImGui::End();
