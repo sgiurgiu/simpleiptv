@@ -23,7 +23,7 @@ ChannelsWindow::Create(const boost::asio::any_io_executor& executor,
 {
     auto window =
         std::make_shared<ChannelsWindow>(Key{}, executor, workersProvider);
-    window->loadLocalChannels();
+    window->initialize();
     return window;
 }
 
@@ -34,7 +34,126 @@ ChannelsWindow::ChannelsWindow(Key,
 , workersProvider{ workersProvider }
 , bgAlpha{ INITIAL_BG_ALPHA }
 {
-    rootNode.activatedChannelSignal.connect(channelActivatedSignal);
+}
+
+void ChannelsWindow::initialize()
+{
+    rootNode.activatedChannelSignal.connect(
+        [weak = weak_from_this()](DisplayChannel* channel)
+        {
+            auto self = weak.lock();
+            if (!self)
+                return;
+            if (self->activatedChannel)
+            {
+                self->activatedChannel->isActivated = false;
+            }
+            self->activatedChannel = channel;
+            self->activatedChannel->isActivated = true;
+            self->channelActivatedSignal(channel->channel);
+        });
+    loadLocalChannels();
+}
+
+void ChannelsWindow::ActivateNextChannel()
+{
+    if (activatedChannel)
+    {
+        auto next = activatedChannel->getNextNode();
+        activatedChannel->isActivated = false;
+        if (next)
+        {
+            DisplayChannel* channel = nullptr;
+            while (next && channel == nullptr)
+            {
+                channel = dynamic_cast<DisplayChannel*>(next);
+                if (channel)
+                {
+                    activatedChannel = channel;
+                }
+                else
+                {
+                    next = next->getNextNode();
+                }
+            }
+        }
+        else
+        {
+            rootNode.children.begin()->get()->loadChildren();
+            if (!rootNode.children.begin()->get()->children.empty())
+            {
+                rootNode.children.begin()->get()->isOpen = true;
+                activatedChannel = dynamic_cast<DisplayChannel*>(
+                    rootNode.children.begin()->get()->children.begin()->get());
+            }
+        }
+    }
+    else
+    {
+        rootNode.children.begin()->get()->loadChildren();
+        if (!rootNode.children.begin()->get()->children.empty())
+        {
+            rootNode.children.begin()->get()->isOpen = true;
+            activatedChannel = dynamic_cast<DisplayChannel*>(
+                rootNode.children.begin()->get()->children.begin()->get());
+        }
+    }
+
+    if (activatedChannel)
+    {
+        activatedChannel->isActivated = true;
+        channelActivatedSignal(activatedChannel->channel);
+    }
+}
+void ChannelsWindow::ActivatePreviousChannel()
+{
+    if (activatedChannel)
+    {
+        auto next = activatedChannel->getPreviousNode();
+        activatedChannel->isActivated = false;
+        if (next)
+        {
+            DisplayChannel* channel = nullptr;
+            while (next && channel == nullptr)
+            {
+                channel = dynamic_cast<DisplayChannel*>(next);
+                if (channel)
+                {
+                    activatedChannel = channel;
+                }
+                else
+                {
+                    next = next->getPreviousNode();
+                }
+            }
+        }
+        else
+        {
+            rootNode.children.rbegin()->get()->loadChildren();
+            if (!rootNode.children.rbegin()->get()->children.empty())
+            {
+                rootNode.children.rbegin()->get()->isOpen = true;
+                activatedChannel = dynamic_cast<DisplayChannel*>(
+                    rootNode.children.rbegin()->get()->children.rbegin()->get());
+            }
+        }
+    }
+    else
+    {
+        rootNode.children.rbegin()->get()->loadChildren();
+        if (!rootNode.children.rbegin()->get()->children.empty())
+        {
+            rootNode.children.rbegin()->get()->isOpen = true;
+            activatedChannel = dynamic_cast<DisplayChannel*>(
+                rootNode.children.rbegin()->get()->children.rbegin()->get());
+        }
+    }
+
+    if (activatedChannel)
+    {
+        activatedChannel->isActivated = true;
+        channelActivatedSignal(activatedChannel->channel);
+    }
 }
 
 ImVec2 ChannelsWindow::ShowWindow(float playerBarHeight)

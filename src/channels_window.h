@@ -41,8 +41,11 @@ public:
     {
         channelActivatedSignal.connect(slot);
     }
+    void ActivateNextChannel();
+    void ActivatePreviousChannel();
 
 private:
+    void initialize();
     void loadLocalChannels();
     void showLocalChannelsTab();
     void showRemoteChannelsTab();
@@ -57,5 +60,6 @@ private:
     std::string channelsFilter;
     using ChannelActivatedSignal = boost::signals2::signal<void(ChannelPtr)>;
     ChannelActivatedSignal channelActivatedSignal;
+    DisplayChannel* activatedChannel = nullptr;
     bool pinned = false;
 };

@@ -25,27 +25,13 @@ void clearSelectedChildren(DisplayNode* node,
         clearSelectedChildren(node.get(), selectedNodes);
     }
 }
-static DisplayChannel* activatedChannel = nullptr;
 
 } // namespace
 
 void DisplayRootChannelsGroup::renderGroup(
     std::unordered_set<DisplayNode*>& selectedNodes)
 {
-    if (!root || !root->AreGroupsLoaded())
-    {
-        return;
-    }
-
-    if (children.size() < 2 && root->AreGroupsLoaded())
-    {
-        root->IterateGroups(
-            [this](ChannelsGroupPtr group)
-            {
-                children.emplace_back(
-                    std::make_unique<DisplayChannelsGroup>(group, this));
-            });
-    }
+    loadChildren();
     for (auto& g : children)
     {
         g->render(selectedNodes);
@@ -54,19 +40,56 @@ void DisplayRootChannelsGroup::renderGroup(
 
 DisplayNode* DisplayNode::getNextNode()
 {
-    if (isOpen)
-    {
-        if (!children.empty())
-        {
-            return children.at(0).get();
-        }
-    }
     DisplayNode* curr_node = this;
+    curr_node->loadChildren();
+    if (!curr_node->children.empty())
+    {
+        isOpen = true;
+        return curr_node->children.begin()->get();
+    }
     while (curr_node->parent != nullptr)
     {
+        curr_node->parent->loadChildren();
         if (curr_node->indexInParent + 1 < (int)curr_node->parent->children.size())
         {
-            return curr_node->parent->children.at(curr_node->indexInParent + 1).get();
+            auto node =
+                curr_node->parent->children.at(curr_node->indexInParent + 1).get();
+            node->isOpen = true;
+            if (!node->children.empty())
+            {
+                return node->children.begin()->get();
+            }
+            else
+            {
+                return node;
+            }
+        }
+        curr_node = curr_node->parent;
+    }
+    return nullptr;
+}
+
+DisplayNode* DisplayNode::getPreviousNode()
+{
+    DisplayNode* curr_node = this;
+
+    while (curr_node->parent != nullptr)
+    {
+        curr_node->parent->loadChildren();
+        if (curr_node->indexInParent > 0)
+        {
+            auto node =
+                curr_node->parent->children.at(curr_node->indexInParent - 1).get();
+            node->loadChildren();
+            node->isOpen = true;
+            if (!node->children.empty())
+            {
+                return node->children.rbegin()->get();
+            }
+            else
+            {
+                return node;
+            }
         }
         curr_node = curr_node->parent;
     }
@@ -81,10 +104,32 @@ void DisplayRootChannelsGroup::setRoot(RootChannelsGroupPtr root)
     root->IterateFavouriteChannels(
         [this](ChannelPtr channel)
         {
-            favouritesGroup->children.emplace_back(
-                std::make_unique<DisplayChannel>(channel, this));
+            auto dchannel =
+                std::make_unique<DisplayChannel>(channel, favouritesGroup.get());
+            dchannel->indexInParent = favouritesGroup->children.size();
+            favouritesGroup->children.push_back(std::move(dchannel));
         });
+    favouritesGroup->indexInParent = 0;
     children.push_back(std::move(favouritesGroup));
+}
+
+void DisplayRootChannelsGroup::loadChildren()
+{
+    if (!root || !root->AreGroupsLoaded())
+    {
+        return;
+    }
+
+    if (children.size() < 2 && root->AreGroupsLoaded())
+    {
+        root->IterateGroups(
+            [this](ChannelsGroupPtr group)
+            {
+                children.emplace_back(
+                    std::make_unique<DisplayChannelsGroup>(group, this));
+                children.rbegin()->get()->indexInParent = children.size() - 1;
+            });
+    }
 }
 
 void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNodes)
@@ -154,13 +199,21 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
     if (ImGui::IsItemHovered() &&
         ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
     {
-        if (activatedChannel)
-        {
-            activatedChannel->isActivated = false;
-        }
-        activatedChannelSignal(channel);
+        activatedChannelSignal(this);
         isActivated = true;
-        activatedChannel = this;
+    }
+}
+void DisplayChannelsGroup::loadChildren()
+{
+    if (children.empty() && group)
+    {
+        group->IterateChannels(
+            [this](auto& channel)
+            {
+                children.emplace_back(
+                    std::make_unique<DisplayChannel>(channel, this));
+                children.rbegin()->get()->indexInParent = children.size() - 1;
+            });
     }
 }
 void DisplayChannelsGroup::renderGroup(std::unordered_set<DisplayNode*>& selectedNodes)
@@ -174,8 +227,10 @@ void DisplayChannelsGroup::renderGroup(std::unordered_set<DisplayNode*>& selecte
     }
     if (openByDefault)
     {
-        tree_node_flags |= ImGuiTreeNodeFlags_DefaultOpen;
+        //        tree_node_flags |= ImGuiTreeNodeFlags_DefaultOpen;
     }
+
+    ImGui::SetNextItemOpen(isOpen);
 
     if (ImGui::TreeNodeEx(name.c_str(), tree_node_flags))
     {
@@ -186,15 +241,7 @@ void DisplayChannelsGroup::renderGroup(std::unordered_set<DisplayNode*>& selecte
         else
         {
             isOpen = true;
-            if (children.empty() && group)
-            {
-                group->IterateChannels(
-                    [this](auto& channel)
-                    {
-                        children.emplace_back(
-                            std::make_unique<DisplayChannel>(channel, this));
-                    });
-            }
+            loadChildren();
             for (auto& c : children)
             {
                 c->render(selectedNodes);
@@ -233,4 +280,5 @@ DisplayFavouritesChannelsGroup::DisplayFavouritesChannelsGroup(
 }
 {
     openByDefault = true;
+    isOpen = true;
 }

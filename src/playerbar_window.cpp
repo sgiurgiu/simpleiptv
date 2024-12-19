@@ -42,13 +42,25 @@ ImVec2 PlayerBarWindow::ShowWindow()
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, 0x00000000);
     // ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0x00000000);
 
-    ImGui::Button(reinterpret_cast<const char*>(ICON_FA_STEP_BACKWARD));
+    if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_STEP_BACKWARD)))
+    {
+        previousChannelSignal();
+    }
     ImGui::SameLine();
-    ImGui::Button(reinterpret_cast<const char*>(ICON_FA_PLAY));
+    if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_PLAY)))
+    {
+        playChannelSignal();
+    }
     ImGui::SameLine();
-    ImGui::Button(reinterpret_cast<const char*>(ICON_FA_STOP));
+    if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_STOP)))
+    {
+        stopChannelSignal();
+    }
     ImGui::SameLine();
-    ImGui::Button(reinterpret_cast<const char*>(ICON_FA_STEP_FORWARD));
+    if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_STEP_FORWARD)))
+    {
+        nextChannelSignal();
+    }
     ImGui::SameLine();
     ImGui::Button(reinterpret_cast<const char*>(ICON_FA_VOLUME_UP));
     bool isVolumeHovered = ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal);

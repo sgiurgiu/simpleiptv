@@ -18,10 +18,31 @@ public:
     {
         return pinned;
     }
+
     template <typename S>
-    void addChannelActivatedListener(S slot)
+    void AddPreviousChannelListener(S slot)
     {
-        channelActivatedSignal.connect(slot);
+        previousChannelSignal.connect(slot);
+    }
+    template <typename S>
+    void AddNextChannelListener(S slot)
+    {
+        nextChannelSignal.connect(slot);
+    }
+    template <typename S>
+    void AddPauseChannelListener(S slot)
+    {
+        pauseChannelSignal.connect(slot);
+    }
+    template <typename S>
+    void AddPlayChannelListener(S slot)
+    {
+        playChannelSignal.connect(slot);
+    }
+    template <typename S>
+    void AddStopChannelListener(S slot)
+    {
+        stopChannelSignal.connect(slot);
     }
 
     void SetCurrentChannel(ChannelPtr channel)
@@ -38,8 +59,13 @@ private:
     float bgAlpha = 0.6f;
     ChannelPtr currentChannel;
     std::string channelsFilter;
-    using ChannelActivatedSignal = boost::signals2::signal<void(ChannelPtr)>;
-    ChannelActivatedSignal channelActivatedSignal;
+
+    using BasicOperationSignal = boost::signals2::signal<void()>;
+    BasicOperationSignal previousChannelSignal;
+    BasicOperationSignal nextChannelSignal;
+    BasicOperationSignal pauseChannelSignal;
+    BasicOperationSignal playChannelSignal;
+    BasicOperationSignal stopChannelSignal;
     bool pinned = false;
     int volume = 50;
     bool isVolumeSliderHovered = false;

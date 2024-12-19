@@ -9,17 +9,20 @@
 
 #include <boost/signals2.hpp>
 
+struct DisplayChannel;
 struct DisplayNode
 {
 public:
-    using ActivatedChannelSignal = boost::signals2::signal<void(ChannelPtr)>;
+    using ActivatedChannelSignal = boost::signals2::signal<void(DisplayChannel*)>;
     DisplayNode();
     DisplayNode(DisplayNode* parent);
     DisplayNode(const std::string& name, DisplayNode* parent);
     virtual ~DisplayNode() = default;
 
     virtual void render(std::unordered_set<DisplayNode*>& selectedNodes) = 0;
+    virtual void loadChildren() = 0;
     DisplayNode* getNextNode();
+    DisplayNode* getPreviousNode();
 
     DisplayNode* parent = nullptr;
     int indexInParent = 0;
@@ -45,6 +48,7 @@ struct DisplayChannelsGroup : public DisplayNode
         renderGroup(selectedNodes);
     }
     virtual void renderGroup(std::unordered_set<DisplayNode*>& selectedNodes);
+    void loadChildren() override;
     ChannelsGroupPtr group;
     bool openByDefault = false;
 };
@@ -59,6 +63,9 @@ struct DisplayChannel : public DisplayNode
         renderChannel(selectedNodes);
     }
     void renderChannel(std::unordered_set<DisplayNode*>& selectedNodes);
+    void loadChildren() override
+    {
+    }
     ChannelPtr channel;
     bool isActivated = false;
 };
@@ -69,10 +76,14 @@ struct DisplayRootChannelsGroup : public DisplayChannelsGroup
     }
     void renderGroup(std::unordered_set<DisplayNode*>& selectedNodes);
     void setRoot(RootChannelsGroupPtr root);
+    void loadChildren();
     RootChannelsGroupPtr root;
     std::unique_ptr<DisplayChannelsGroup> favouritesGroup;
 };
 struct DisplayFavouritesChannelsGroup : public DisplayChannelsGroup
 {
     DisplayFavouritesChannelsGroup(DisplayRootChannelsGroup* parent);
+    void loadChildren() override
+    {
+    }
 };

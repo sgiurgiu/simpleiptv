@@ -521,14 +521,39 @@ void MpvPlayer::SetSize(int width, int height)
 
     rescaleFrameBuffers();
 }
+void MpvPlayer::Play()
+{
+    if (!currentlyPlayingChannel || playerState == PlayerState::PLAYING)
+        return;
+    Play(currentlyPlayingChannel);
+}
+void MpvPlayer::Stop()
+{
+    const char *cmdStop[] = { "stop", nullptr };
+    mpv_command(mpv, cmdStop);
+    rescaleFrameBuffers();
+}
+void MpvPlayer::Pause()
+{
+    if (playerState != PlayerState::PLAYING)
+        return;
+    int pause = 1;
+    mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
+}
 
 void MpvPlayer::Play(ChannelPtr channel)
 {
+    if (playerState == PlayerState::PLAYING && channel == currentlyPlayingChannel)
+        return;
+    const char *cmdStop[] = { "stop", nullptr };
+    mpv_command(mpv, cmdStop);
+    rescaleFrameBuffers();
     this->currentlyPlayingChannel = channel;
     skipRendering = 1;
     const char *cmd[] = { "loadfile", currentlyPlayingChannel->GetUri().c_str(),
                           nullptr };
-    mpv_command_async(mpv, 0, cmd);
+    mpv_command(mpv, cmd);
+    mpv_set_property_string(mpv, "pause", "no");
     mpv_set_property_string(mpv, "sid", "no");
     mpv_set_property_string(mpv, "loop-playlist", "inf");
 }

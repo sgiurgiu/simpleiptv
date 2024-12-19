@@ -31,6 +31,9 @@ public:
     void Render(const ImVec2& windowsSize);
     void SetSize(int width, int height);
     void Play(ChannelPtr channel);
+    void Play();
+    void Stop();
+    void Pause();
     PlayerState GetPlayerState() const;
     void VolumeToggleMute();
     void VolumeIncrease();

@@ -27,6 +27,13 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
     using namespace std::placeholders;
     channelsWindow->AddChannelActivatedListener(
         std::bind(&SimpleIPTV::channelActivated, this, _1));
+    playerBarWindow.AddNextChannelListener(
+        [this]() { channelsWindow->ActivateNextChannel(); });
+    playerBarWindow.AddPreviousChannelListener(
+        [this]() { channelsWindow->ActivatePreviousChannel(); });
+    playerBarWindow.AddPauseChannelListener([this]() { player.Pause(); });
+    playerBarWindow.AddPlayChannelListener([this]() { player.Play(); });
+    playerBarWindow.AddStopChannelListener([this]() { player.Stop(); });
 }
 
 void SimpleIPTV::setSize(int width, int height)
