@@ -3,6 +3,9 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 
+#include <algorithm>
+#include <boost/asio/post.hpp>
+
 #include "fonts/IconsFontAwesome4.h"
 
 namespace
@@ -29,12 +32,12 @@ void clearSelectedChildren(DisplayNode* node,
 } // namespace
 
 void DisplayRootChannelsGroup::renderGroup(
-    std::unordered_set<DisplayNode*>& selectedNodes)
+    std::unordered_set<DisplayNode*>& selectedNodes, const std::string& filter)
 {
     loadChildren();
     for (auto& g : children)
     {
-        g->render(selectedNodes);
+        g->render(selectedNodes, filter);
     }
 }
 
@@ -98,6 +101,7 @@ DisplayNode* DisplayNode::getPreviousNode()
 
 void DisplayRootChannelsGroup::setRoot(RootChannelsGroupPtr root)
 {
+    children.clear();
     this->root = root;
     this->group = root;
     favouritesGroup = std::make_unique<DisplayFavouritesChannelsGroup>(this);
@@ -111,6 +115,7 @@ void DisplayRootChannelsGroup::setRoot(RootChannelsGroupPtr root)
         });
     favouritesGroup->indexInParent = 0;
     children.push_back(std::move(favouritesGroup));
+    loadChildren();
 }
 
 void DisplayRootChannelsGroup::loadChildren()
@@ -127,13 +132,30 @@ void DisplayRootChannelsGroup::loadChildren()
             {
                 children.emplace_back(
                     std::make_unique<DisplayChannelsGroup>(group, this));
-                children.rbegin()->get()->indexInParent = children.size() - 1;
+                children.back().get()->indexInParent = children.size() - 1;
+                children.back().get()->loadChildren();
             });
     }
 }
 
-void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNodes)
+bool DisplayChannel::shouldRender(const std::string& filter)
 {
+    if (filter.empty())
+        return true;
+    auto it = std::search(name.begin(), name.end(), filter.begin(),
+                          filter.end(), [](char c1, char c2)
+                          { return std::tolower(c1) == std::tolower(c2); });
+    return it != name.end();
+}
+
+void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNodes,
+                                   const std::string& filter)
+{
+    if (!shouldRender(filter))
+    {
+        return;
+    }
+
     const bool isSelected = selected;
 
     ImGuiSelectableFlags flags = ImGuiSelectableFlags_None;
@@ -212,12 +234,28 @@ void DisplayChannelsGroup::loadChildren()
             {
                 children.emplace_back(
                     std::make_unique<DisplayChannel>(channel, this));
-                children.rbegin()->get()->indexInParent = children.size() - 1;
+                children.back().get()->indexInParent = children.size() - 1;
             });
     }
 }
-void DisplayChannelsGroup::renderGroup(std::unordered_set<DisplayNode*>& selectedNodes)
+bool DisplayChannelsGroup::shouldRender(const std::string& filter)
 {
+    if (filter.empty())
+        return true;
+    bool shouldRender = false;
+    for (auto& c : children)
+    {
+        shouldRender |= c->shouldRender(filter);
+    }
+    return shouldRender;
+}
+void DisplayChannelsGroup::renderGroup(
+    std::unordered_set<DisplayNode*>& selectedNodes, const std::string& filter)
+{
+    loadChildren();
+    if (!shouldRender(filter))
+        return;
+
     ImGuiTreeNodeFlags tree_node_flags = ImGuiTreeNodeFlags_SpanAvailWidth |
                                          ImGuiTreeNodeFlags_OpenOnArrow |
                                          ImGuiTreeNodeFlags_OpenOnDoubleClick;
@@ -241,10 +279,9 @@ void DisplayChannelsGroup::renderGroup(std::unordered_set<DisplayNode*>& selecte
         else
         {
             isOpen = true;
-            loadChildren();
             for (auto& c : children)
             {
-                c->render(selectedNodes);
+                c->render(selectedNodes, filter);
             }
         }
         ImGui::TreePop();
@@ -262,10 +299,11 @@ void DisplayChannelsGroup::renderGroup(std::unordered_set<DisplayNode*>& selecte
 DisplayNode::DisplayNode() : DisplayNode{ nullptr }
 {
 }
-DisplayNode::DisplayNode(DisplayNode* parent) : DisplayNode{ "", parent }
+DisplayNode::DisplayNode(DisplayChannelsGroup* parent)
+: DisplayNode{ "", parent }
 {
 }
-DisplayNode::DisplayNode(const std::string& name, DisplayNode* parent)
+DisplayNode::DisplayNode(const std::string& name, DisplayChannelsGroup* parent)
 : parent{ parent }, name{ name }
 {
     if (parent)

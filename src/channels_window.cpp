@@ -225,12 +225,10 @@ ImVec2 ChannelsWindow::ShowWindow(float playerBarHeight)
 
 void ChannelsWindow::showLocalChannelsTab()
 {
-    if (ImGui::InputTextWithHint("##filterChannels", "Filter", &channelsFilter))
-    {
-    }
+    ImGui::InputTextWithHint("##filterChannels", "Filter", &channelsFilter);
     ImGui::BeginChild("##localChannelsTab", ImVec2(0, 0), ImGuiChildFlags_None,
                       ImGuiWindowFlags_HorizontalScrollbar);
-    rootNode.render(localSelectedNodes);
+    rootNode.render(localSelectedNodes, channelsFilter);
     ImGui::EndChild();
 }
 void ChannelsWindow::showRemoteChannelsTab()
@@ -244,17 +242,17 @@ void ChannelsWindow::loadLocalChannels()
     workersProvider.GetChannelsRepository()->LoadChannelsAndGroups(
         [weak = weak_from_this(), start](RootChannelsGroupPtr root)
         {
+            auto self = weak.lock();
+            if (!self)
+                return;
+
+            self->rootNode.setRoot(root);
             auto end = std::chrono::high_resolution_clock::now();
             auto duration = end - start;
             spdlog::debug(
                 "done loading channels. duration: {} ms",
                 std::chrono::duration_cast<std::chrono::milliseconds>(duration)
                     .count());
-            auto self = weak.lock();
-            if (!self)
-                return;
-
-            self->rootNode.setRoot(root);
         },
         ui_executor);
 }
