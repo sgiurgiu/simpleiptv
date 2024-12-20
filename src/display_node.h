@@ -23,7 +23,7 @@ public:
     virtual void render(std::unordered_set<DisplayNode*>& selectedNodes,
                         const std::string& filter) = 0;
     virtual void loadChildren() = 0;
-    virtual bool shouldRender(const std::string& filter) = 0;
+    virtual bool shouldRender(const std::string& filter) const = 0;
     DisplayNode* getNextNode();
     DisplayNode* getPreviousNode();
 
@@ -54,7 +54,7 @@ struct DisplayChannelsGroup : public DisplayNode
     virtual void renderGroup(std::unordered_set<DisplayNode*>& selectedNodes,
                              const std::string& filter);
     void loadChildren() override;
-    bool shouldRender(const std::string& filter) override;
+    bool shouldRender(const std::string& filter) const override;
     ChannelsGroupPtr group;
     bool openByDefault = false;
 };
@@ -74,7 +74,7 @@ struct DisplayChannel : public DisplayNode
     void loadChildren() override
     {
     }
-    bool shouldRender(const std::string& filter) override;
+    bool shouldRender(const std::string& filter) const override;
     ChannelPtr channel;
     bool isActivated = false;
 };

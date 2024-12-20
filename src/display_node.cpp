@@ -138,7 +138,7 @@ void DisplayRootChannelsGroup::loadChildren()
     }
 }
 
-bool DisplayChannel::shouldRender(const std::string& filter)
+bool DisplayChannel::shouldRender(const std::string& filter) const
 {
     if (filter.empty())
         return true;
@@ -185,7 +185,7 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
         }
         else if (ImGui::GetIO().KeyShift)
         {
-            // TODO: this is tricky
+            // TODO: this is tricky, so leave it for later
             if (selected)
             {
                 selectedNodes.insert(this);
@@ -238,7 +238,7 @@ void DisplayChannelsGroup::loadChildren()
             });
     }
 }
-bool DisplayChannelsGroup::shouldRender(const std::string& filter)
+bool DisplayChannelsGroup::shouldRender(const std::string& filter) const
 {
     if (filter.empty())
         return true;
