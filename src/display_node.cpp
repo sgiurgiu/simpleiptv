@@ -233,12 +233,15 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
     loadLogoTexture();
     if (channelLogoTexture)
     {
+        ImVec2 size = displayLogoSize;
+        ImVec2 dummySize{ ImGui::GetStyle().ItemSpacing.x, size.y };
+        if (size.x < parent->maxLogoWidth)
+        {
+            dummySize.x += parent->maxLogoWidth - size.x;
+        }
         ImTextureID texture = reinterpret_cast<ImTextureID>(channelLogoTexture);
-        /*ImGui::ImageButtonEx(btnId++, texture, displayLogoSize, ImVec2(0, 0),
-                             ImVec2(1, 1), ImVec4(1, 1, 1, 1),
-                             ImVec4(0, 0, 0, 0));*/
         ImGui::Image(texture, displayLogoSize);
-        ImGui::SameLine();
+        ImGui::SameLine(0.f, dummySize.x);
     }
     ImGui::Text("%s", channel->GetName().c_str());
 }
@@ -268,6 +271,11 @@ void DisplayChannel::loadLogoTexture()
                          GL_RGBA, GL_UNSIGNED_BYTE, logoData);
         }
         glBindTexture(GL_TEXTURE_2D, 0);
+        ImVec2 size = displayLogoSize;
+        if (parent->maxLogoWidth < size.x)
+        {
+            parent->maxLogoWidth = size.x;
+        }
     }
 }
 void DisplayChannelsGroup::loadChildren(const boost::asio::any_io_executor& executor)
@@ -376,6 +384,10 @@ DisplayChannel::DisplayChannel(ChannelPtr channel,
                            (ImGui::GetFontSize() * 2.f / 3.f) +
                                ImGui::GetStyle().FramePadding.y * 2.f } }
 {
+    decodeLogoImage(executor);
+}
+void DisplayChannel::decodeLogoImage(const boost::asio::any_io_executor& executor)
+{
     if (!channel->GetLogo().empty())
     {
         boost::asio::post(executor,
@@ -409,6 +421,11 @@ DisplayChannel::DisplayChannel(ChannelPtr channel,
                               logoChannels = channels;
                           });
     }
+}
+void DisplayChannel::downloadLogoImage(const boost::asio::any_io_executor& executor)
+{
+    if (!channel->GetLogo().empty() || channel->GetLogoUri().empty())
+        return;
 }
 DisplayChannel::~DisplayChannel()
 {

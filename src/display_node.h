@@ -62,6 +62,7 @@ struct DisplayChannelsGroup : public DisplayNode
     bool shouldRender(const std::string& filter) const override;
     ChannelsGroupPtr group;
     bool openByDefault = false;
+    float maxLogoWidth = 0.0;
 };
 struct DisplayChannel : public DisplayNode
 {
@@ -81,6 +82,8 @@ struct DisplayChannel : public DisplayNode
     }
     bool shouldRender(const std::string& filter) const override;
     void loadLogoTexture();
+    void decodeLogoImage(const boost::asio::any_io_executor& executor);
+    void downloadLogoImage(const boost::asio::any_io_executor& executor);
     ChannelPtr channel;
     bool isActivated = false;
     GLuint channelLogoTexture = 0;
