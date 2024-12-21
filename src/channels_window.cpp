@@ -59,7 +59,8 @@ void ChannelsWindow::ActivateNextChannel()
 {
     if (activatedChannel)
     {
-        auto next = activatedChannel->getNextNode();
+        auto next =
+            activatedChannel->getNextNode(workersProvider.GetWorkersExecutor());
         activatedChannel->isActivated = false;
         if (next)
         {
@@ -73,13 +74,15 @@ void ChannelsWindow::ActivateNextChannel()
                 }
                 else
                 {
-                    next = next->getNextNode();
+                    next =
+                        next->getNextNode(workersProvider.GetWorkersExecutor());
                 }
             }
         }
         else
         {
-            rootNode.children.begin()->get()->loadChildren();
+            rootNode.children.begin()->get()->loadChildren(
+                workersProvider.GetWorkersExecutor());
             if (!rootNode.children.begin()->get()->children.empty())
             {
                 rootNode.children.begin()->get()->isOpen = true;
@@ -90,7 +93,8 @@ void ChannelsWindow::ActivateNextChannel()
     }
     else
     {
-        rootNode.children.begin()->get()->loadChildren();
+        rootNode.children.begin()->get()->loadChildren(
+            workersProvider.GetWorkersExecutor());
         if (!rootNode.children.begin()->get()->children.empty())
         {
             rootNode.children.begin()->get()->isOpen = true;
@@ -109,7 +113,8 @@ void ChannelsWindow::ActivatePreviousChannel()
 {
     if (activatedChannel)
     {
-        auto next = activatedChannel->getPreviousNode();
+        auto next = activatedChannel->getPreviousNode(
+            workersProvider.GetWorkersExecutor());
         activatedChannel->isActivated = false;
         if (next)
         {
@@ -123,13 +128,15 @@ void ChannelsWindow::ActivatePreviousChannel()
                 }
                 else
                 {
-                    next = next->getPreviousNode();
+                    next = next->getPreviousNode(
+                        workersProvider.GetWorkersExecutor());
                 }
             }
         }
         else
         {
-            rootNode.children.rbegin()->get()->loadChildren();
+            rootNode.children.rbegin()->get()->loadChildren(
+                workersProvider.GetWorkersExecutor());
             if (!rootNode.children.rbegin()->get()->children.empty())
             {
                 rootNode.children.rbegin()->get()->isOpen = true;
@@ -140,7 +147,8 @@ void ChannelsWindow::ActivatePreviousChannel()
     }
     else
     {
-        rootNode.children.rbegin()->get()->loadChildren();
+        rootNode.children.rbegin()->get()->loadChildren(
+            workersProvider.GetWorkersExecutor());
         if (!rootNode.children.rbegin()->get()->children.empty())
         {
             rootNode.children.rbegin()->get()->isOpen = true;
@@ -246,7 +254,8 @@ void ChannelsWindow::loadLocalChannels()
             if (!self)
                 return;
 
-            self->rootNode.setRoot(root);
+            self->rootNode.setRoot(root,
+                                   self->workersProvider.GetWorkersExecutor());
             auto end = std::chrono::high_resolution_clock::now();
             auto duration = end - start;
             spdlog::debug(

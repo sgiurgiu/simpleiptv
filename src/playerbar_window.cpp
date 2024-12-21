@@ -4,12 +4,22 @@
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
 #include <spdlog/spdlog.h>
+#include <stb_image.h>
+#include <stb_image_resize2.h>
 
 #include "fonts/IconsFontAwesome4.h"
 
 PlayerBarWindow::PlayerBarWindow(const boost::asio::any_io_executor& ui_executor)
 : ui_executor{ ui_executor }
 {
+}
+PlayerBarWindow::~PlayerBarWindow()
+{
+    if (channelLogoTexture)
+    {
+        glDeleteTextures(1, &channelLogoTexture);
+        channelLogoTexture = 0;
+    }
 }
 ImVec2 PlayerBarWindow::ShowWindow()
 {
@@ -84,6 +94,13 @@ ImVec2 PlayerBarWindow::ShowWindow()
     if (currentChannel)
     {
         ImGui::SameLine();
+        if (channelLogoTexture)
+        {
+            ImTextureID texture =
+                reinterpret_cast<ImTextureID>(channelLogoTexture);
+            ImGui::Image(texture, channelLogoSize);
+            ImGui::SameLine();
+        }
         ImGui::Text("%s", currentChannel->GetName().c_str());
     }
     auto localPosition = ImGui::GetCursorPosX();
@@ -115,4 +132,63 @@ ImVec2 PlayerBarWindow::ShowWindow()
 
     ImGui::End();
     return size;
+}
+
+void PlayerBarWindow::loadChannelLogoData()
+{
+    if (currentChannel->GetLogo().empty())
+        return;
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+    auto imageData = stbi_load_from_memory(
+        reinterpret_cast<const stbi_uc*>(currentChannel->GetLogo().data()),
+        currentChannel->GetLogo().size(), &width, &height, &channels,
+        STBI_rgb_alpha);
+
+    float ratio = (float)width / (float)height;
+    ImVec2 size{ ImGui::GetFontSize() + ImGui::GetStyle().FramePadding.y * 2.f +
+                     ImGui::GetStyle().WindowPadding.y * 2.f,
+                 ImGui::GetFontSize() + ImGui::GetStyle().FramePadding.y * 2.f +
+                     ImGui::GetStyle().WindowPadding.y * 2.f };
+    float area = size.x * size.y;
+    size.x = std::sqrt(ratio * area);
+    size.y = area / size.x;
+    channelLogoSize = size;
+
+    auto resizedImageData = stbir_resize_uint8_srgb(
+        imageData, width, height, width * channels, nullptr, size.x, size.y,
+        size.x * channels, (stbir_pixel_layout)channels);
+
+    if (channelLogoTexture)
+    {
+        glDeleteTextures(1, &channelLogoTexture);
+        channelLogoTexture = 0;
+    }
+
+    glGenTextures(1, &channelLogoTexture);
+    glBindTexture(GL_TEXTURE_2D, channelLogoTexture);
+
+    // Setup filtering parameters for display
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                    GL_CLAMP_TO_EDGE); // This is required on WebGL
+                                       // for non power-of-two textures
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
+                    GL_CLAMP_TO_EDGE); // Same
+    if (channels == 3)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, size.x, size.y, 0, GL_RGB,
+                     GL_UNSIGNED_BYTE, resizedImageData);
+    }
+    else if (channels == 4)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.x, size.y, 0, GL_RGBA,
+                     GL_UNSIGNED_BYTE, resizedImageData);
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    stbi_image_free(imageData);
+    stbi_image_free(resizedImageData);
 }

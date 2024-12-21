@@ -18,6 +18,7 @@
     "opengl",
     "openssl",
     "zlib",
+    "stb",
     {
       "name":"glfw3",
       "features": ["wayland"]

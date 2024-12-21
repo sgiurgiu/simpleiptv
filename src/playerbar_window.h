@@ -1,5 +1,6 @@
 #pragma once
 
+#include <GL/gl.h>
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/signals2.hpp>
 #include <chrono>
@@ -12,7 +13,7 @@ class PlayerBarWindow
 
 public:
     PlayerBarWindow(const boost::asio::any_io_executor& ui_executor);
-
+    ~PlayerBarWindow();
     ImVec2 ShowWindow();
     bool IsPinned() const
     {
@@ -48,6 +49,7 @@ public:
     void SetCurrentChannel(ChannelPtr channel)
     {
         currentChannel = channel;
+        loadChannelLogoData();
     }
     bool IsChannelListPressed() const
     {
@@ -57,6 +59,9 @@ public:
     {
         channelListPressed = flag;
     }
+
+private:
+    void loadChannelLogoData();
 
 private:
     boost::asio::any_io_executor ui_executor;
@@ -75,4 +80,6 @@ private:
     bool isVolumeSliderHovered = false;
     std::chrono::steady_clock::time_point lastVolumeHoveredTime;
     bool channelListPressed = true;
+    GLuint channelLogoTexture = 0;
+    ImVec2 channelLogoSize = { 0, 0 };
 };

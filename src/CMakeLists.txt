@@ -29,6 +29,7 @@ if(VCPKG_TOOLCHAIN)
     find_package(SOCI CONFIG REQUIRED)
     find_package(imgui CONFIG REQUIRED)
     find_package(sdbus-c++ CONFIG REQUIRED)
+    find_package(Stb REQUIRED)
 
     if(UNIX)
         find_package(PkgConfig REQUIRED)
@@ -47,6 +48,7 @@ if(VCPKG_TOOLCHAIN)
     list(APPEND STV_LIBARIES spdlog::spdlog_header_only fmt::fmt-header-only)
     list(APPEND STV_LIBARIES unofficial::sqlite3::sqlite3 SOCI::soci_sqlite3_static)
     list(APPEND STV_LIBARIES SDBusCpp::sdbus-c++)
+    list(APPEND STV_INCLUDES ${Stb_INCLUDE_DIR})
 else()
     message(FATAL "VCPKG is required")
 endif()
@@ -89,6 +91,7 @@ set(STV_SRCS main.cpp
     dbus_service.cpp
     settings_repository.cpp
     playerbar_window.cpp
+    stb_implementation.cpp
     )
 
 

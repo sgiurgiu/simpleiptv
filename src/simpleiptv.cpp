@@ -73,7 +73,9 @@ void SimpleIPTV::showDesktop()
         quit = true;
     }
 
-    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::GetIO().KeyCtrl)
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+        ImGui::GetIO().KeyCtrl && !ImGui::IsAnyItemHovered() &&
+        !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
     {
         playerBarWindow.SetChannelListPressed(
             !playerBarWindow.IsChannelListPressed());

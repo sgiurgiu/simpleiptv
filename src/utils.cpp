@@ -23,8 +23,10 @@ void Utils::AddFont(const unsigned char *fontData,
 {
     ImFontConfig fontAwesomeConfig;
     fontAwesomeConfig.MergeMode = true;
+    float iconFontSize = fontSize * 2.f / 3.f;
     fontAwesomeConfig.GlyphMinAdvanceX =
-        fontSize; // Use if you want to make the icon monospaced
+        iconFontSize; // Use if you want to make the icon monospaced
+    fontAwesomeConfig.PixelSnapH = true;
     static const ImWchar icon_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
     // clang-format off
     static const ImWchar font_ranges[] = { 0x0020, 0x052F,
@@ -46,7 +48,7 @@ void Utils::AddFont(const unsigned char *fontData,
     ImGui::GetIO().Fonts->AddFontFromMemoryTTF(
         (void *)fontData, fontDataSize, fontSize, &fontConfig, font_ranges);
     ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(
-        FontAwesome_compressed_data, FontAwesome_compressed_size, fontSize,
+        FontAwesome_compressed_data, FontAwesome_compressed_size, iconFontSize,
         &fontAwesomeConfig, icon_ranges);
 }
 

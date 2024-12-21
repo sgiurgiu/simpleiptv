@@ -2,6 +2,8 @@
 
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <stb_image.h>
+#include <stb_image_resize2.h>
 
 #include <algorithm>
 #include <boost/asio/post.hpp>
@@ -34,17 +36,17 @@ void clearSelectedChildren(DisplayNode* node,
 void DisplayRootChannelsGroup::renderGroup(
     std::unordered_set<DisplayNode*>& selectedNodes, const std::string& filter)
 {
-    loadChildren();
+    // loadChildren();
     for (auto& g : children)
     {
         g->render(selectedNodes, filter);
     }
 }
 
-DisplayNode* DisplayNode::getNextNode()
+DisplayNode* DisplayNode::getNextNode(const boost::asio::any_io_executor& executor)
 {
     DisplayNode* curr_node = this;
-    curr_node->loadChildren();
+    curr_node->loadChildren(executor);
     if (!curr_node->children.empty())
     {
         isOpen = true;
@@ -52,7 +54,7 @@ DisplayNode* DisplayNode::getNextNode()
     }
     while (curr_node->parent != nullptr)
     {
-        curr_node->parent->loadChildren();
+        curr_node->parent->loadChildren(executor);
         if (curr_node->indexInParent + 1 < (int)curr_node->parent->children.size())
         {
             auto node =
@@ -72,18 +74,18 @@ DisplayNode* DisplayNode::getNextNode()
     return nullptr;
 }
 
-DisplayNode* DisplayNode::getPreviousNode()
+DisplayNode* DisplayNode::getPreviousNode(const boost::asio::any_io_executor& executor)
 {
     DisplayNode* curr_node = this;
 
     while (curr_node->parent != nullptr)
     {
-        curr_node->parent->loadChildren();
+        curr_node->parent->loadChildren(executor);
         if (curr_node->indexInParent > 0)
         {
             auto node =
                 curr_node->parent->children.at(curr_node->indexInParent - 1).get();
-            node->loadChildren();
+            node->loadChildren(executor);
             node->isOpen = true;
             if (!node->children.empty())
             {
@@ -99,26 +101,28 @@ DisplayNode* DisplayNode::getPreviousNode()
     return nullptr;
 }
 
-void DisplayRootChannelsGroup::setRoot(RootChannelsGroupPtr root)
+void DisplayRootChannelsGroup::setRoot(RootChannelsGroupPtr root,
+                                       const boost::asio::any_io_executor& executor)
 {
     children.clear();
     this->root = root;
     this->group = root;
     favouritesGroup = std::make_unique<DisplayFavouritesChannelsGroup>(this);
     root->IterateFavouriteChannels(
-        [this](ChannelPtr channel)
+        [this, &executor](ChannelPtr channel)
         {
-            auto dchannel =
-                std::make_unique<DisplayChannel>(channel, favouritesGroup.get());
+            auto dchannel = std::make_unique<DisplayChannel>(
+                channel, favouritesGroup.get(), executor);
             dchannel->indexInParent = favouritesGroup->children.size();
             favouritesGroup->children.push_back(std::move(dchannel));
         });
     favouritesGroup->indexInParent = 0;
     children.push_back(std::move(favouritesGroup));
-    loadChildren();
+    loadChildren(executor);
 }
 
-void DisplayRootChannelsGroup::loadChildren()
+void DisplayRootChannelsGroup::loadChildren(
+    const boost::asio::any_io_executor& executor)
 {
     if (!root || !root->AreGroupsLoaded())
     {
@@ -128,12 +132,12 @@ void DisplayRootChannelsGroup::loadChildren()
     if (children.size() < 2 && root->AreGroupsLoaded())
     {
         root->IterateGroups(
-            [this](ChannelsGroupPtr group)
+            [this, &executor](ChannelsGroupPtr group)
             {
                 children.emplace_back(
                     std::make_unique<DisplayChannelsGroup>(group, this));
                 children.back().get()->indexInParent = children.size() - 1;
-                children.back().get()->loadChildren();
+                children.back().get()->loadChildren(executor);
             });
     }
 }
@@ -158,7 +162,8 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
 
     const bool isSelected = selected;
 
-    ImGuiSelectableFlags flags = ImGuiSelectableFlags_None;
+    ImGuiSelectableFlags flags =
+        ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap;
     if (isActivated && !isSelected)
     {
         flags |= ImGuiSelectableFlags_Highlight;
@@ -167,8 +172,8 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
             ImGuiCol_HeaderHovered,
             ImVec4(103.f / 255.f, 135.f / 255.f, 104.f / 255.f, 1.f));
     }
-
-    if (ImGui::Selectable(channel->GetName().c_str(), isSelected, flags))
+    ImGui::PushID(this);
+    if (ImGui::Selectable("##channel", isSelected, flags))
     {
         selected = !selected;
         if (ImGui::GetIO().KeyCtrl)
@@ -213,27 +218,67 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
             }
         }
     }
+    ImGui::PopID();
     if (isActivated && !isSelected)
     {
         ImGui::PopStyleColor(1);
     }
-
     if (ImGui::IsItemHovered() &&
         ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
     {
         activatedChannelSignal(this);
         isActivated = true;
     }
+    ImGui::SameLine();
+    loadLogoTexture();
+    if (channelLogoTexture)
+    {
+        ImTextureID texture = reinterpret_cast<ImTextureID>(channelLogoTexture);
+        /*ImGui::ImageButtonEx(btnId++, texture, displayLogoSize, ImVec2(0, 0),
+                             ImVec2(1, 1), ImVec4(1, 1, 1, 1),
+                             ImVec4(0, 0, 0, 0));*/
+        ImGui::Image(texture, displayLogoSize);
+        ImGui::SameLine();
+    }
+    ImGui::Text("%s", channel->GetName().c_str());
 }
-void DisplayChannelsGroup::loadChildren()
+void DisplayChannel::loadLogoTexture()
+{
+    if (logoData && !channelLogoTexture)
+    {
+        glGenTextures(1, &channelLogoTexture);
+        glBindTexture(GL_TEXTURE_2D, channelLogoTexture);
+
+        // Setup filtering parameters for display
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                        GL_CLAMP_TO_EDGE); // This is required on WebGL
+                                           // for non power-of-two textures
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
+                        GL_CLAMP_TO_EDGE); // Same
+        if (logoChannels == 3)
+        {
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, logoWidth, logoHeight, 0,
+                         GL_RGB, GL_UNSIGNED_BYTE, logoData);
+        }
+        else if (logoChannels == 4)
+        {
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, logoWidth, logoHeight, 0,
+                         GL_RGBA, GL_UNSIGNED_BYTE, logoData);
+        }
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+}
+void DisplayChannelsGroup::loadChildren(const boost::asio::any_io_executor& executor)
 {
     if (children.empty() && group)
     {
         group->IterateChannels(
-            [this](auto& channel)
+            [this, &executor](auto& channel)
             {
                 children.emplace_back(
-                    std::make_unique<DisplayChannel>(channel, this));
+                    std::make_unique<DisplayChannel>(channel, this, executor));
                 children.back().get()->indexInParent = children.size() - 1;
             });
     }
@@ -252,7 +297,7 @@ bool DisplayChannelsGroup::shouldRender(const std::string& filter) const
 void DisplayChannelsGroup::renderGroup(
     std::unordered_set<DisplayNode*>& selectedNodes, const std::string& filter)
 {
-    loadChildren();
+    // loadChildren();
     if (!shouldRender(filter))
         return;
 
@@ -319,4 +364,61 @@ DisplayFavouritesChannelsGroup::DisplayFavouritesChannelsGroup(
 {
     openByDefault = true;
     isOpen = true;
+}
+
+DisplayChannel::DisplayChannel(ChannelPtr channel,
+                               DisplayChannelsGroup* parent,
+                               const boost::asio::any_io_executor& executor)
+: DisplayNode{ channel->GetName(), parent }
+, channel{ channel }
+, displayLogoSize{ ImVec2{ (ImGui::GetFontSize() * 2.f / 3.f) +
+                               ImGui::GetStyle().FramePadding.x * 2.f,
+                           (ImGui::GetFontSize() * 2.f / 3.f) +
+                               ImGui::GetStyle().FramePadding.y * 2.f } }
+{
+    if (!channel->GetLogo().empty())
+    {
+        boost::asio::post(executor,
+                          [this]()
+                          {
+                              int width = 0;
+                              int height = 0;
+                              int channels = 0;
+                              auto imageData = stbi_load_from_memory(
+                                  reinterpret_cast<const stbi_uc*>(
+                                      this->channel->GetLogo().data()),
+                                  this->channel->GetLogo().size(), &width,
+                                  &height, &channels, STBI_rgb_alpha);
+
+                              float ratio = (float)width / (float)height;
+                              ImVec2 size = displayLogoSize;
+                              float area = size.x * size.y;
+                              size.x = std::sqrt(ratio * area);
+                              size.y = area / size.x;
+                              displayLogoSize = size;
+
+                              auto resizedImageData = stbir_resize_uint8_srgb(
+                                  imageData, width, height, width * channels,
+                                  nullptr, size.x, size.y, size.x * channels,
+                                  (stbir_pixel_layout)channels);
+
+                              stbi_image_free(imageData);
+                              logoWidth = size.x;
+                              logoHeight = size.y;
+                              logoData = resizedImageData;
+                              logoChannels = channels;
+                          });
+    }
+}
+DisplayChannel::~DisplayChannel()
+{
+    if (channelLogoTexture)
+    {
+        glDeleteTextures(1, &channelLogoTexture);
+        channelLogoTexture = 0;
+    }
+    if (logoData)
+    {
+        stbi_image_free(logoData);
+    }
 }
