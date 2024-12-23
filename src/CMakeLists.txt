@@ -60,7 +60,11 @@ if(WIN32)
 endif()
 
 if(UNIX AND NOT APPLE)
-    set(DBUS_FILES dbus/org.freedesktop.ScreenSaver.xml)
+    set(DBUS_FILES dbus/org.freedesktop.ScreenSaver.xml
+        dbus/org.mpris.MediaPlayer2.xml
+        dbus/org.mpris.MediaPlayer2.Player.xml
+        dbus/org.mpris.MediaPlayer2.Playlists.xml
+    )
     find_program(SDBUS-XML2CPP sdbus-c++-xml2cpp DOC "SDBUS XML2CPP program")
 
     foreach(FILE ${DBUS_FILES})

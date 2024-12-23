@@ -316,10 +316,6 @@ void DisplayChannelsGroup::renderGroup(
     {
         tree_node_flags |= ImGuiTreeNodeFlags_Selected;
     }
-    if (openByDefault)
-    {
-        //        tree_node_flags |= ImGuiTreeNodeFlags_DefaultOpen;
-    }
 
     ImGui::SetNextItemOpen(isOpen);
 
@@ -370,7 +366,6 @@ DisplayFavouritesChannelsGroup::DisplayFavouritesChannelsGroup(
     reinterpret_cast<const char*>(ICON_FA_STAR " Favourites"), parent
 }
 {
-    openByDefault = true;
     isOpen = true;
 }
 

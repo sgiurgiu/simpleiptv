@@ -61,7 +61,6 @@ struct DisplayChannelsGroup : public DisplayNode
     void loadChildren(const boost::asio::any_io_executor& executor) override;
     bool shouldRender(const std::string& filter) const override;
     ChannelsGroupPtr group;
-    bool openByDefault = false;
     float maxLogoWidth = 0.0;
 };
 struct DisplayChannel : public DisplayNode
