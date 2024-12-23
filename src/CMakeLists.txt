@@ -60,17 +60,27 @@ if(WIN32)
 endif()
 
 if(UNIX AND NOT APPLE)
-    set(DBUS_FILES dbus/org.freedesktop.ScreenSaver.xml
+    set(DBUS_CLIENT_FILES dbus/org.freedesktop.ScreenSaver.xml
+    )
+    set(DBUS_SERVER_FILES
         dbus/org.mpris.MediaPlayer2.xml
         dbus/org.mpris.MediaPlayer2.Player.xml
         dbus/org.mpris.MediaPlayer2.Playlists.xml
     )
+
     find_program(SDBUS-XML2CPP sdbus-c++-xml2cpp DOC "SDBUS XML2CPP program")
 
-    foreach(FILE ${DBUS_FILES})
+    foreach(FILE ${DBUS_CLIENT_FILES})
         file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/include/dbus)
         execute_process(
             COMMAND ${SDBUS-XML2CPP} --proxy=${CMAKE_BINARY_DIR}/include/${FILE}.h ${CMAKE_CURRENT_SOURCE_DIR}/${FILE}
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            COMMAND_ECHO STDOUT)
+    endforeach()
+    foreach(FILE ${DBUS_SERVER_FILES})
+        file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/include/dbus)
+        execute_process(
+            COMMAND ${SDBUS-XML2CPP} --adaptor=${CMAKE_BINARY_DIR}/include/${FILE}.h ${CMAKE_CURRENT_SOURCE_DIR}/${FILE}
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
             COMMAND_ECHO STDOUT)
     endforeach()

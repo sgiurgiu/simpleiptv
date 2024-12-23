@@ -1,0 +1,13 @@
+diff --git a/tools/xml2cpp-codegen/AdaptorGenerator.cpp b/tools/xml2cpp-codegen/AdaptorGenerator.cpp
+index db1ee04..dc480b9 100644
+--- a/tools/xml2cpp-codegen/AdaptorGenerator.cpp
++++ b/tools/xml2cpp-codegen/AdaptorGenerator.cpp
+@@ -121,7 +121,7 @@ std::string AdaptorGenerator::processInterface(Node& interface) const
+     if(!annotationRegistration.empty())
+     {
+         std::stringstream str;
+-        str << "sdbus::setInterfaceFlags()" << annotationRegistration << ";";
++        str << "sdbus::setInterfaceFlags()" << annotationRegistration;
+         annotationRegistration = str.str();
+     }
+ 
