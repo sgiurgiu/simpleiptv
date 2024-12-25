@@ -38,10 +38,21 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
     playerBarWindow.AddPauseChannelListener([this]() { player.Pause(); });
     playerBarWindow.AddPlayChannelListener([this]() { player.Play(); });
     playerBarWindow.AddStopChannelListener([this]() { player.Stop(); });
+    playerBarWindow.AddVolumeListener([this](double vol)
+                                      { player.SetVolume(vol); });
     player.AddFileLoadingErrorListener(
         [this](const std::string& error)
         { playerBarWindow.SetFileLoadingError(error); });
+    player.AddVolumeListener(
+        [this](double vol)
+        {
+#ifdef STV_UNIX
+            this->workersProvider->GetMprisService()->SetVolume(vol);
+#endif
+            playerBarWindow.SetVolume(vol);
+        });
 
+    playerBarWindow.SetVolume(player.GetVolume());
 #ifdef STV_UNIX
     auto mprisService = workersProvider->GetMprisService();
     mprisService->AddNextListener([this]()
@@ -56,6 +67,9 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
     player.AddPlayerStateListener(
         [mprisService](PlayerState state)
         { mprisService->SetCurrentPlayerState(state); });
+    mprisService->AddVolumeListener([this](double vol)
+                                    { player.SetVolume(vol); });
+    mprisService->SetVolume(player.GetVolume());
 #endif
 }
 

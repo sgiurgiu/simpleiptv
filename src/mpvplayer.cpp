@@ -88,11 +88,18 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
             }
             if (mpv_initialize(mpv) < 0)
                 throw std::runtime_error("could not initialize mpv context");
+            int errorCode =
+                mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
+            if (errorCode)
+            {
+                spdlog::error("Cannot set volume: {}",
+                              mpv_error_string(errorCode));
+            }
         },
         ui_executor);
     mpv_set_option_string(mpv, "hwdec", "auto");
     // mpv_set_option_string(mpv, "gpu-debug", "true");
-    mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
+
     double volMax = 150.0;
     mpv_set_property(mpv, "volume-max", MPV_FORMAT_DOUBLE, &volMax);
 
@@ -619,9 +626,7 @@ void MpvPlayer::removeVolumeOsd(const boost::system::error_code &ec)
 }
 double MpvPlayer::GetVolume() const
 {
-    double vol;
-    mpv_get_property(mpv, "volume", MPV_FORMAT_DOUBLE, &vol);
-    return vol;
+    return volume;
 }
 void MpvPlayer::SetVolume(double volume)
 {
@@ -635,11 +640,12 @@ void MpvPlayer::SetVolume(double volume)
         { "format", { "ass-events" } },
         { "res_x", { width } },
         { "res_y", { height } },
-        { "data", { fmt::format("{{\\an9\\fs36}}Volume {}", this->volume) } }
+        { "data", { fmt::format("{{\\an9\\fs36}}Volume {}", (int)this->volume) } }
     };
     NodeBuilder builder{ node };
     mpv_command_node(mpv, builder.GetNode(), nullptr);
     using namespace std::placeholders;
     osdTimer.expires_after(OSD_DURATION);
     osdTimer.async_wait(std::bind(&MpvPlayer::removeVolumeOsd, this, _1));
+    volumeSignal(this->volume);
 }

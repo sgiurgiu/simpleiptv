@@ -46,12 +46,7 @@ public:
         stopChannelSignal.connect(slot);
     }
 
-    void SetCurrentChannel(ChannelPtr channel)
-    {
-        currentChannel = channel;
-        fileLoadingError = "";
-        loadChannelLogoData();
-    }
+    void SetCurrentChannel(ChannelPtr channel);
     bool IsChannelListPressed() const
     {
         return channelListPressed;
@@ -63,6 +58,15 @@ public:
     void SetFileLoadingError(const std::string& error)
     {
         fileLoadingError = error;
+    }
+    void SetVolume(double vol)
+    {
+        volume = vol;
+    }
+    template <typename S>
+    void AddVolumeListener(S slot)
+    {
+        volumeSignal.connect(slot);
     }
 
 private:
@@ -88,4 +92,6 @@ private:
     GLuint channelLogoTexture = 0;
     ImVec2 channelLogoSize = { 0, 0 };
     std::string fileLoadingError;
+    using VolumeSignal = boost::signals2::signal<void(double)>;
+    VolumeSignal volumeSignal;
 };

@@ -45,6 +45,11 @@ public:
     {
         fileLoadingErrorSignal.connect(slot);
     }
+    template <typename S>
+    void AddVolumeListener(S slot)
+    {
+        volumeSignal.connect(slot);
+    }
 
 private:
     void handleMpvEvent(mpv_event* event);
@@ -99,6 +104,8 @@ private:
     using PlayerStateSignal = boost::signals2::signal<void(PlayerState)>;
     using FileLoadingErrorSignal =
         boost::signals2::signal<void(const std::string&)>;
+    using VolumeSignal = boost::signals2::signal<void(double)>;
     PlayerStateSignal playerStateSignal;
     FileLoadingErrorSignal fileLoadingErrorSignal;
+    VolumeSignal volumeSignal;
 };

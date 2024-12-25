@@ -64,7 +64,21 @@ void MprisService::SetCurrentChannelGroup(ChannelsGroupPtr group)
         org::mpris::MediaPlayer2::TrackList_adaptor::INTERFACE_NAME,
         std::vector<sdbus::PropertyName>{ sdbus::PropertyName{ "Metadata" } });*/
 }
-
+void MprisService::SetVolume(double vol)
+{
+    this->volume = vol;
+    try
+    {
+        mediaPlayerAdaptor->emitPropertiesChangedSignal(
+            org::mpris::MediaPlayer2::Player_adaptor::INTERFACE_NAME,
+            std::vector<sdbus::PropertyName>{
+                sdbus::PropertyName{ "Volume" } });
+    }
+    catch (const sdbus::Error& error)
+    {
+        spdlog::error(error.getMessage());
+    }
+}
 MprisService::MediaPlayer2Adaptor::MediaPlayer2Adaptor(
     sdbus::IConnection& connection, sdbus::ObjectPath path, MprisService* service)
 : AdaptorInterfaces(connection, std::move(path)), service{ service }
@@ -224,7 +238,7 @@ std::map<std::string, sdbus::Variant> MprisService::MediaPlayer2Adaptor::Metadat
             sdbus::Variant{ service->currentChannel->GetName() };
     }
 
-    for (const auto& t : metadata)
+    /*for (const auto& t : metadata)
     {
         if (t.second.containsValueOfType<std::string>())
         {
@@ -236,25 +250,18 @@ std::map<std::string, sdbus::Variant> MprisService::MediaPlayer2Adaptor::Metadat
             spdlog::debug("Metadata: key: {}, value: {}", t.first,
                           t.second.get<int>());
         }
-    }
+    }*/
 
     return metadata;
 }
 double MprisService::MediaPlayer2Adaptor::Volume()
 {
-    return 100.0;
+    return service->volume / 100.0;
 }
 void MprisService::MediaPlayer2Adaptor::Volume(const double& value)
 {
-    try
-    {
-        emitPropertiesChangedSignal(
-            org::mpris::MediaPlayer2::Player_adaptor::INTERFACE_NAME);
-    }
-    catch (const sdbus::Error& error)
-    {
-        spdlog::error(error.getMessage());
-    }
+    service->volume = value * 100.0;
+    service->volumeSignal(service->volume);
 }
 int64_t MprisService::MediaPlayer2Adaptor::Position()
 {

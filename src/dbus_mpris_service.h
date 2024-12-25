@@ -31,6 +31,7 @@ public:
     void SetCurrentPlayerState(PlayerState state);
     void SetCurrentChannel(ChannelPtr channel);
     void SetCurrentChannelGroup(ChannelsGroupPtr group);
+    void SetVolume(double vol);
     template <typename S>
     void AddNextListener(S slot)
     {
@@ -65,6 +66,11 @@ public:
     void AddQuitListener(S slot)
     {
         quitSignal.connect(slot);
+    }
+    template <typename S>
+    void AddVolumeListener(S slot)
+    {
+        volumeSignal.connect(slot);
     }
 
 private:
@@ -152,6 +158,7 @@ private:
     };
 
     using PlayerControlSignal = boost::signals2::signal<void()>;
+    using VolumeSignal = boost::signals2::signal<void(double)>;
 
     std::unique_ptr<sdbus::IConnection> sessionConnection;
     sdbus::ServiceName serviceName;
@@ -165,6 +172,8 @@ private:
     PlayerControlSignal stopSignal;
     PlayerControlSignal playSignal;
     PlayerControlSignal quitSignal;
+    VolumeSignal volumeSignal;
     ChannelPtr currentChannel;
     ChannelsGroupPtr currentGroup;
+    double volume = 0.0;
 };

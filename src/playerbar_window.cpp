@@ -80,8 +80,11 @@ ImVec2 PlayerBarWindow::ShowWindow()
     {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(100.f);
-        ImGui::SliderInt("##vol_slider", &volume, 0, 150, "%d",
-                         ImGuiSliderFlags_NoRoundToFormat);
+        if (ImGui::SliderInt("##vol_slider", &volume, 0, 150, "%d",
+                             ImGuiSliderFlags_NoRoundToFormat))
+        {
+            volumeSignal(volume);
+        }
         isVolumeSliderHovered = ImGui::IsItemHovered();
     }
     ImGui::PopStyleColor(2);
@@ -196,4 +199,10 @@ void PlayerBarWindow::loadChannelLogoData()
 
     stbi_image_free(imageData);
     stbi_image_free(resizedImageData);
+}
+void PlayerBarWindow::SetCurrentChannel(ChannelPtr channel)
+{
+    currentChannel = channel;
+    fileLoadingError = "";
+    loadChannelLogoData();
 }
