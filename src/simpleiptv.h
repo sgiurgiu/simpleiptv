@@ -12,7 +12,7 @@ class SimpleIPTV
 {
 public:
     SimpleIPTV(boost::asio::io_context& uiContext,
-               WorkersProvider& workersProvider);
+               WorkersProvider* workersProvider);
     void setSize(int width, int height);
     void showDesktop();
 
@@ -27,7 +27,7 @@ private:
 
 private:
     boost::asio::any_io_executor ui_executor;
-    WorkersProvider& workersProvider;
+    WorkersProvider* workersProvider;
     std::shared_ptr<ChannelsWindow> channelsWindow;
     PlayerBarWindow playerBarWindow;
     MpvPlayer player;
@@ -38,4 +38,7 @@ private:
     bool showChannels = true;
     std::chrono::steady_clock::time_point lastResizeTime;
     std::chrono::steady_clock::time_point lastActivityTime;
+#ifdef STV_UNIX
+    std::shared_ptr<MprisService> mprisService;
+#endif
 };

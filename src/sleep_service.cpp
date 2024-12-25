@@ -1,4 +1,4 @@
-#include "dbus_service.h"
+#include "sleep_service.h"
 
 #include <spdlog/spdlog.h>
 
@@ -33,27 +33,27 @@ public:
 #endif
 } // namespace
 
-DBusService::DBusService(Key, const boost::asio::any_io_executor& executor)
+SleepService::SleepService(Key, const boost::asio::any_io_executor& executor)
 : executor{ executor }, sessionConnection{ sdbus::createSessionBusConnection() }
 {
 }
-std::shared_ptr<DBusService>
-DBusService::Create(const boost::asio::any_io_executor& executor)
+std::shared_ptr<SleepService>
+SleepService::Create(const boost::asio::any_io_executor& executor)
 {
-    return std::make_shared<DBusService>(Key{}, executor);
+    return std::make_shared<SleepService>(Key{}, executor);
 }
 
-void DBusService::disableComputerSleep()
+void SleepService::disableComputerSleep()
 {
     spdlog::debug("disabling computer sleep");
     setComputerSleep(false);
 }
-void DBusService::enableComputerSleep()
+void SleepService::enableComputerSleep()
 {
     spdlog::debug("enabling computer sleep");
     setComputerSleep(true);
 }
-void DBusService::setComputerSleep(bool flag)
+void SleepService::setComputerSleep(bool flag)
 {
 #ifdef STV_UNIX
     try

@@ -7,6 +7,10 @@
 
 #include <boost/asio/post.hpp>
 
+#ifdef STV_UNIX
+#include "dbus_mpris_service.h"
+#endif
+
 namespace
 {
 static constexpr std::chrono::seconds ChannelsWindowTimerExpiry{ 5 };
@@ -14,12 +18,12 @@ static constexpr std::chrono::milliseconds resizeDebounceDelay{ 100 };
 } // namespace
 
 SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
-                       WorkersProvider& workersProvider)
+                       WorkersProvider* workersProvider)
 : ui_executor{ uiContext.get_executor() }
 , workersProvider{ workersProvider }
 , channelsWindow{ ChannelsWindow::Create(ui_executor, this->workersProvider) }
 , playerBarWindow{ ui_executor }
-, player{ ui_executor, workersProvider }
+, player{ ui_executor, this->workersProvider }
 , channelsShowingTimer{ ui_executor }
 {
     setSize(1280, 720);
@@ -34,6 +38,25 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
     playerBarWindow.AddPauseChannelListener([this]() { player.Pause(); });
     playerBarWindow.AddPlayChannelListener([this]() { player.Play(); });
     playerBarWindow.AddStopChannelListener([this]() { player.Stop(); });
+    player.AddFileLoadingErrorListener(
+        [this](const std::string& error)
+        { playerBarWindow.SetFileLoadingError(error); });
+
+#ifdef STV_UNIX
+    auto mprisService = workersProvider->GetMprisService();
+    mprisService->AddNextListener([this]()
+                                  { channelsWindow->ActivateNextChannel(); });
+    mprisService->AddPreviousListener(
+        [this]() { channelsWindow->ActivatePreviousChannel(); });
+    mprisService->AddPlayListener([this]() { player.Play(); });
+    mprisService->AddPauseListener([this]() { player.Pause(); });
+    mprisService->AddStopListener([this]() { player.Stop(); });
+    mprisService->AddPlayPauseListener([]() { /*player.PlayPause();*/ });
+    mprisService->AddQuitListener([this]() { quit = true; });
+    player.AddPlayerStateListener(
+        [mprisService](PlayerState state)
+        { mprisService->SetCurrentPlayerState(state); });
+#endif
 }
 
 void SimpleIPTV::setSize(int width, int height)
@@ -67,8 +90,7 @@ void SimpleIPTV::rearmChannelsShowingTimer()
 
 void SimpleIPTV::showDesktop()
 {
-    if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Q)) &&
-        ImGui::GetIO().KeyCtrl)
+    if (ImGui::IsKeyPressed(ImGuiKey_Q) && ImGui::GetIO().KeyCtrl)
     {
         quit = true;
     }
@@ -99,7 +121,7 @@ void SimpleIPTV::showDesktop()
     if (!ImGui::IsAnyItemHovered() &&
         !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
     {
-        if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_M)))
+        if (ImGui::IsKeyPressed(ImGuiKey_M))
         {
             player.VolumeToggleMute();
         }
@@ -119,4 +141,8 @@ void SimpleIPTV::channelActivated(ChannelPtr channel)
     spdlog::debug("{} activated", channel->GetName());
     playerBarWindow.SetCurrentChannel(channel);
     player.Play(channel);
+#ifdef STV_UNIX
+    auto mprisService = workersProvider->GetMprisService();
+    mprisService->SetCurrentChannel(channel);
+#endif
 }

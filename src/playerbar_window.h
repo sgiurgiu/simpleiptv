@@ -49,6 +49,7 @@ public:
     void SetCurrentChannel(ChannelPtr channel)
     {
         currentChannel = channel;
+        fileLoadingError = "";
         loadChannelLogoData();
     }
     bool IsChannelListPressed() const
@@ -58,6 +59,10 @@ public:
     void SetChannelListPressed(bool flag)
     {
         channelListPressed = flag;
+    }
+    void SetFileLoadingError(const std::string& error)
+    {
+        fileLoadingError = error;
     }
 
 private:
@@ -82,4 +87,5 @@ private:
     bool channelListPressed = true;
     GLuint channelLogoTexture = 0;
     ImVec2 channelLogoSize = { 0, 0 };
+    std::string fileLoadingError;
 };

@@ -239,7 +239,7 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
         {
             dummySize.x += parent->maxLogoWidth - size.x;
         }
-        ImTextureID texture = reinterpret_cast<ImTextureID>(channelLogoTexture);
+        ImTextureID texture = static_cast<ImTextureID>(channelLogoTexture);
         ImGui::Image(texture, displayLogoSize);
         ImGui::SameLine(0.f, dummySize.x);
     }
@@ -419,6 +419,7 @@ void DisplayChannel::decodeLogoImage(const boost::asio::any_io_executor& executo
 }
 void DisplayChannel::downloadLogoImage(const boost::asio::any_io_executor& executor)
 {
+    // TODO: implement this, one sunny day
     if (!channel->GetLogo().empty() || channel->GetLogoUri().empty())
         return;
 }

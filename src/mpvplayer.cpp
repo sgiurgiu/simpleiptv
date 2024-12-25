@@ -53,10 +53,10 @@ constexpr std::chrono::duration OSD_DURATION = std::chrono::seconds{ 3 };
 } // namespace
 
 MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
-                     WorkersProvider &workersProvider)
+                     WorkersProvider *workersProvider)
 : ui_executor{ ui_executor }
 , workersProvider{ workersProvider }
-, osdTimer{ this->workersProvider.GetWorkersExecutor() }
+, osdTimer{ this->workersProvider->GetWorkersExecutor() }
 {
     mpv = mpv_create();
     if (!mpv)
@@ -77,7 +77,7 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
     mpv_set_property(mpv, "cache-secs", MPV_FORMAT_INT64, &cacheSecs);
     mpv_set_property(mpv, "demuxer-readahead-secs", MPV_FORMAT_INT64, &cacheSecs);
 
-    this->workersProvider.GetProxyRepository()->LoadConfiguredProxy(
+    this->workersProvider->GetProxyRepository()->LoadConfiguredProxy(
         [this](auto proxy)
         {
             if (proxy.use)
@@ -121,7 +121,7 @@ MpvPlayer::~MpvPlayer()
     glDeleteProgram(frameShaderProgram);
     glDeleteBuffers(2, buffs);
     glDeleteVertexArrays(1, &VAO);
-    workersProvider.GetDBusService()->enableComputerSleep();
+    workersProvider->GetSleepService()->enableComputerSleep();
 }
 
 void MpvPlayer::InitializeMpvGL()
@@ -343,6 +343,8 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
             if (name == "paused")
             {
                 mediaState.paused = (bool)value;
+                playerState = PlayerState::PAUSED;
+                playerStateSignal(playerState);
             }
         }
         break;
@@ -371,23 +373,27 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
         {
         case mpv_end_file_reason::MPV_END_FILE_REASON_ERROR:
             playerState = PlayerState::LOADING_ERROR;
-            // notifyOfErrors(end_file->error);
+            playerStateSignal(playerState);
+            fileLoadingErrorSignal(mpv_error_string(end_file->error));
             break;
         case mpv_end_file_reason::MPV_END_FILE_REASON_EOF:
             [[fallthrough]];
         case mpv_end_file_reason::MPV_END_FILE_REASON_STOP:
             playerState = PlayerState::STOPPED;
+            // playerStateSignal(playerState);
             break;
         default:
             break;
         }
-        workersProvider.GetDBusService()->enableComputerSleep();
+        workersProvider->GetSleepService()->enableComputerSleep();
     }
     break;
     case MPV_EVENT_FILE_LOADED:
         playerState = PlayerState::PLAYING;
-        workersProvider.GetDBusService()->disableComputerSleep();
+        workersProvider->GetSleepService()->disableComputerSleep();
         skipRendering = 0;
+        playerStateSignal(playerState);
+
         // startRenderingMedia();
         // emit fileLoaded();
         break;
@@ -532,6 +538,8 @@ void MpvPlayer::Stop()
     const char *cmdStop[] = { "stop", nullptr };
     mpv_command(mpv, cmdStop);
     rescaleFrameBuffers();
+    playerState = PlayerState::STOPPED;
+    // playerStateSignal(playerState);
 }
 void MpvPlayer::Pause()
 {
@@ -539,6 +547,8 @@ void MpvPlayer::Pause()
         return;
     int pause = 1;
     mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
+    playerState = PlayerState::PAUSED;
+    playerStateSignal(playerState);
 }
 
 void MpvPlayer::Play(ChannelPtr channel)
@@ -586,43 +596,14 @@ void MpvPlayer::VolumeToggleMute()
 void MpvPlayer::VolumeIncrease()
 {
     volume += 5.0;
-    mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
-    spdlog::debug("volume set to {}", volume);
-    NodeVariant node = NodeVariantMap{
-        { "name", { "osd-overlay" } },
-        { "id", { VOLUME_OSD_ID } },
-        { "format", { "ass-events" } },
-        { "res_x", { width } },
-        { "res_y", { height } },
-        { "data", { fmt::format("{{\\an9\\fs36}}Volume {}", volume) } }
-    };
-    NodeBuilder builder{ node };
-    mpv_command_node(mpv, builder.GetNode(), nullptr);
-    using namespace std::placeholders;
-    osdTimer.expires_after(OSD_DURATION);
-    osdTimer.async_wait(std::bind(&MpvPlayer::removeVolumeOsd, this, _1));
+    SetVolume(volume);
 }
 void MpvPlayer::VolumeDecrease()
 {
     volume -= 5.0;
     if (volume < 0.0)
         volume = 0.0;
-    mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
-    spdlog::debug("volume set to {}", volume);
-
-    NodeVariant node = NodeVariantMap{
-        { "name", { "osd-overlay" } },
-        { "id", { VOLUME_OSD_ID } },
-        { "format", { "ass-events" } },
-        { "res_x", { width } },
-        { "res_y", { height } },
-        { "data", { fmt::format("{{\\an9\\fs36}}Volume {}", volume) } }
-    };
-    NodeBuilder builder{ node };
-    mpv_command_node(mpv, builder.GetNode(), nullptr);
-    using namespace std::placeholders;
-    osdTimer.expires_after(OSD_DURATION);
-    osdTimer.async_wait(std::bind(&MpvPlayer::removeVolumeOsd, this, _1));
+    SetVolume(volume);
 }
 void MpvPlayer::removeVolumeOsd(const boost::system::error_code &ec)
 {
@@ -635,4 +616,30 @@ void MpvPlayer::removeVolumeOsd(const boost::system::error_code &ec)
         NodeBuilder builder{ node };
         mpv_command_node(mpv, builder.GetNode(), nullptr);
     }
+}
+double MpvPlayer::GetVolume() const
+{
+    double vol;
+    mpv_get_property(mpv, "volume", MPV_FORMAT_DOUBLE, &vol);
+    return vol;
+}
+void MpvPlayer::SetVolume(double volume)
+{
+    this->volume = volume;
+    mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &this->volume);
+    spdlog::debug("volume set to {}", this->volume);
+
+    NodeVariant node = NodeVariantMap{
+        { "name", { "osd-overlay" } },
+        { "id", { VOLUME_OSD_ID } },
+        { "format", { "ass-events" } },
+        { "res_x", { width } },
+        { "res_y", { height } },
+        { "data", { fmt::format("{{\\an9\\fs36}}Volume {}", this->volume) } }
+    };
+    NodeBuilder builder{ node };
+    mpv_command_node(mpv, builder.GetNode(), nullptr);
+    using namespace std::placeholders;
+    osdTimer.expires_after(OSD_DURATION);
+    osdTimer.async_wait(std::bind(&MpvPlayer::removeVolumeOsd, this, _1));
 }

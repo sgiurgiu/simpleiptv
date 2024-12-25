@@ -19,7 +19,7 @@ static std::unordered_set<DisplayNode*> localSelectedNodes;
 
 std::shared_ptr<ChannelsWindow>
 ChannelsWindow::Create(const boost::asio::any_io_executor& executor,
-                       WorkersProvider& workersProvider)
+                       WorkersProvider* workersProvider)
 {
     auto window =
         std::make_shared<ChannelsWindow>(Key{}, executor, workersProvider);
@@ -29,7 +29,7 @@ ChannelsWindow::Create(const boost::asio::any_io_executor& executor,
 
 ChannelsWindow::ChannelsWindow(Key,
                                const boost::asio::any_io_executor& ui_executor,
-                               WorkersProvider& workersProvider)
+                               WorkersProvider* workersProvider)
 : ui_executor{ ui_executor }
 , workersProvider{ workersProvider }
 , bgAlpha{ INITIAL_BG_ALPHA }
@@ -60,7 +60,7 @@ void ChannelsWindow::ActivateNextChannel()
     if (activatedChannel)
     {
         auto next =
-            activatedChannel->getNextNode(workersProvider.GetWorkersExecutor());
+            activatedChannel->getNextNode(workersProvider->GetWorkersExecutor());
         activatedChannel->isActivated = false;
         if (next)
         {
@@ -75,14 +75,14 @@ void ChannelsWindow::ActivateNextChannel()
                 else
                 {
                     next =
-                        next->getNextNode(workersProvider.GetWorkersExecutor());
+                        next->getNextNode(workersProvider->GetWorkersExecutor());
                 }
             }
         }
         else
         {
             rootNode.children.begin()->get()->loadChildren(
-                workersProvider.GetWorkersExecutor());
+                workersProvider->GetWorkersExecutor());
             if (!rootNode.children.begin()->get()->children.empty())
             {
                 rootNode.children.begin()->get()->isOpen = true;
@@ -94,7 +94,7 @@ void ChannelsWindow::ActivateNextChannel()
     else
     {
         rootNode.children.begin()->get()->loadChildren(
-            workersProvider.GetWorkersExecutor());
+            workersProvider->GetWorkersExecutor());
         if (!rootNode.children.begin()->get()->children.empty())
         {
             rootNode.children.begin()->get()->isOpen = true;
@@ -114,7 +114,7 @@ void ChannelsWindow::ActivatePreviousChannel()
     if (activatedChannel)
     {
         auto next = activatedChannel->getPreviousNode(
-            workersProvider.GetWorkersExecutor());
+            workersProvider->GetWorkersExecutor());
         activatedChannel->isActivated = false;
         if (next)
         {
@@ -129,14 +129,14 @@ void ChannelsWindow::ActivatePreviousChannel()
                 else
                 {
                     next = next->getPreviousNode(
-                        workersProvider.GetWorkersExecutor());
+                        workersProvider->GetWorkersExecutor());
                 }
             }
         }
         else
         {
             rootNode.children.rbegin()->get()->loadChildren(
-                workersProvider.GetWorkersExecutor());
+                workersProvider->GetWorkersExecutor());
             if (!rootNode.children.rbegin()->get()->children.empty())
             {
                 rootNode.children.rbegin()->get()->isOpen = true;
@@ -148,7 +148,7 @@ void ChannelsWindow::ActivatePreviousChannel()
     else
     {
         rootNode.children.rbegin()->get()->loadChildren(
-            workersProvider.GetWorkersExecutor());
+            workersProvider->GetWorkersExecutor());
         if (!rootNode.children.rbegin()->get()->children.empty())
         {
             rootNode.children.rbegin()->get()->isOpen = true;
@@ -247,7 +247,7 @@ void ChannelsWindow::loadLocalChannels()
 {
     auto start = std::chrono::high_resolution_clock::now();
     spdlog::debug("starting to load channels");
-    workersProvider.GetChannelsRepository()->LoadChannelsAndGroups(
+    workersProvider->GetChannelsRepository()->LoadChannelsAndGroups(
         [weak = weak_from_this(), start](RootChannelsGroupPtr root)
         {
             auto self = weak.lock();
@@ -255,7 +255,7 @@ void ChannelsWindow::loadLocalChannels()
                 return;
 
             self->rootNode.setRoot(root,
-                                   self->workersProvider.GetWorkersExecutor());
+                                   self->workersProvider->GetWorkersExecutor());
             auto end = std::chrono::high_resolution_clock::now();
             auto duration = end - start;
             spdlog::debug(

@@ -22,10 +22,10 @@ private:
 public:
     ChannelsWindow(Key,
                    const boost::asio::any_io_executor& ui_executor,
-                   WorkersProvider& workersProvider);
+                   WorkersProvider* workersProvider);
     static std::shared_ptr<ChannelsWindow>
     Create(const boost::asio::any_io_executor& executor,
-           WorkersProvider& workersProvider);
+           WorkersProvider* workersProvider);
 
     ImVec2 ShowWindow(float playerBarHeight);
     bool ShouldQuit() const
@@ -53,7 +53,7 @@ private:
 
 private:
     boost::asio::any_io_executor ui_executor;
-    WorkersProvider& workersProvider;
+    WorkersProvider* workersProvider;
     float bgAlpha = 0.f;
     bool quit = false;
     DisplayRootChannelsGroup rootNode;

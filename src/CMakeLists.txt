@@ -65,7 +65,7 @@ if(UNIX AND NOT APPLE)
     set(DBUS_SERVER_FILES
         dbus/org.mpris.MediaPlayer2.xml
         dbus/org.mpris.MediaPlayer2.Player.xml
-        dbus/org.mpris.MediaPlayer2.Playlists.xml
+        dbus/org.mpris.MediaPlayer2.TrackList.xml
     )
 
     find_program(SDBUS-XML2CPP sdbus-c++-xml2cpp DOC "SDBUS XML2CPP program")
@@ -102,12 +102,15 @@ set(STV_SRCS main.cpp
     channels/root_channel_group.cpp
     display_node.cpp
     proxy_repository.cpp
-    dbus_service.cpp
     settings_repository.cpp
     playerbar_window.cpp
     stb_implementation.cpp
+    sleep_service.cpp
     )
 
+if(UNIX)
+list(APPEND STV_SRCS dbus_mpris_service.cpp)
+endif()
 
 if(MSVC)
     list(APPEND STV_SRCS win/AppIcon.rc)

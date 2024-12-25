@@ -3,29 +3,23 @@
 #include <GL/gl.h>
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/signals2.hpp>
 #include <chrono>
 #include <imgui.h>
 
 #include "channels/channel.h"
+#include "mpvplayer_state.h"
 #include "workers_provider.h"
 
 struct mpv_handle;
 struct mpv_render_context;
 struct mpv_event;
 
-enum class PlayerState
-{
-    STOPPED,
-    PLAYING,
-    PAUSED,
-    LOADING_ERROR
-};
-
 class MpvPlayer
 {
 public:
     MpvPlayer(const boost::asio::any_io_executor& ui_executor,
-              WorkersProvider& workersProvider);
+              WorkersProvider* workersProvider);
     ~MpvPlayer();
     void InitializeMpvGL();
     void Render(const ImVec2& windowsSize);
@@ -38,6 +32,19 @@ public:
     void VolumeToggleMute();
     void VolumeIncrease();
     void VolumeDecrease();
+    double GetVolume() const;
+    void SetVolume(double volume);
+
+    template <typename S>
+    void AddPlayerStateListener(S slot)
+    {
+        playerStateSignal.connect(slot);
+    }
+    template <typename S>
+    void AddFileLoadingErrorListener(S slot)
+    {
+        fileLoadingErrorSignal.connect(slot);
+    }
 
 private:
     void handleMpvEvent(mpv_event* event);
@@ -56,7 +63,7 @@ private:
 
 private:
     const boost::asio::any_io_executor& ui_executor;
-    WorkersProvider& workersProvider;
+    WorkersProvider* workersProvider;
     boost::asio::steady_timer osdTimer;
     mpv_handle* mpv = nullptr;
     mpv_render_context* mpvRenderContext = nullptr;
@@ -89,4 +96,9 @@ private:
     PlayerState playerState = PlayerState::STOPPED;
     ChannelPtr currentlyPlayingChannel;
     int skipRendering = 0;
+    using PlayerStateSignal = boost::signals2::signal<void(PlayerState)>;
+    using FileLoadingErrorSignal =
+        boost::signals2::signal<void(const std::string&)>;
+    PlayerStateSignal playerStateSignal;
+    FileLoadingErrorSignal fileLoadingErrorSignal;
 };

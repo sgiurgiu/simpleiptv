@@ -149,7 +149,7 @@ void runMainLoop(GLFWwindow* window, WorkersProvider& workersProvider)
 #endif
     boost::asio::io_context uiContext;
     auto work = boost::asio::make_work_guard(uiContext);
-    SimpleIPTV iptv{ uiContext, workersProvider };
+    SimpleIPTV iptv{ uiContext, &workersProvider };
 
     glfwSetWindowUserPointer(window, &iptv);
 

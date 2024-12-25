@@ -96,13 +96,18 @@ ImVec2 PlayerBarWindow::ShowWindow()
         ImGui::SameLine();
         if (channelLogoTexture)
         {
-            ImTextureID texture =
-                reinterpret_cast<ImTextureID>(channelLogoTexture);
+            ImTextureID texture = static_cast<ImTextureID>(channelLogoTexture);
             ImGui::Image(texture, channelLogoSize);
             ImGui::SameLine();
         }
         ImGui::Text("%s", currentChannel->GetName().c_str());
     }
+    else if (!fileLoadingError.empty())
+    {
+        ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "%s",
+                           fileLoadingError.c_str());
+    }
+
     auto localPosition = ImGui::GetCursorPosX();
     auto availableSpace = ImGui::GetContentRegionAvail().x;
     ImGui::SameLine(availableSpace - localPosition -

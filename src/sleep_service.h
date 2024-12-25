@@ -1,7 +1,5 @@
 #pragma once
 
-#pragma once
-
 #include <boost/asio/any_io_executor.hpp>
 #include <memory>
 
@@ -9,7 +7,7 @@
 #include <sdbus-c++/sdbus-c++.h>
 #endif
 
-class DBusService : public std::enable_shared_from_this<DBusService>
+class SleepService : public std::enable_shared_from_this<SleepService>
 {
 private:
     struct Key
@@ -18,8 +16,8 @@ private:
     };
 
 public:
-    DBusService(Key, const boost::asio::any_io_executor& executor);
-    static std::shared_ptr<DBusService>
+    SleepService(Key, const boost::asio::any_io_executor& executor);
+    static std::shared_ptr<SleepService>
     Create(const boost::asio::any_io_executor& executor);
     void disableComputerSleep();
     void enableComputerSleep();
