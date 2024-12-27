@@ -6,6 +6,8 @@ WorkersProvider::WorkersProvider()
 , proxyRepository{ ProxyRepository::Create(io_pool.get_executor()) }
 , sleepService{ SleepService::Create(io_pool.get_executor()) }
 , settingsRepository{ SettingsRepository::Create() }
+, networkResourceProvider{ NetworkResourceProvider::Create(
+      io_pool.get_executor(), proxyRepository) }
 #ifdef STV_UNIX
 , mprisService{ MprisService::Create() }
 #endif
@@ -36,6 +38,11 @@ std::shared_ptr<SleepService> WorkersProvider::GetSleepService()
 std::shared_ptr<SettingsRepository> WorkersProvider::GetSettingsRepository()
 {
     return settingsRepository;
+}
+std::shared_ptr<NetworkResourceProvider>
+WorkersProvider::GetNetworkResourceProvider()
+{
+    return networkResourceProvider;
 }
 #ifdef STV_UNIX
 std::shared_ptr<MprisService> WorkersProvider::GetMprisService()

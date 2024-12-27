@@ -5,14 +5,17 @@
 #include <boost/signals2.hpp>
 #include <chrono>
 #include <imgui.h>
+#include <vector>
 
 #include "channels/channel.h"
+#include "workers_provider.h"
 
 class PlayerBarWindow
 {
 
 public:
-    PlayerBarWindow(const boost::asio::any_io_executor& ui_executor);
+    PlayerBarWindow(const boost::asio::any_io_executor& ui_executor,
+                    WorkersProvider* workersProvider);
     ~PlayerBarWindow();
     ImVec2 ShowWindow();
     bool IsPinned() const
@@ -71,9 +74,27 @@ public:
 
 private:
     void loadChannelLogoData();
+    void loadEpg();
+    std::string decode64(const std::string& val);
+    std::chrono::local_time<std::chrono::nanoseconds>
+    getTimePoint(const std::string& timestamp);
+    struct EpgListing
+    {
+        std::string id;
+        std::string epgId;
+        std::string title;
+        std::string description;
+        std::string channelId;
+        std::string streamId;
+        std::chrono::local_time<std::chrono::nanoseconds> startTime;
+        std::chrono::local_time<std::chrono::nanoseconds> endTime;
+        std::string startHour;
+        std::string endHour;
+    };
 
 private:
     boost::asio::any_io_executor ui_executor;
+    WorkersProvider* workersProvider;
     float bgAlpha = 0.6f;
     ChannelPtr currentChannel;
     std::string channelsFilter;
@@ -94,4 +115,5 @@ private:
     std::string fileLoadingError;
     using VolumeSignal = boost::signals2::signal<void(double)>;
     VolumeSignal volumeSignal;
+    std::vector<EpgListing> epgListings;
 };

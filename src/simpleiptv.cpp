@@ -22,7 +22,7 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
 : ui_executor{ uiContext.get_executor() }
 , workersProvider{ workersProvider }
 , channelsWindow{ ChannelsWindow::Create(ui_executor, this->workersProvider) }
-, playerBarWindow{ ui_executor }
+, playerBarWindow{ ui_executor, this->workersProvider }
 , player{ ui_executor, this->workersProvider }
 , channelsShowingTimer{ ui_executor }
 {

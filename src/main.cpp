@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <iostream>
 #include <spdlog/spdlog.h>
 #include <thread>
 
@@ -11,6 +12,23 @@
 #include "simpleiptv.h"
 #include "utils.h"
 #include "workers_provider.h"
+
+#include <openssl/crypto.h>
+
+struct PreloadOpensslCrypto
+{
+    PreloadOpensslCrypto()
+    {
+        // workaround to some linux distributions (looking at you Fedora)
+        // having options that are not normally recognized by vcpkg openssl
+        // They basically really want us to use the system openssl
+        // which is cool and all, but I would prefer to statically link it
+        int ret = OPENSSL_init_crypto(OPENSSL_INIT_NO_LOAD_CONFIG, nullptr);
+        std::cout << "OPENSSL_init_crypto:" << ret << std::endl;
+    }
+};
+
+static PreloadOpensslCrypto _dummy;
 
 void runMainLoop(GLFWwindow* window, WorkersProvider& workersProvider);
 void startGraphicalInterface();

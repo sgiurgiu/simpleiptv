@@ -1,16 +1,21 @@
 #include "playerbar_window.h"
 
+#include <boost/algorithm/string.hpp>
+#include <boost/archive/iterators/binary_from_base64.hpp>
+#include <boost/archive/iterators/transform_width.hpp>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
+#include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <stb_image.h>
 #include <stb_image_resize2.h>
 
 #include "fonts/IconsFontAwesome4.h"
 
-PlayerBarWindow::PlayerBarWindow(const boost::asio::any_io_executor& ui_executor)
-: ui_executor{ ui_executor }
+PlayerBarWindow::PlayerBarWindow(const boost::asio::any_io_executor& ui_executor,
+                                 WorkersProvider* workersProvider)
+: ui_executor{ ui_executor }, workersProvider{ workersProvider }
 {
 }
 PlayerBarWindow::~PlayerBarWindow()
@@ -104,6 +109,13 @@ ImVec2 PlayerBarWindow::ShowWindow()
             ImGui::SameLine();
         }
         ImGui::Text("%s", currentChannel->GetName().c_str());
+        if (!epgListings.empty())
+        {
+            ImGui::SameLine();
+            ImGui::Text("%s-%s %s", epgListings[0].startHour.c_str(),
+                        epgListings[0].endHour.c_str(),
+                        epgListings[0].title.c_str());
+        }
     }
     else if (!fileLoadingError.empty())
     {
@@ -205,4 +217,82 @@ void PlayerBarWindow::SetCurrentChannel(ChannelPtr channel)
     currentChannel = channel;
     fileLoadingError = "";
     loadChannelLogoData();
+    loadEpg();
+}
+
+void PlayerBarWindow::loadEpg()
+{
+    if (!currentChannel->GetEPGChannelUri().empty())
+    {
+        workersProvider->GetNetworkResourceProvider()->GetResource(
+            currentChannel->GetEPGChannelUri(), ui_executor,
+            [this](std::string body, std::error_code ec)
+            {
+                if (ec)
+                    return;
+                auto json = nlohmann::json::parse(body, nullptr, false, true);
+                if (json.is_discarded() || !json.is_object())
+                {
+                    // bad data
+                    return;
+                }
+                auto epg_listings = json["epg_listings"];
+
+                for (const auto& listingObject : epg_listings)
+                {
+                    EpgListing listing;
+                    listing.id = listingObject["id"].get<std::string>();
+                    listing.epgId = listingObject["epg_id"].get<std::string>();
+                    listing.channelId =
+                        listingObject["channel_id"].get<std::string>();
+                    listing.streamId =
+                        listingObject["stream_id"].get<std::string>();
+                    listing.title =
+                        decode64(listingObject["title"].get<std::string>());
+                    listing.description =
+                        decode64(listingObject["description"].get<std::string>());
+                    listing.startTime = getTimePoint(
+                        listingObject["start_timestamp"].get<std::string>());
+                    listing.endTime = getTimePoint(
+                        listingObject["stop_timestamp"].get<std::string>());
+                    if (listing.startTime.time_since_epoch() ==
+                        std::chrono::seconds{ 0 })
+                    {
+                        continue;
+                    }
+                    listing.startHour =
+                        std::format("{:%H:%M}", listing.startTime);
+                    listing.endHour = std::format("{:%H:%M}", listing.endTime);
+
+                    epgListings.push_back(std::move(listing));
+                }
+            });
+    }
+}
+
+std::chrono::local_time<std::chrono::nanoseconds>
+PlayerBarWindow::getTimePoint(const std::string& timestamp)
+{
+    std::chrono::local_time<std::chrono::nanoseconds> chronoTime{
+        std::chrono::seconds{ 0 }
+    };
+    time_t time = 0;
+    auto [ptr, ec] = std::from_chars(timestamp.data(),
+                                     timestamp.data() + timestamp.size(), time);
+    if (ec == std::errc())
+    {
+        auto tz = std::chrono::current_zone();
+        chronoTime = tz->to_local(std::chrono::system_clock::from_time_t(time));
+    }
+    return chronoTime;
+}
+
+std::string PlayerBarWindow::decode64(const std::string& val)
+{
+    using namespace boost::archive::iterators;
+    using It =
+        transform_width<binary_from_base64<std::string::const_iterator>, 8, 6>;
+    return boost::algorithm::trim_right_copy_if(
+        std::string(It(std::begin(val)), It(std::end(val))),
+        [](char c) { return c == '\0'; });
 }

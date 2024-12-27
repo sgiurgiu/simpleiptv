@@ -4,6 +4,7 @@
 #include <boost/asio/thread_pool.hpp>
 
 #include "channels/channels_repository.h"
+#include "network_resource_provider.h"
 #include "proxy_repository.h"
 #include "settings_repository.h"
 #include "sleep_service.h"
@@ -22,6 +23,7 @@ public:
     boost::asio::any_io_executor GetWorkersExecutor();
     std::shared_ptr<SleepService> GetSleepService();
     std::shared_ptr<SettingsRepository> GetSettingsRepository();
+    std::shared_ptr<NetworkResourceProvider> GetNetworkResourceProvider();
 #ifdef STV_UNIX
     std::shared_ptr<MprisService> GetMprisService();
 #endif
@@ -32,6 +34,7 @@ private:
     std::shared_ptr<ProxyRepository> proxyRepository;
     std::shared_ptr<SleepService> sleepService;
     std::shared_ptr<SettingsRepository> settingsRepository;
+    std::shared_ptr<NetworkResourceProvider> networkResourceProvider;
 #ifdef STV_UNIX
     std::shared_ptr<MprisService> mprisService;
 #endif

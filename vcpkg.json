@@ -10,6 +10,7 @@
     "boost-filesystem",
     "boost-program-options",
     "boost-signals2",
+    "boost-url",
     "glew",
     "fmt",
     "spdlog",
@@ -19,6 +20,7 @@
     "openssl",
     "zlib",
     "stb",
+    "nlohmann-json",
     {
       "name":"glfw3",
       "features": ["wayland"]

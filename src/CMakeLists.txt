@@ -13,11 +13,12 @@ set(STV_INCLUDES)
 set(Boost_USE_STATIC_LIBS    ON)
 # Boost doesn't provide a pkgconfig file, so we just have to have it installed
 # and discoverable by cmake
-find_package(Boost 1.74 REQUIRED system filesystem program_options asio signals2)
-list(APPEND STV_LIBARIES Boost::boost Boost::system Boost::filesystem)
+find_package(Boost 1.74 REQUIRED system filesystem program_options asio signals2 url)
+list(APPEND STV_LIBARIES Boost::boost Boost::system Boost::filesystem Boost::url)
 
 if(VCPKG_TOOLCHAIN)
     set(Boost_USE_STATIC_RUNTIME ON)
+    set(nlohmann-json_IMPLICIT_CONVERSIONS OFF)
     find_package(OpenGL COMPONENTS OpenGL REQUIRED)
     find_package(GLEW REQUIRED)
     find_package(glfw3 CONFIG REQUIRED)
@@ -30,7 +31,7 @@ if(VCPKG_TOOLCHAIN)
     find_package(imgui CONFIG REQUIRED)
     find_package(sdbus-c++ CONFIG REQUIRED)
     find_package(Stb REQUIRED)
-
+    find_package(nlohmann_json CONFIG REQUIRED)
     if(UNIX)
         find_package(PkgConfig REQUIRED)
         pkg_check_modules(MPV REQUIRED IMPORTED_TARGET mpv)
@@ -48,6 +49,8 @@ if(VCPKG_TOOLCHAIN)
     list(APPEND STV_LIBARIES spdlog::spdlog_header_only fmt::fmt-header-only)
     list(APPEND STV_LIBARIES unofficial::sqlite3::sqlite3 SOCI::soci_sqlite3_static)
     list(APPEND STV_LIBARIES SDBusCpp::sdbus-c++)
+    list(APPEND STV_LIBARIES nlohmann_json::nlohmann_json)
+    
     list(APPEND STV_INCLUDES ${Stb_INCLUDE_DIR})
 else()
     message(FATAL "VCPKG is required")
@@ -106,6 +109,8 @@ set(STV_SRCS main.cpp
     playerbar_window.cpp
     stb_implementation.cpp
     sleep_service.cpp
+    network_resource_provider.cpp
+    boost_error_code_converter.cpp
     )
 
 if(UNIX)
