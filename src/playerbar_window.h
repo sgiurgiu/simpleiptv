@@ -1,6 +1,7 @@
 #pragma once
 
 #include <GL/gl.h>
+#include <atomic>
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/signals2.hpp>
 #include <chrono>
@@ -116,4 +117,5 @@ private:
     using VolumeSignal = boost::signals2::signal<void(double)>;
     VolumeSignal volumeSignal;
     std::vector<EpgListing> epgListings;
+    std::atomic_bool loadingEpgs = false;
 };

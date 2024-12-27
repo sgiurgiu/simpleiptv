@@ -111,27 +111,48 @@ ImVec2 PlayerBarWindow::ShowWindow()
         ImGui::Text("%s", currentChannel->GetName().c_str());
         if (!epgListings.empty())
         {
-            ImGui::SameLine();
-            ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, 0x00000000);
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0x00000000);
-            ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, 0x00000000);
-            ImGui::PushStyleColor(ImGuiCol_FrameBg, 0x00000000);
-
-            auto text = fmt::format("{}-{} {}", epgListings[0].startHour,
-                                    epgListings[0].endHour, epgListings[0].title);
-            if (ImGui::BeginCombo("##EPG_Combo", text.c_str(),
-                                  ImGuiComboFlags_WidthFitPreview))
+            int activeEpgIndex = -1;
+            auto now = std::chrono::current_zone()->to_local(
+                std::chrono::system_clock::now());
+            for (size_t i = 0; i < epgListings.size(); i++)
             {
-                for (const auto& l : epgListings)
+                if (epgListings.at(i).startTime < now &&
+                    epgListings.at(i).endTime > now)
                 {
-                    ImGui::Text("%s-%s %s", l.startHour.c_str(),
-                                l.endHour.c_str(), l.title.c_str());
+                    activeEpgIndex = static_cast<int>(i);
+                    break;
                 }
-
-                ImGui::EndCombo();
             }
-            ImGui::PopStyleColor(5);
+
+            if (activeEpgIndex >= 0)
+            {
+                ImGui::SameLine();
+                ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, 0x00000000);
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0x00000000);
+                ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, 0x00000000);
+                ImGui::PushStyleColor(ImGuiCol_FrameBg, 0x00000000);
+
+                auto text = fmt::format("{}-{} {}",
+                                        epgListings[activeEpgIndex].startHour,
+                                        epgListings[activeEpgIndex].endHour,
+                                        epgListings[activeEpgIndex].title);
+                if (ImGui::BeginCombo("##EPG_Combo", text.c_str(),
+                                      ImGuiComboFlags_WidthFitPreview))
+                {
+                    for (const auto& l : epgListings)
+                    {
+                        ImGui::Text("%s-%s %s", l.startHour.c_str(),
+                                    l.endHour.c_str(), l.title.c_str());
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::PopStyleColor(5);
+            }
+            else if (!loadingEpgs)
+            {
+                loadEpg();
+            }
         }
     }
     else if (!fileLoadingError.empty())
@@ -240,8 +261,9 @@ void PlayerBarWindow::SetCurrentChannel(ChannelPtr channel)
 
 void PlayerBarWindow::loadEpg()
 {
-    if (!currentChannel->GetEPGChannelUri().empty())
+    if (!loadingEpgs && !currentChannel->GetEPGChannelUri().empty())
     {
+        loadingEpgs = true;
         workersProvider->GetNetworkResourceProvider()->GetResource(
             currentChannel->GetEPGChannelUri(), ui_executor,
             [this](std::string body, std::error_code ec)
@@ -284,6 +306,7 @@ void PlayerBarWindow::loadEpg()
 
                     epgListings.push_back(std::move(listing));
                 }
+                loadingEpgs = false;
             });
     }
 }
