@@ -112,9 +112,26 @@ ImVec2 PlayerBarWindow::ShowWindow()
         if (!epgListings.empty())
         {
             ImGui::SameLine();
-            ImGui::Text("%s-%s %s", epgListings[0].startHour.c_str(),
-                        epgListings[0].endHour.c_str(),
-                        epgListings[0].title.c_str());
+            ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, 0x00000000);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0x00000000);
+            ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, 0x00000000);
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, 0x00000000);
+
+            auto text = fmt::format("{}-{} {}", epgListings[0].startHour,
+                                    epgListings[0].endHour, epgListings[0].title);
+            if (ImGui::BeginCombo("##EPG_Combo", text.c_str(),
+                                  ImGuiComboFlags_WidthFitPreview))
+            {
+                for (const auto& l : epgListings)
+                {
+                    ImGui::Text("%s-%s %s", l.startHour.c_str(),
+                                l.endHour.c_str(), l.title.c_str());
+                }
+
+                ImGui::EndCombo();
+            }
+            ImGui::PopStyleColor(5);
         }
     }
     else if (!fileLoadingError.empty())
