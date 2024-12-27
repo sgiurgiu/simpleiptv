@@ -6,17 +6,27 @@
 #include <boost/signals2.hpp>
 #include <chrono>
 #include <imgui.h>
+#include <memory>
 #include <vector>
 
 #include "channels/channel.h"
 #include "workers_provider.h"
 
-class PlayerBarWindow
+class PlayerBarWindow : public std::enable_shared_from_this<PlayerBarWindow>
 {
+private:
+    struct Key
+    {
+        explicit Key() = default;
+    };
 
 public:
-    PlayerBarWindow(const boost::asio::any_io_executor& ui_executor,
+    PlayerBarWindow(Key,
+                    const boost::asio::any_io_executor& ui_executor,
                     WorkersProvider* workersProvider);
+    static std::shared_ptr<PlayerBarWindow>
+    Create(const boost::asio::any_io_executor& executor,
+           WorkersProvider* workersProvider);
     ~PlayerBarWindow();
     ImVec2 ShowWindow();
     bool IsPinned() const

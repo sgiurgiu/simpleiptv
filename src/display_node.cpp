@@ -107,13 +107,14 @@ void DisplayRootChannelsGroup::setRoot(RootChannelsGroupPtr root,
     children.clear();
     this->root = root;
     this->group = root;
-    favouritesGroup = std::make_unique<DisplayFavouritesChannelsGroup>(this);
+    favouritesGroup = DisplayFavouritesChannelsGroup::Create(this);
     root->IterateFavouriteChannels(
         [this, &executor](ChannelPtr channel)
         {
-            auto dchannel = std::make_unique<DisplayChannel>(
-                channel, favouritesGroup.get(), executor);
+            auto dchannel =
+                DisplayChannel::Create(channel, favouritesGroup.get());
             dchannel->indexInParent = favouritesGroup->children.size();
+            dchannel->loadLogo(executor);
             favouritesGroup->children.push_back(std::move(dchannel));
         });
     favouritesGroup->indexInParent = 0;
@@ -134,8 +135,7 @@ void DisplayRootChannelsGroup::loadChildren(
         root->IterateGroups(
             [this, &executor](ChannelsGroupPtr group)
             {
-                children.emplace_back(
-                    std::make_unique<DisplayChannelsGroup>(group, this));
+                children.emplace_back(DisplayChannelsGroup::Create(group, this));
                 children.back().get()->indexInParent = children.size() - 1;
                 children.back().get()->loadChildren(executor);
             });
@@ -285,9 +285,10 @@ void DisplayChannelsGroup::loadChildren(const boost::asio::any_io_executor& exec
         group->IterateChannels(
             [this, &executor](auto& channel)
             {
-                children.emplace_back(
-                    std::make_unique<DisplayChannel>(channel, this, executor));
-                children.back().get()->indexInParent = children.size() - 1;
+                auto dchannel = DisplayChannel::Create(channel, this);
+                children.emplace_back(dchannel);
+                dchannel->loadLogo(executor);
+                dchannel->indexInParent = children.size() - 1;
             });
     }
 }
@@ -345,14 +346,16 @@ void DisplayChannelsGroup::renderGroup(
     {
     }
 }
-DisplayNode::DisplayNode() : DisplayNode{ nullptr }
+DisplayNode::DisplayNode(DisplayNodeKey key) : DisplayNode{ key, nullptr }
 {
 }
-DisplayNode::DisplayNode(DisplayChannelsGroup* parent)
-: DisplayNode{ "", parent }
+DisplayNode::DisplayNode(DisplayNodeKey key, DisplayChannelsGroup* parent)
+: DisplayNode{ key, "", parent }
 {
 }
-DisplayNode::DisplayNode(const std::string& name, DisplayChannelsGroup* parent)
+DisplayNode::DisplayNode(DisplayNodeKey,
+                         const std::string& name,
+                         DisplayChannelsGroup* parent)
 : parent{ parent }, name{ name }
 {
     if (parent)
@@ -361,60 +364,75 @@ DisplayNode::DisplayNode(const std::string& name, DisplayChannelsGroup* parent)
     }
 }
 DisplayFavouritesChannelsGroup::DisplayFavouritesChannelsGroup(
-    DisplayRootChannelsGroup* parent)
+    DisplayNodeKey key, DisplayRootChannelsGroup* parent)
 : DisplayChannelsGroup{
-    reinterpret_cast<const char*>(ICON_FA_STAR " Favourites"), parent
+    key, reinterpret_cast<const char*>(ICON_FA_STAR " Favourites"), parent
 }
 {
     isOpen = true;
 }
 
-DisplayChannel::DisplayChannel(ChannelPtr channel,
-                               DisplayChannelsGroup* parent,
-                               const boost::asio::any_io_executor& executor)
-: DisplayNode{ channel->GetName(), parent }
+DisplayChannel::DisplayChannel(DisplayNodeKey key,
+                               ChannelPtr channel,
+                               DisplayChannelsGroup* parent)
+: DisplayNode{ key, channel->GetName(), parent }
 , channel{ channel }
 , displayLogoSize{ ImVec2{ (ImGui::GetFontSize() * 2.f / 3.f) +
                                ImGui::GetStyle().FramePadding.x * 2.f,
                            (ImGui::GetFontSize() * 2.f / 3.f) +
                                ImGui::GetStyle().FramePadding.y * 2.f } }
 {
-    decodeLogoImage(executor);
+}
+void DisplayChannel::loadLogo(const boost::asio::any_io_executor& executor)
+{
+    if (!channel->GetLogo().empty())
+    {
+        decodeLogoImage(executor);
+    }
+    else
+    {
+        downloadLogoImage(executor);
+    }
 }
 void DisplayChannel::decodeLogoImage(const boost::asio::any_io_executor& executor)
 {
     if (!channel->GetLogo().empty())
     {
-        boost::asio::post(executor,
-                          [this]()
-                          {
-                              int width = 0;
-                              int height = 0;
-                              int channels = 0;
-                              auto imageData = stbi_load_from_memory(
-                                  reinterpret_cast<const stbi_uc*>(
-                                      this->channel->GetLogo().data()),
-                                  this->channel->GetLogo().size(), &width,
-                                  &height, &channels, STBI_rgb_alpha);
+        boost::asio::post(
+            executor,
+            [weak = this->weak_from_this()]()
+            {
+                auto selfNode = weak.lock();
+                if (!selfNode)
+                    return;
+                auto self = std::static_pointer_cast<DisplayChannel>(selfNode);
 
-                              float ratio = (float)width / (float)height;
-                              ImVec2 size = displayLogoSize;
-                              float area = size.x * size.y;
-                              size.x = std::sqrt(ratio * area);
-                              size.y = area / size.x;
-                              displayLogoSize = size;
+                int width = 0;
+                int height = 0;
+                int channels = 0;
+                auto imageData =
+                    stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(
+                                              self->channel->GetLogo().data()),
+                                          self->channel->GetLogo().size(), &width,
+                                          &height, &channels, STBI_rgb_alpha);
 
-                              auto resizedImageData = stbir_resize_uint8_srgb(
-                                  imageData, width, height, width * channels,
-                                  nullptr, size.x, size.y, size.x * channels,
-                                  (stbir_pixel_layout)channels);
+                float ratio = (float)width / (float)height;
+                ImVec2 size = self->displayLogoSize;
+                float area = size.x * size.y;
+                size.x = std::sqrt(ratio * area);
+                size.y = area / size.x;
+                self->displayLogoSize = size;
 
-                              stbi_image_free(imageData);
-                              logoWidth = size.x;
-                              logoHeight = size.y;
-                              logoData = resizedImageData;
-                              logoChannels = channels;
-                          });
+                auto resizedImageData = stbir_resize_uint8_srgb(
+                    imageData, width, height, width * channels, nullptr, size.x,
+                    size.y, size.x * channels, (stbir_pixel_layout)channels);
+
+                stbi_image_free(imageData);
+                self->logoWidth = size.x;
+                self->logoHeight = size.y;
+                self->logoData = resizedImageData;
+                self->logoChannels = channels;
+            });
     }
 }
 void DisplayChannel::downloadLogoImage(const boost::asio::any_io_executor& executor)

@@ -148,14 +148,15 @@ void startGraphicalInterface()
 
     runMainLoop(window, workersProvider);
 
-    // Cleanup
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
     int width;
     int height;
     glfwGetWindowSize(window, &width, &height);
     settingsRepository->SetWindowWidth(width);
     settingsRepository->SetWindowHeight(height);
+
+    // Cleanup
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
 
     glfwDestroyWindow(window);
 }

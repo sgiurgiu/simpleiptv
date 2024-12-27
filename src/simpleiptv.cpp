@@ -22,7 +22,7 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
 : ui_executor{ uiContext.get_executor() }
 , workersProvider{ workersProvider }
 , channelsWindow{ ChannelsWindow::Create(ui_executor, this->workersProvider) }
-, playerBarWindow{ ui_executor, this->workersProvider }
+, playerBarWindow{ PlayerBarWindow::Create(ui_executor, this->workersProvider) }
 , player{ ui_executor, this->workersProvider }
 , channelsShowingTimer{ ui_executor }
 {
@@ -31,28 +31,28 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
     using namespace std::placeholders;
     channelsWindow->AddChannelActivatedListener(
         std::bind(&SimpleIPTV::channelActivated, this, _1));
-    playerBarWindow.AddNextChannelListener(
+    playerBarWindow->AddNextChannelListener(
         [this]() { channelsWindow->ActivateNextChannel(); });
-    playerBarWindow.AddPreviousChannelListener(
+    playerBarWindow->AddPreviousChannelListener(
         [this]() { channelsWindow->ActivatePreviousChannel(); });
-    playerBarWindow.AddPauseChannelListener([this]() { player.Pause(); });
-    playerBarWindow.AddPlayChannelListener([this]() { player.Play(); });
-    playerBarWindow.AddStopChannelListener([this]() { player.Stop(); });
-    playerBarWindow.AddVolumeListener([this](double vol)
-                                      { player.SetVolume(vol); });
+    playerBarWindow->AddPauseChannelListener([this]() { player.Pause(); });
+    playerBarWindow->AddPlayChannelListener([this]() { player.Play(); });
+    playerBarWindow->AddStopChannelListener([this]() { player.Stop(); });
+    playerBarWindow->AddVolumeListener([this](double vol)
+                                       { player.SetVolume(vol); });
     player.AddFileLoadingErrorListener(
         [this](const std::string& error)
-        { playerBarWindow.SetFileLoadingError(error); });
+        { playerBarWindow->SetFileLoadingError(error); });
     player.AddVolumeListener(
         [this](double vol)
         {
 #ifdef STV_UNIX
             this->workersProvider->GetMprisService()->SetVolume(vol);
 #endif
-            playerBarWindow.SetVolume(vol);
+            playerBarWindow->SetVolume(vol);
         });
 
-    playerBarWindow.SetVolume(player.GetVolume());
+    playerBarWindow->SetVolume(player.GetVolume());
 #ifdef STV_UNIX
     auto mprisService = workersProvider->GetMprisService();
     mprisService->AddNextListener([this]()
@@ -113,12 +113,12 @@ void SimpleIPTV::showDesktop()
         ImGui::GetIO().KeyCtrl && !ImGui::IsAnyItemHovered() &&
         !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
     {
-        playerBarWindow.SetChannelListPressed(
-            !playerBarWindow.IsChannelListPressed());
+        playerBarWindow->SetChannelListPressed(
+            !playerBarWindow->IsChannelListPressed());
     }
 
-    ImVec2 windowsSize = playerBarWindow.ShowWindow();
-    if (playerBarWindow.IsChannelListPressed())
+    ImVec2 windowsSize = playerBarWindow->ShowWindow();
+    if (playerBarWindow->IsChannelListPressed())
     {
         windowsSize.x = channelsWindow->ShowWindow(windowsSize.y).x;
     }
@@ -153,7 +153,7 @@ void SimpleIPTV::showDesktop()
 void SimpleIPTV::channelActivated(ChannelPtr channel)
 {
     spdlog::debug("{} activated", channel->GetName());
-    playerBarWindow.SetCurrentChannel(channel);
+    playerBarWindow->SetCurrentChannel(channel);
     player.Play(channel);
 #ifdef STV_UNIX
     auto mprisService = workersProvider->GetMprisService();

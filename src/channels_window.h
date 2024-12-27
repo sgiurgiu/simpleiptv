@@ -56,7 +56,7 @@ private:
     WorkersProvider* workersProvider;
     float bgAlpha = 0.f;
     bool quit = false;
-    DisplayRootChannelsGroup rootNode;
+    std::shared_ptr<DisplayRootChannelsGroup> rootNode;
     std::string channelsFilter;
     using ChannelActivatedSignal = boost::signals2::signal<void(ChannelPtr)>;
     ChannelActivatedSignal channelActivatedSignal;

@@ -33,12 +33,13 @@ ChannelsWindow::ChannelsWindow(Key,
 : ui_executor{ ui_executor }
 , workersProvider{ workersProvider }
 , bgAlpha{ INITIAL_BG_ALPHA }
+, rootNode{ DisplayRootChannelsGroup::Create() }
 {
 }
 
 void ChannelsWindow::initialize()
 {
-    rootNode.activatedChannelSignal.connect(
+    rootNode->activatedChannelSignal.connect(
         [weak = weak_from_this()](DisplayChannel* channel)
         {
             auto self = weak.lock();
@@ -81,25 +82,25 @@ void ChannelsWindow::ActivateNextChannel()
         }
         else
         {
-            rootNode.children.begin()->get()->loadChildren(
+            rootNode->children.begin()->get()->loadChildren(
                 workersProvider->GetWorkersExecutor());
-            if (!rootNode.children.begin()->get()->children.empty())
+            if (!rootNode->children.begin()->get()->children.empty())
             {
-                rootNode.children.begin()->get()->isOpen = true;
+                rootNode->children.begin()->get()->isOpen = true;
                 activatedChannel = dynamic_cast<DisplayChannel*>(
-                    rootNode.children.begin()->get()->children.begin()->get());
+                    rootNode->children.begin()->get()->children.begin()->get());
             }
         }
     }
     else
     {
-        rootNode.children.begin()->get()->loadChildren(
+        rootNode->children.begin()->get()->loadChildren(
             workersProvider->GetWorkersExecutor());
-        if (!rootNode.children.begin()->get()->children.empty())
+        if (!rootNode->children.begin()->get()->children.empty())
         {
-            rootNode.children.begin()->get()->isOpen = true;
+            rootNode->children.begin()->get()->isOpen = true;
             activatedChannel = dynamic_cast<DisplayChannel*>(
-                rootNode.children.begin()->get()->children.begin()->get());
+                rootNode->children.begin()->get()->children.begin()->get());
         }
     }
 
@@ -135,25 +136,25 @@ void ChannelsWindow::ActivatePreviousChannel()
         }
         else
         {
-            rootNode.children.rbegin()->get()->loadChildren(
+            rootNode->children.rbegin()->get()->loadChildren(
                 workersProvider->GetWorkersExecutor());
-            if (!rootNode.children.rbegin()->get()->children.empty())
+            if (!rootNode->children.rbegin()->get()->children.empty())
             {
-                rootNode.children.rbegin()->get()->isOpen = true;
+                rootNode->children.rbegin()->get()->isOpen = true;
                 activatedChannel = dynamic_cast<DisplayChannel*>(
-                    rootNode.children.rbegin()->get()->children.rbegin()->get());
+                    rootNode->children.rbegin()->get()->children.rbegin()->get());
             }
         }
     }
     else
     {
-        rootNode.children.rbegin()->get()->loadChildren(
+        rootNode->children.rbegin()->get()->loadChildren(
             workersProvider->GetWorkersExecutor());
-        if (!rootNode.children.rbegin()->get()->children.empty())
+        if (!rootNode->children.rbegin()->get()->children.empty())
         {
-            rootNode.children.rbegin()->get()->isOpen = true;
+            rootNode->children.rbegin()->get()->isOpen = true;
             activatedChannel = dynamic_cast<DisplayChannel*>(
-                rootNode.children.rbegin()->get()->children.rbegin()->get());
+                rootNode->children.rbegin()->get()->children.rbegin()->get());
         }
     }
 
@@ -236,7 +237,7 @@ void ChannelsWindow::showLocalChannelsTab()
     ImGui::InputTextWithHint("##filterChannels", "Filter", &channelsFilter);
     ImGui::BeginChild("##localChannelsTab", ImVec2(0, 0), ImGuiChildFlags_None,
                       ImGuiWindowFlags_HorizontalScrollbar);
-    rootNode.render(localSelectedNodes, channelsFilter);
+    rootNode->render(localSelectedNodes, channelsFilter);
     ImGui::EndChild();
 }
 void ChannelsWindow::showRemoteChannelsTab()
@@ -254,8 +255,8 @@ void ChannelsWindow::loadLocalChannels()
             if (!self)
                 return;
 
-            self->rootNode.setRoot(root,
-                                   self->workersProvider->GetWorkersExecutor());
+            self->rootNode->setRoot(root,
+                                    self->workersProvider->GetWorkersExecutor());
             auto end = std::chrono::high_resolution_clock::now();
             auto duration = end - start;
             spdlog::debug(

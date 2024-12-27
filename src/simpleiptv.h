@@ -29,7 +29,7 @@ private:
     boost::asio::any_io_executor ui_executor;
     WorkersProvider* workersProvider;
     std::shared_ptr<ChannelsWindow> channelsWindow;
-    PlayerBarWindow playerBarWindow;
+    std::shared_ptr<PlayerBarWindow> playerBarWindow;
     MpvPlayer player;
     int width = 0;
     int height = 0;

@@ -13,10 +13,17 @@
 
 #include "fonts/IconsFontAwesome4.h"
 
-PlayerBarWindow::PlayerBarWindow(const boost::asio::any_io_executor& ui_executor,
+PlayerBarWindow::PlayerBarWindow(Key,
+                                 const boost::asio::any_io_executor& ui_executor,
                                  WorkersProvider* workersProvider)
 : ui_executor{ ui_executor }, workersProvider{ workersProvider }
 {
+}
+std::shared_ptr<PlayerBarWindow>
+PlayerBarWindow::Create(const boost::asio::any_io_executor& executor,
+                        WorkersProvider* workersProvider)
+{
+    return std::make_shared<PlayerBarWindow>(Key{}, executor, workersProvider);
 }
 PlayerBarWindow::~PlayerBarWindow()
 {
@@ -266,8 +273,11 @@ void PlayerBarWindow::loadEpg()
         loadingEpgs = true;
         workersProvider->GetNetworkResourceProvider()->GetResource(
             currentChannel->GetEPGChannelUri(), ui_executor,
-            [this](std::string body, std::error_code ec)
+            [weak = weak_from_this()](std::string body, std::error_code ec)
             {
+                auto self = weak.lock();
+                if (!self)
+                    return;
                 if (ec)
                     return;
                 auto json = nlohmann::json::parse(body, nullptr, false, true);
@@ -288,12 +298,12 @@ void PlayerBarWindow::loadEpg()
                     listing.streamId =
                         listingObject["stream_id"].get<std::string>();
                     listing.title =
-                        decode64(listingObject["title"].get<std::string>());
-                    listing.description =
-                        decode64(listingObject["description"].get<std::string>());
-                    listing.startTime = getTimePoint(
+                        self->decode64(listingObject["title"].get<std::string>());
+                    listing.description = self->decode64(
+                        listingObject["description"].get<std::string>());
+                    listing.startTime = self->getTimePoint(
                         listingObject["start_timestamp"].get<std::string>());
-                    listing.endTime = getTimePoint(
+                    listing.endTime = self->getTimePoint(
                         listingObject["stop_timestamp"].get<std::string>());
                     if (listing.startTime.time_since_epoch() ==
                         std::chrono::seconds{ 0 })
@@ -304,9 +314,9 @@ void PlayerBarWindow::loadEpg()
                         std::format("{:%H:%M}", listing.startTime);
                     listing.endHour = std::format("{:%H:%M}", listing.endTime);
 
-                    epgListings.push_back(std::move(listing));
+                    self->epgListings.push_back(std::move(listing));
                 }
-                loadingEpgs = false;
+                self->loadingEpgs = false;
             });
     }
 }
