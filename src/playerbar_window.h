@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "channels/channel.h"
+#include "epg_listing.h"
 #include "workers_provider.h"
 
 class PlayerBarWindow : public std::enable_shared_from_this<PlayerBarWindow>
@@ -82,26 +83,23 @@ public:
     {
         volumeSignal.connect(slot);
     }
+    bool IsEpgListingPressed() const
+    {
+        return epgListingPressed;
+    }
+    void SetEpgListingPressed(bool flag)
+    {
+        epgListingPressed = flag;
+    }
+    template <typename S>
+    void AddEpgListingButtonChangedListener(S slot)
+    {
+        epgListingButtonChangedSignal.connect(slot);
+    }
 
 private:
     void loadChannelLogoData();
     void loadEpg();
-    std::string decode64(const std::string& val);
-    std::chrono::local_time<std::chrono::nanoseconds>
-    getTimePoint(const std::string& timestamp);
-    struct EpgListing
-    {
-        std::string id;
-        std::string epgId;
-        std::string title;
-        std::string description;
-        std::string channelId;
-        std::string streamId;
-        std::chrono::local_time<std::chrono::nanoseconds> startTime;
-        std::chrono::local_time<std::chrono::nanoseconds> endTime;
-        std::string startHour;
-        std::string endHour;
-    };
 
 private:
     boost::asio::any_io_executor ui_executor;
@@ -121,6 +119,7 @@ private:
     bool isVolumeSliderHovered = false;
     std::chrono::steady_clock::time_point lastVolumeHoveredTime;
     bool channelListPressed = true;
+    bool epgListingPressed = false;
     GLuint channelLogoTexture = 0;
     ImVec2 channelLogoSize = { 0, 0 };
     std::string fileLoadingError;
@@ -128,4 +127,6 @@ private:
     VolumeSignal volumeSignal;
     std::vector<EpgListing> epgListings;
     std::atomic_bool loadingEpgs = false;
+    using EpgListingButtonChangedSignal = boost::signals2::signal<void(bool)>;
+    EpgListingButtonChangedSignal epgListingButtonChangedSignal;
 };

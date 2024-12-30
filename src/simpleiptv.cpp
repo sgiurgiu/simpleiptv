@@ -23,10 +23,10 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
 , workersProvider{ workersProvider }
 , channelsWindow{ ChannelsWindow::Create(ui_executor, this->workersProvider) }
 , playerBarWindow{ PlayerBarWindow::Create(ui_executor, this->workersProvider) }
+, epgListingWindow{ EpgListingWindow::Create(ui_executor, this->workersProvider) }
 , player{ ui_executor, this->workersProvider }
 , channelsShowingTimer{ ui_executor }
 {
-    setSize(1280, 720);
     player.InitializeMpvGL();
     using namespace std::placeholders;
     channelsWindow->AddChannelActivatedListener(
@@ -53,6 +53,8 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
         });
 
     playerBarWindow->SetVolume(player.GetVolume());
+    playerBarWindow->AddEpgListingButtonChangedListener(
+        [this](bool pressed) { epgListingWindow->SetClosed(!pressed); });
 #ifdef STV_UNIX
     auto mprisService = workersProvider->GetMprisService();
     mprisService->AddNextListener([this]()
@@ -125,6 +127,10 @@ void SimpleIPTV::showDesktop()
     else
     {
         windowsSize.x = 0.f;
+    }
+    if (!epgListingWindow->IsClosed())
+    {
+        epgListingWindow->ShowWindow();
     }
 
     if (player.GetPlayerState() == PlayerState::PLAYING)

@@ -46,12 +46,6 @@ public:
         return std::static_pointer_cast<Derived>(this->shared_from_this());
     }
 
-    // template <typename Derived>
-    // std::weak_ptr<Derived> weak_from_base()
-    // {
-    //     return std::static_pointer_cast<Derived>(this->weak_from_this());
-    // }
-
     DisplayChannelsGroup* parent = nullptr;
     int indexInParent = 0;
     std::string name;

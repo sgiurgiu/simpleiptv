@@ -1,8 +1,5 @@
 #include "playerbar_window.h"
 
-#include <boost/algorithm/string.hpp>
-#include <boost/archive/iterators/binary_from_base64.hpp>
-#include <boost/archive/iterators/transform_width.hpp>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
@@ -118,20 +115,11 @@ ImVec2 PlayerBarWindow::ShowWindow()
         ImGui::Text("%s", currentChannel->GetName().c_str());
         if (!epgListings.empty())
         {
-            int activeEpgIndex = -1;
-            auto now = std::chrono::current_zone()->to_local(
-                std::chrono::system_clock::now());
-            for (size_t i = 0; i < epgListings.size(); i++)
-            {
-                if (epgListings.at(i).startTime < now &&
-                    epgListings.at(i).endTime > now)
-                {
-                    activeEpgIndex = static_cast<int>(i);
-                    break;
-                }
-            }
+            auto currentEpgIt =
+                std::find_if(epgListings.begin(), epgListings.end(),
+                             [](const auto& l) { return l.isListingCurrent(); });
 
-            if (activeEpgIndex >= 0)
+            if (currentEpgIt != epgListings.end())
             {
                 ImGui::SameLine();
                 ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
@@ -140,17 +128,13 @@ ImVec2 PlayerBarWindow::ShowWindow()
                 ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, 0x00000000);
                 ImGui::PushStyleColor(ImGuiCol_FrameBg, 0x00000000);
 
-                auto text = fmt::format("{}-{} {}",
-                                        epgListings[activeEpgIndex].startHour,
-                                        epgListings[activeEpgIndex].endHour,
-                                        epgListings[activeEpgIndex].title);
-                if (ImGui::BeginCombo("##EPG_Combo", text.c_str(),
+                if (ImGui::BeginCombo("##EPG_Combo",
+                                      currentEpgIt->GetTimeAndProgram().c_str(),
                                       ImGuiComboFlags_WidthFitPreview))
                 {
                     for (const auto& l : epgListings)
                     {
-                        ImGui::Text("%s-%s %s", l.startHour.c_str(),
-                                    l.endHour.c_str(), l.title.c_str());
+                        ImGui::Text("%s", l.GetTimeAndProgram().c_str());
                     }
                     ImGui::EndCombo();
                 }
@@ -170,7 +154,7 @@ ImVec2 PlayerBarWindow::ShowWindow()
 
     auto localPosition = ImGui::GetCursorPosX();
     auto availableSpace = ImGui::GetContentRegionAvail().x;
-    ImGui::SameLine(availableSpace - localPosition -
+    ImGui::SameLine(availableSpace - localPosition - (ImGui::GetFontSize() * 2.f) -
                     ImGui::GetStyle().FramePadding.x);
 
     if (channelListPressed)
@@ -192,6 +176,28 @@ ImVec2 PlayerBarWindow::ShowWindow()
 
     ImGui::SetItemTooltip(
         "Show/Hide Channels window (Ctrl+Click anywhere to toggle)");
+
+    ImGui::PopStyleColor(2);
+
+    if (epgListingPressed)
+    {
+        auto color = ImGui::GetColorU32(ImGuiCol_ButtonActive);
+        ImGui::PushStyleColor(ImGuiCol_Button, color);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, color);
+    }
+    else
+    {
+        ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0x00000000);
+    }
+    ImGui::SameLine();
+
+    if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_TELEVISION)))
+    {
+        epgListingPressed = !epgListingPressed;
+        epgListingButtonChangedSignal(epgListingPressed);
+    }
+    ImGui::SetItemTooltip("Show/Hide Electronic Program Guide");
 
     ImGui::PopStyleColor(2);
 
@@ -290,60 +296,9 @@ void PlayerBarWindow::loadEpg()
 
                 for (const auto& listingObject : epg_listings)
                 {
-                    EpgListing listing;
-                    listing.id = listingObject["id"].get<std::string>();
-                    listing.epgId = listingObject["epg_id"].get<std::string>();
-                    listing.channelId =
-                        listingObject["channel_id"].get<std::string>();
-                    listing.streamId =
-                        listingObject["stream_id"].get<std::string>();
-                    listing.title =
-                        self->decode64(listingObject["title"].get<std::string>());
-                    listing.description = self->decode64(
-                        listingObject["description"].get<std::string>());
-                    listing.startTime = self->getTimePoint(
-                        listingObject["start_timestamp"].get<std::string>());
-                    listing.endTime = self->getTimePoint(
-                        listingObject["stop_timestamp"].get<std::string>());
-                    if (listing.startTime.time_since_epoch() ==
-                        std::chrono::seconds{ 0 })
-                    {
-                        continue;
-                    }
-                    listing.startHour =
-                        std::format("{:%H:%M}", listing.startTime);
-                    listing.endHour = std::format("{:%H:%M}", listing.endTime);
-
-                    self->epgListings.push_back(std::move(listing));
+                    self->epgListings.emplace_back(listingObject);
                 }
                 self->loadingEpgs = false;
             });
     }
-}
-
-std::chrono::local_time<std::chrono::nanoseconds>
-PlayerBarWindow::getTimePoint(const std::string& timestamp)
-{
-    std::chrono::local_time<std::chrono::nanoseconds> chronoTime{
-        std::chrono::seconds{ 0 }
-    };
-    time_t time = 0;
-    auto [ptr, ec] = std::from_chars(timestamp.data(),
-                                     timestamp.data() + timestamp.size(), time);
-    if (ec == std::errc())
-    {
-        auto tz = std::chrono::current_zone();
-        chronoTime = tz->to_local(std::chrono::system_clock::from_time_t(time));
-    }
-    return chronoTime;
-}
-
-std::string PlayerBarWindow::decode64(const std::string& val)
-{
-    using namespace boost::archive::iterators;
-    using It =
-        transform_width<binary_from_base64<std::string::const_iterator>, 8, 6>;
-    return boost::algorithm::trim_right_copy_if(
-        std::string(It(std::begin(val)), It(std::end(val))),
-        [](char c) { return c == '\0'; });
 }

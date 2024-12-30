@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/asio/post.hpp>
+#include <iterator>
 #include <soci/soci.h>
 #include <spdlog/spdlog.h>
 
@@ -22,13 +23,15 @@ ChannelsRepository::Create(const boost::asio::any_io_executor& executor)
 void ChannelsRepository::LoadChannelsAndGroups(
     LoadRootCallback cb, const boost::asio::any_io_executor& cb_executor)
 {
-    boost::asio::post(executor,
-                      [self = shared_from_this(), cb, cb_executor]()
-                      {
-                          auto root = self->loadChannelsData();
-                          boost::asio::post(cb_executor,
-                                            [root, cb]() { cb(root); });
-                      });
+    boost::asio::post(
+        executor,
+        [self = shared_from_this(), cb = std::move(cb), cb_executor]() mutable
+        {
+            auto root = self->loadChannelsData();
+            boost::asio::post(cb_executor, [root = std::move(root),
+                                            cb = std::move(cb)]() mutable
+                              { cb(std::move(root)); });
+        });
 }
 RootChannelsGroupPtr ChannelsRepository::loadChannelsData()
 {
@@ -224,4 +227,103 @@ ChannelPtr ChannelsRepository::loadChannel(const soci::row& r)
         id, std::move(name), std::move(uri), std::move(logo_uri),
         std::move(logo), std::move(epgChannelUri), std::move(epgChannelId),
         xstreamServerId, favourite == 1, std::move(groupId));
+}
+
+void ChannelsRepository::GetFavouritesPage(
+    int page,
+    int channelsPerPage,
+    LoadChannelsCallback cb,
+    const boost::asio::any_io_executor& cb_executor)
+{
+    boost::asio::post(
+        executor,
+        [self = shared_from_this(), page, channelsPerPage, cb = std::move(cb),
+         cb_executor]() mutable
+        {
+            std::vector<ChannelPtr> channels;
+            auto session = DatabaseConnections::GetConnection();
+            int total = 0;
+            session << "SELECT COUNT(*) FROM CHANNELS WHERE FAVOURITE=TRUE",
+                soci::into(total);
+
+            soci::rowset<soci::row> rows = { (
+                session.prepare
+                    << "SELECT CHANNEL_ID, NAME, URI, LOGO_URI, "
+                       "LOGO, EPG_CHANNEL_URI, "
+                       "EPG_CHANNEL_ID, XSTREAM_SERVER_ID, "
+                       "FAVOURITE, GROUP_ID FROM "
+                       "CHANNELS "
+                       "WHERE FAVOURITE=TRUE ORDER BY NAME LIMIT :size "
+                       "OFFSET :offset",
+                soci::use(channelsPerPage), soci::use(page * channelsPerPage)) };
+            for (const auto& r : rows)
+            {
+                channels.push_back(self->loadChannel(r));
+            }
+
+            boost::asio::post(cb_executor, [channels = std::move(channels),
+                                            cb = std::move(cb), total]() mutable
+                              { cb(std::move(channels), total); });
+        });
+}
+void ChannelsRepository::GetChannelsPage(
+    ChannelsGroupPtr group,
+    int page,
+    int channelsPerPage,
+    LoadChannelsCallback cb,
+    const boost::asio::any_io_executor& cb_executor)
+{
+    boost::asio::post(
+        executor,
+        [self = shared_from_this(), group = std::move(group), page,
+         channelsPerPage, cb = std::move(cb), cb_executor]() mutable
+        {
+            int id = group ? group->GetId() : 0;
+            auto ind = group ? soci::i_ok : soci::i_null;
+            int total = 0;
+            std::vector<ChannelPtr> channels;
+            auto session = DatabaseConnections::GetConnection();
+
+            session << "SELECT COUNT(*) FROM CHANNELS WHERE IIF(:id IS NULL, "
+                       "GROUP_ID IS NULL, GROUP_ID=:id)",
+                soci::use(id, ind, "id"), soci::into(total);
+
+            soci::rowset<soci::row> rows = { (
+                session.prepare << "SELECT CHANNEL_ID, NAME, URI, LOGO_URI, "
+                                   "LOGO, EPG_CHANNEL_URI, "
+                                   "EPG_CHANNEL_ID, XSTREAM_SERVER_ID, "
+                                   "FAVOURITE, GROUP_ID FROM "
+                                   "CHANNELS "
+                                   "WHERE IIF(:id IS NULL, "
+                                   "GROUP_ID IS NULL, GROUP_ID=:id)   ORDER BY "
+                                   "NAME LIMIT :size "
+                                   "OFFSET :offset",
+                soci::use(id, ind, "id"), soci::use(channelsPerPage, "size"),
+                soci::use(page * channelsPerPage, "offset")) };
+            for (const auto& r : rows)
+            {
+                channels.push_back(self->loadChannel(r));
+            }
+
+            boost::asio::post(cb_executor, [channels = std::move(channels),
+                                            cb = std::move(cb), total]() mutable
+                              { cb(std::move(channels), total); });
+        });
+}
+void ChannelsRepository::GetGroups(LoadGroupsCallback cb,
+                                   const boost::asio::any_io_executor& cb_executor)
+{
+    boost::asio::post(
+        executor,
+        [self = shared_from_this(), cb = std::move(cb), cb_executor]() mutable
+        {
+            std::vector<ChannelsGroupPtr> groups;
+            auto groupsMap = self->loadAllGroups();
+            std::transform(groupsMap.begin(), groupsMap.end(),
+                           std::back_inserter(groups),
+                           [](auto& kv) { return kv.second; });
+            boost::asio::post(cb_executor, [groups = std::move(groups),
+                                            cb = std::move(cb)]() mutable
+                              { cb(std::move(groups)); });
+        });
 }

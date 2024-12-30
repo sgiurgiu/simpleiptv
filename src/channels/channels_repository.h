@@ -31,6 +31,20 @@ public:
     // the callback will be called on the cb_executor provided
     void LoadChannelsAndGroups(LoadRootCallback cb,
                                const boost::asio::any_io_executor& cb_executor);
+    using LoadChannelsCallback =
+        std::function<void(std::vector<ChannelPtr>, int)>;
+    void GetFavouritesPage(int page,
+                           int channelsPerPage,
+                           LoadChannelsCallback cb,
+                           const boost::asio::any_io_executor& cb_executor);
+    void GetChannelsPage(ChannelsGroupPtr group,
+                         int page,
+                         int channelsPerPage,
+                         LoadChannelsCallback cb,
+                         const boost::asio::any_io_executor& cb_executor);
+    using LoadGroupsCallback = std::function<void(std::vector<ChannelsGroupPtr>)>;
+    void GetGroups(LoadGroupsCallback cb,
+                   const boost::asio::any_io_executor& cb_executor);
 
 private:
     RootChannelsGroupPtr loadChannelsData();

@@ -4,6 +4,7 @@
 #include <chrono>
 
 #include "channels_window.h"
+#include "epg_listings_window.h"
 #include "mpvplayer.h"
 #include "playerbar_window.h"
 #include "workers_provider.h"
@@ -30,6 +31,7 @@ private:
     WorkersProvider* workersProvider;
     std::shared_ptr<ChannelsWindow> channelsWindow;
     std::shared_ptr<PlayerBarWindow> playerBarWindow;
+    std::shared_ptr<EpgListingWindow> epgListingWindow;
     MpvPlayer player;
     int width = 0;
     int height = 0;

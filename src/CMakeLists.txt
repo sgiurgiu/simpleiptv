@@ -111,6 +111,8 @@ set(STV_SRCS main.cpp
     sleep_service.cpp
     network_resource_provider.cpp
     boost_error_code_converter.cpp
+    epg_listing.cpp
+    epg_listings_window.cpp
     )
 
 if(UNIX)
