@@ -174,105 +174,120 @@ bool EpgListingWindow::ShowWindow()
                          ImGui::GetStyle().FramePadding.y * 2.f +
                          ImGui::GetStyle().FrameBorderSize;
 
-    auto pos = canvasPos;
-
-    drawList->AddRectFilled(pos, ImVec2(pos.x + colWidth, pos.y + headerHeight),
-                            0xFF3D3837, 0);
-    drawList->AddRect(pos, ImVec2(pos.x + colWidth, pos.y + headerHeight),
-                      0xFFFFFFFF, 0);
-
-    for (const auto& time : coveredHours)
+    if (ImGui::BeginChild("channels_list"))
     {
-        pos = pos + ImVec2(colWidth, 0.f);
-        auto format = std::format("{:%H:%M}", time);
-        drawList->AddRectFilled(
-            pos, ImVec2(pos.x + colWidth, pos.y + headerHeight), 0xFF3D3837, 0);
-        drawList->AddRect(pos, ImVec2(pos.x + colWidth, pos.y + headerHeight),
-                          0xFFFFFFFF, 0);
-        drawList->AddText(ImVec2(pos.x + ImGui::GetFontSize() / 2.f, pos.y + 2),
-                          0xFFFFFFFF, format.c_str());
-    }
-    float maxDisplayWidth = pos.x + colWidth;
-    pos.y += headerHeight;
-    pos.x = canvasPos.x;
-
-    const float rowHeight = 50.f;
-
-    for (const auto& c : channels)
-    {
-        drawList->PushClipRect(pos, pos + ImVec2(colWidth, rowHeight));
-        drawList->AddRect(pos, pos + ImVec2(colWidth, rowHeight), 0xFFFFFFFF, 0);
-        drawList->AddText(ImVec2(pos.x + ImGui::GetFontSize() / 2.f, pos.y + 2),
-                          0xFFFFFFFF, c->channel->GetName().c_str());
-        drawList->PopClipRect();
-        pos = pos + ImVec2(colWidth, 0.f);
-        for (const auto& epg : c->epgListings)
+        ImGuiWindow* window = ImGui::GetCurrentWindowRead();
+        auto pos = window->DC.CursorPos;
+        float maxDisplayWidth = canvasPos.x + canvasSize.x -
+                                ImGui::GetStyle().FramePadding.x -
+                                ImGui::GetStyle().ScrollbarSize;
         {
-            if (epg.GetStartTime() >= maxCoveredHour)
-                break;
-            double durationScale =
-                (double)epg.GetDurationLeftFromHourStart().count() /
-                (double)std::chrono::duration_cast<std::chrono::system_clock::duration>(
-                    COL_WIDTH_DURATION)
-                    .count();
-            float listingWidth = colWidth * durationScale;
-            ImVec2 maxListingVec = pos + ImVec2(listingWidth, rowHeight);
-            if (maxListingVec.x > maxDisplayWidth)
+            const ImGuiID id = window->GetID("time");
+            ImVec2 size =
+                ImGui::CalcItemSize(ImVec2(colWidth, headerHeight), 0.0f, 0.0f);
+            const ImRect bb(window->DC.CursorPos, window->DC.CursorPos + size);
+            ImGui::ItemSize(size);
+            if (ImGui::ItemAdd(bb, id, nullptr, ImGuiItemFlags_NoNav))
             {
-                maxListingVec.x = maxDisplayWidth;
+                ImVec2 maxListingVec = pos + ImVec2(colWidth, headerHeight);
+                if (maxListingVec.x > maxDisplayWidth)
+                {
+                    maxListingVec.x = maxDisplayWidth;
+                }
+                if (maxListingVec.y <= window->ClipRect.Max.y &&
+                    pos.y >= window->ClipRect.Min.y)
+                {
+                    drawList->AddRectFilled(pos, maxListingVec, 0xFF3D3837, 0);
+                    drawList->AddRect(pos, maxListingVec, 0xFFFFFFFF, 0);
+
+                    for (const auto& time : coveredHours)
+                    {
+                        pos = pos + ImVec2(colWidth, 0.f);
+                        auto format = std::format("{:%H:%M}", time);
+                        maxListingVec = pos + ImVec2(colWidth, headerHeight);
+                        if (maxListingVec.x > maxDisplayWidth)
+                        {
+                            maxListingVec.x = maxDisplayWidth;
+                        }
+                        drawList->AddRectFilled(pos, maxListingVec, 0xFF3D3837,
+                                                0);
+                        drawList->AddRect(pos, maxListingVec, 0xFFFFFFFF, 0);
+                        drawList->AddText(
+                            ImVec2(pos.x + ImGui::GetFontSize() / 2.f, pos.y + 2),
+                            0xFFFFFFFF, format.c_str());
+                    }
+                }
             }
-
-            drawList->PushClipRect(pos, maxListingVec);
-            drawList->AddRectFilled(pos, maxListingVec, 0xFF3D3837, 0);
-            drawList->AddRect(pos, maxListingVec, 0xFFFFFFFF, 0);
-
-            drawList->AddText(
-                ImVec2(pos.x + ImGui::GetFontSize() / 2.f, pos.y + 2),
-                0xFFFFFFFF, epg.GetTitle().c_str());
-            drawList->AddText(ImVec2(pos.x + ImGui::GetFontSize() / 2.f,
-                                     pos.y + 2.f + ImGui::GetFontSize() +
-                                         ImGui::GetStyle().FramePadding.y),
-                              0xFFFFFFFF, epg.GetTime().c_str());
-
-            drawList->PopClipRect();
-            pos = pos + ImVec2(listingWidth, 0.f);
         }
-        pos.y += rowHeight;
-        pos.x = canvasPos.x;
-        if (pos.y > (canvasPos.y + canvasSize.y -
-                     ImGui::GetStyle().FramePadding.y * 2.f))
+
+        const float rowHeight = 50.f;
+
+        for (const auto& c : channels)
         {
-            break;
+            const ImGuiID id = window->GetID(c->channel->GetName().c_str());
+            ImVec2 size =
+                ImGui::CalcItemSize(ImVec2(colWidth, rowHeight), 0.0f, 0.0f);
+            const ImRect bb(window->DC.CursorPos, window->DC.CursorPos + size);
+            pos = window->DC.CursorPos;
+            ImGui::ItemSize(size);
+            if (ImGui::ItemAdd(bb, id, nullptr, ImGuiItemFlags_NoNav))
+            {
+                {
+                    ImVec2 maxListingVec = pos + ImVec2(colWidth, rowHeight);
+                    if (maxListingVec.y > window->ClipRect.Max.y ||
+                        pos.y <= window->ClipRect.Min.y)
+                    {
+                        continue;
+                    }
+                    drawList->PushClipRect(pos, maxListingVec);
+                    drawList->AddRect(pos, maxListingVec, 0xFFFFFFFF, 0);
+                    drawList->AddText(
+                        ImVec2(pos.x + ImGui::GetFontSize() / 2.f, pos.y + 2),
+                        0xFFFFFFFF, c->channel->GetName().c_str());
+                    drawList->PopClipRect();
+                }
+                pos = pos + ImVec2(colWidth, 0.f);
+                for (const auto& epg : c->epgListings)
+                {
+                    if (epg.GetStartTime() >= maxCoveredHour)
+                        break;
+                    double durationScale =
+                        (double)epg.GetDurationLeftFromHourStart().count() /
+                        (double)std::chrono::duration_cast<
+                            std::chrono::system_clock::duration>(COL_WIDTH_DURATION)
+                            .count();
+                    float listingWidth = colWidth * durationScale;
+                    ImVec2 maxListingVec = pos + ImVec2(listingWidth, rowHeight);
+                    if (maxListingVec.x > maxDisplayWidth)
+                    {
+                        maxListingVec.x = maxDisplayWidth;
+                    }
+                    if (maxListingVec.y > window->ClipRect.Max.y)
+                    {
+                        maxListingVec.y = window->ClipRect.Max.y;
+                    }
+
+                    drawList->PushClipRect(pos, maxListingVec);
+                    drawList->AddRectFilled(pos, maxListingVec, 0xFF3D3837, 0);
+                    drawList->AddRect(pos, maxListingVec, 0xFFFFFFFF, 0);
+
+                    drawList->AddText(
+                        ImVec2(pos.x + ImGui::GetFontSize() / 2.f, pos.y + 2),
+                        0xFFFFFFFF, epg.GetTitle().c_str());
+                    drawList->AddText(ImVec2(pos.x + ImGui::GetFontSize() / 2.f,
+                                             pos.y + 2.f + ImGui::GetFontSize() +
+                                                 ImGui::GetStyle().FramePadding.y),
+                                      0xFFFFFFFF, epg.GetTime().c_str());
+
+                    drawList->PopClipRect();
+                    pos = pos + ImVec2(listingWidth, 0.f);
+                }
+            }
         }
+        ImGui::EndChild();
     }
 
     ImGui::EndGroup();
-
-    /*{
-        float colWidth = availableSpace / (float)columnsCount;
-        ImGui::PushItemWidth(colWidth);
-        ImGui::Button("Time");
-        for (const auto& time : coveredHours)
-        {
-            ImGui::SameLine();
-            auto format = std::format("{:%H:%M}", time);
-            ImGui::Text(format.c_str());
-        }
-        ImGui::NewLine();
-        for (const auto& c : channels)
-        {
-            ImGui::Text(c->channel->GetName().c_str());
-            int col = 1;
-            for (const auto& epg : c->epgListings)
-            {
-                ImGui::SameLine(0.f, 5.f);
-
-                ImGui::Text(epg.GetTimeAndProgram().c_str());
-            }
-            ImGui::NewLine();
-        }
-        ImGui::PopItemWidth();
-    }*/
 
     ImGui::End();
     return open;
