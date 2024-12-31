@@ -269,6 +269,12 @@ bool EpgListingWindow::addChannel(const DisplayChannelPtr& channel)
         const ImGuiID id = window->GetID(
             (channel->channel->GetName() + std::to_string(index)).c_str());
         ImGui::ButtonBehavior(listingRect, id, &hovered, &held);
+        if (hovered && ImGui::BeginTooltip())
+        {
+            ImGui::Text("%s\n%s", epg.GetTimeAndProgram().c_str(),
+                        epg.GetDescription().c_str());
+            ImGui::EndTooltip();
+        }
         ImU32 color =
             hovered ? ImGui::GetColorU32(ImGuiCol_ButtonHovered) : 0xFF3D3837;
 
