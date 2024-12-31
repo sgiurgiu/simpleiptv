@@ -1,5 +1,6 @@
 #pragma once
 
+#include <imgui.h>
 #include <memory>
 #include <vector>
 
@@ -45,6 +46,7 @@ private:
     void loadEpgsOfLoadedChannels();
     void reloadCoveredHours();
     bool shouldReloadCoveredHours() const;
+    // ImRect getItemRect() const;
 
     struct DisplayChannel
     {
@@ -52,6 +54,8 @@ private:
         std::vector<EpgListing> epgListings;
     };
     using DisplayChannelPtr = std::shared_ptr<DisplayChannel>;
+    bool addHoursHeaderBar();
+    bool addChannel(const DisplayChannelPtr& channel);
 
 private:
     boost::asio::any_io_executor ui_executor;
@@ -68,8 +72,10 @@ private:
     int totalChannels = 0;
     int columnsCount = INITIAL_COLUMNS_COUNT;
     int channelsLoadedEpgs = 0;
-    std::vector<std::chrono::time_point<std::chrono::local_t, std::chrono::milliseconds>>
-        coveredHours;
+    using HoursTimePoint = std::chrono::time_point<std::chrono::local_t, std::chrono::milliseconds>;
+    std::vector<HoursTimePoint> coveredHours;
     std::chrono::local_seconds currentLocalTime;
-    std::chrono::time_point<std::chrono::local_t, std::chrono::hours> maxCoveredHour;
+    HoursTimePoint maxCoveredHour;
+    HoursTimePoint minCoveredHour;
+    std::vector<std::pair<ImVec2,HoursTimePoint>> columnsStartPos;
 };

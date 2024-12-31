@@ -132,6 +132,10 @@ void SimpleIPTV::showDesktop()
     {
         epgListingWindow->ShowWindow();
     }
+    else
+    {
+        playerBarWindow->SetEpgListingPressed(false);
+    }
 
     if (player.GetPlayerState() == PlayerState::PLAYING)
     {
