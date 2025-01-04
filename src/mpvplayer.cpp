@@ -396,6 +396,7 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
     }
     break;
     case MPV_EVENT_FILE_LOADED:
+    {
         playerState = PlayerState::PLAYING;
         workersProvider->GetSleepService()->disableComputerSleep();
         skipRendering = 0;
@@ -405,7 +406,8 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
 
         // startRenderingMedia();
         // emit fileLoaded();
-        break;
+    }
+    break;
     default:
         break;
         // Ignore uninteresting or unknown events.
