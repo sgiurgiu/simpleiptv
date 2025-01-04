@@ -14,11 +14,8 @@ public:
     std::string GetTitle() const;
     std::string GetDescription() const;
     std::chrono::system_clock::duration GetDuration() const;
-    std::chrono::system_clock::duration GetDurationLeft() const;
-    std::chrono::system_clock::duration GetDurationLeftFromHourStart() const;
     std::chrono::local_time<std::chrono::system_clock::duration> GetStartTime() const;
     std::chrono::local_time<std::chrono::system_clock::duration> GetEndTime() const;
-    std::chrono::system_clock::duration GetDurationGapFromHourStart() const;
 
 private:
     std::string decode64(const std::string& val);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/signals2.hpp>
 #include <imgui.h>
 #include <memory>
 #include <vector>
@@ -38,6 +39,11 @@ public:
             loadEpgs();
         }
     }
+    template <typename S>
+    void AddChannelActivatedListener(S slot)
+    {
+        channelActivatedSignal.connect(slot);
+    }
 
 private:
     void loadEpgs();
@@ -46,7 +52,6 @@ private:
     void loadEpgsOfLoadedChannels();
     void reloadCoveredHours();
     bool shouldReloadCoveredHours() const;
-    // ImRect getItemRect() const;
 
     struct DisplayChannel
     {
@@ -72,10 +77,14 @@ private:
     int totalChannels = 0;
     int columnsCount = INITIAL_COLUMNS_COUNT;
     int channelsLoadedEpgs = 0;
-    using HoursTimePoint = std::chrono::time_point<std::chrono::local_t, std::chrono::milliseconds>;
+    using HoursTimePoint =
+        std::chrono::time_point<std::chrono::local_t, std::chrono::milliseconds>;
     std::vector<HoursTimePoint> coveredHours;
     std::chrono::local_seconds currentLocalTime;
     HoursTimePoint maxCoveredHour;
     HoursTimePoint minCoveredHour;
-    std::vector<std::pair<ImVec2,HoursTimePoint>> columnsStartPos;
+    std::vector<std::pair<ImVec2, HoursTimePoint>> columnsStartPos;
+    using ActivatedChannelSignal =
+        boost::signals2::signal<void(ChannelsGroupPtr, ChannelPtr)>;
+    ActivatedChannelSignal channelActivatedSignal;
 };

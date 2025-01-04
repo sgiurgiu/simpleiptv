@@ -43,6 +43,7 @@ public:
     }
     void ActivateNextChannel();
     void ActivatePreviousChannel();
+    void ActivateChannelOfGroup(ChannelsGroupPtr group, ChannelPtr channel);
 
 private:
     void initialize();

@@ -286,3 +286,9 @@ void ChannelsWindow::showMenu()
         ImGui::EndMenuBar();
     }
 }
+
+void ChannelsWindow::ActivateChannelOfGroup(ChannelsGroupPtr group,
+                                            ChannelPtr channel)
+{
+    rootNode->ActivateChannelOfGroup(group, channel);
+}

@@ -55,6 +55,10 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
     playerBarWindow->SetVolume(player.GetVolume());
     playerBarWindow->AddEpgListingButtonChangedListener(
         [this](bool pressed) { epgListingWindow->SetClosed(!pressed); });
+    epgListingWindow->AddChannelActivatedListener(
+        [this](ChannelsGroupPtr group, ChannelPtr channel)
+        { channelsWindow->ActivateChannelOfGroup(group, channel); });
+
 #ifdef STV_UNIX
     auto mprisService = workersProvider->GetMprisService();
     mprisService->AddNextListener([this]()

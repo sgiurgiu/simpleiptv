@@ -211,8 +211,8 @@ bool EpgListingWindow::addChannel(const DisplayChannelPtr& channel)
         drawList->PushClipRect(pos, maxListingVec);
         bool hovered = false;
         bool held = false;
-        pressed = ImGui::ButtonBehavior(ImRect(pos, maxListingVec), id,
-                                        &hovered, &held);
+        pressed = ImGui::ButtonBehavior(ImRect(pos, maxListingVec), id, &hovered,
+                                        &held, ImGuiButtonFlags_PressedOnClick);
         ImU32 color = pressed
                           ? ImGui::GetColorU32(ImGuiCol_ButtonActive)
                           : (hovered ? ImGui::GetColorU32(ImGuiCol_ButtonHovered)
@@ -222,6 +222,15 @@ bool EpgListingWindow::addChannel(const DisplayChannelPtr& channel)
         drawList->AddText(ImVec2(pos.x + ImGui::GetFontSize() / 2.f, pos.y + 2),
                           0xFFFFFFFF, channel->channel->GetName().c_str());
         drawList->PopClipRect();
+        if (hovered)
+        {
+            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+            if (pressed)
+            {
+                open = false;
+                channelActivatedSignal(selectedGroup, channel->channel);
+            }
+        }
     }
     pos += ImVec2(colWidth, 0.f);
     int index = 0;

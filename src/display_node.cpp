@@ -218,6 +218,11 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
             }
         }
     }
+    if (shouldScrollToChannel)
+    {
+        ImGui::ScrollToItem(ImGuiScrollFlags_None);
+        shouldScrollToChannel = false;
+    }
     ImGui::PopID();
     if (isActivated && !isSelected)
     {
@@ -226,8 +231,7 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
     if (ImGui::IsItemHovered() &&
         ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
     {
-        activatedChannelSignal(this);
-        isActivated = true;
+        activate();
     }
     ImGui::SameLine();
     loadLogoTexture();
@@ -244,6 +248,7 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
         ImGui::SameLine(0.f, dummySize.x);
     }
     ImGui::Text("%s", channel->GetName().c_str());
+    scrollY = ImGui::GetScrollY();
 }
 void DisplayChannel::loadLogoTexture()
 {
@@ -452,4 +457,62 @@ DisplayChannel::~DisplayChannel()
     {
         stbi_image_free(logoData);
     }
+}
+void DisplayRootChannelsGroup::ActivateChannelOfGroup(ChannelsGroupPtr group,
+                                                      ChannelPtr channel)
+{
+    DisplayNodeType groupType = DisplayNodeType::GROUP;
+    if (group->GetId() < 0 && channel->IsFavourite())
+    {
+        // we got a special group
+        groupType = DisplayNodeType::FAVOURITES;
+    }
+
+    auto findGroup = [group, groupType](this auto const& findGroup,
+                                        DisplayNode* node) -> DisplayNode*
+    {
+        DisplayNode* foundNode = nullptr;
+        for (const auto& child : node->children)
+        {
+            if (child->getType() == groupType &&
+                child->getUnderlyingID() == group->GetId())
+            {
+                foundNode = child.get();
+                break;
+            }
+            else
+            {
+                foundNode = findGroup(child.get());
+            }
+        }
+        return foundNode;
+    };
+
+    auto foundGroup = findGroup(this);
+    if (foundGroup)
+    {
+        foundGroup->isOpen = true;
+        auto channelIt =
+            std::find_if(foundGroup->children.begin(), foundGroup->children.end(),
+                         [id = channel->GetId()](const auto& c)
+                         {
+                             return id == c->getUnderlyingID() &&
+                                    c->getType() == DisplayNodeType::CHANNEL;
+                         });
+        if (channelIt != foundGroup->children.cend())
+        {
+            DisplayChannel* channel =
+                dynamic_cast<DisplayChannel*>(channelIt->get());
+            if (channel)
+            {
+                channel->activate();
+            }
+        }
+    }
+}
+void DisplayChannel::activate()
+{
+    activatedChannelSignal(this);
+    isActivated = true;
+    shouldScrollToChannel = true;
 }

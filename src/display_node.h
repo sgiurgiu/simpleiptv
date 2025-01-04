@@ -17,6 +17,13 @@
 
 struct DisplayChannel;
 struct DisplayChannelsGroup;
+enum class DisplayNodeType
+{
+    ROOT,
+    FAVOURITES,
+    GROUP,
+    CHANNEL
+};
 struct DisplayNode : public std::enable_shared_from_this<DisplayNode>
 {
 protected:
@@ -33,6 +40,8 @@ public:
                 DisplayChannelsGroup* parent);
     virtual ~DisplayNode() = default;
 
+    virtual int getUnderlyingID() const = 0;
+    virtual DisplayNodeType getType() const = 0;
     virtual void render(std::unordered_set<DisplayNode*>& selectedNodes,
                         const std::string& filter) = 0;
     virtual void loadChildren(const boost::asio::any_io_executor& executor) = 0;
@@ -91,6 +100,15 @@ struct DisplayChannelsGroup : public DisplayNode
                              const std::string& filter);
     void loadChildren(const boost::asio::any_io_executor& executor) override;
     bool shouldRender(const std::string& filter) const override;
+    virtual int getUnderlyingID() const override
+    {
+        return group ? group->GetId() : -1;
+    }
+    virtual DisplayNodeType getType() const override
+    {
+        return DisplayNodeType::GROUP;
+    }
+
     ChannelsGroupPtr group;
     float maxLogoWidth = 0.0;
 };
@@ -121,6 +139,16 @@ struct DisplayChannel : public DisplayNode
     void loadLogoTexture();
     void decodeLogoImage(const boost::asio::any_io_executor& executor);
     void downloadLogoImage(const boost::asio::any_io_executor& executor);
+    virtual int getUnderlyingID() const override
+    {
+        return channel ? channel->GetId() : -1;
+    }
+    virtual DisplayNodeType getType() const override
+    {
+        return DisplayNodeType::CHANNEL;
+    }
+    void activate();
+
     ChannelPtr channel;
     bool isActivated = false;
     GLuint channelLogoTexture = 0;
@@ -129,6 +157,8 @@ struct DisplayChannel : public DisplayNode
     std::atomic_int logoChannels = 0;
     std::atomic<ImVec2> displayLogoSize;
     std::atomic<unsigned char*> logoData = nullptr;
+    bool shouldScrollToChannel = false;
+    float scrollY = 0.0;
 };
 struct DisplayRootChannelsGroup : public DisplayChannelsGroup
 {
@@ -141,10 +171,20 @@ struct DisplayRootChannelsGroup : public DisplayChannelsGroup
         return std::make_shared<DisplayRootChannelsGroup>(DisplayNodeKey{});
     }
     void renderGroup(std::unordered_set<DisplayNode*>& selectedNodes,
-                     const std::string& filter);
+                     const std::string& filter) override;
     void setRoot(RootChannelsGroupPtr root,
                  const boost::asio::any_io_executor& executor);
-    void loadChildren(const boost::asio::any_io_executor& executor);
+    void loadChildren(const boost::asio::any_io_executor& executor) override;
+    void ActivateChannelOfGroup(ChannelsGroupPtr group, ChannelPtr channel);
+    virtual int getUnderlyingID() const override
+    {
+        return -1;
+    }
+    virtual DisplayNodeType getType() const override
+    {
+        return DisplayNodeType::ROOT;
+    }
+
     RootChannelsGroupPtr root;
     std::shared_ptr<DisplayChannelsGroup> favouritesGroup;
 };
@@ -157,5 +197,13 @@ struct DisplayFavouritesChannelsGroup : public DisplayChannelsGroup
     {
         return std::make_shared<DisplayFavouritesChannelsGroup>(DisplayNodeKey{},
                                                                 parent);
+    }
+    virtual int getUnderlyingID() const override
+    {
+        return -1;
+    }
+    virtual DisplayNodeType getType() const override
+    {
+        return DisplayNodeType::FAVOURITES;
     }
 };

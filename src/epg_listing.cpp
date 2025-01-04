@@ -79,32 +79,9 @@ std::string EpgListing::GetTime() const
 {
     return time;
 }
-std::chrono::system_clock::duration EpgListing::GetDurationLeft() const
-{
-    if (!isListingCurrent())
-        return GetDuration();
-    auto now = std::chrono::system_clock::now();
-    return endTime - now;
-}
-std::chrono::system_clock::duration EpgListing::GetDurationLeftFromHourStart() const
-{
-    if (!isListingCurrent())
-        return GetDuration();
-    auto top_of_the_hour_tp =
-        std::chrono::floor<std::chrono::hours>(std::chrono::system_clock::now());
-    return endTime - top_of_the_hour_tp;
-}
-std::chrono::system_clock::duration EpgListing::GetDurationGapFromHourStart() const
-{
-    auto top_of_the_hour_tp =
-        std::chrono::floor<std::chrono::hours>(startTime);
-    if (startTime > top_of_the_hour_tp)
-    {
-        return startTime - top_of_the_hour_tp;
-    }
-    return std::chrono::system_clock::duration{};
-}
-std::chrono::local_time<std::chrono::system_clock::duration> EpgListing::GetEndTime() const
+
+std::chrono::local_time<std::chrono::system_clock::duration>
+EpgListing::GetEndTime() const
 {
     return localEndTime;
 }
