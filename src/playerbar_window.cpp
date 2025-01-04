@@ -106,6 +106,24 @@ ImVec2 PlayerBarWindow::ShowWindow()
     if (currentChannel)
     {
         ImGui::SameLine();
+        if (ccButtonPressed)
+        {
+            auto color = ImGui::GetColorU32(ImGuiCol_ButtonActive);
+            ImGui::PushStyleColor(ImGuiCol_Button, color);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, color);
+        }
+        else
+        {
+            ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0x00000000);
+        }
+        if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_CC)))
+        {
+            ccButtonPressed = !ccButtonPressed;
+            ccButtonChangedSignal(ccButtonPressed);
+        }
+        ImGui::PopStyleColor(2);
+        ImGui::SameLine();
         if (channelLogoTexture)
         {
             ImTextureID texture = static_cast<ImTextureID>(channelLogoTexture);
@@ -268,6 +286,7 @@ void PlayerBarWindow::SetCurrentChannel(ChannelPtr channel)
     currentChannel = channel;
     fileLoadingError = "";
     epgListings.clear();
+    ccButtonPressed = false;
     loadChannelLogoData();
     loadEpg();
 }

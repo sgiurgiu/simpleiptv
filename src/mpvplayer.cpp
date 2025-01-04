@@ -400,6 +400,8 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
         workersProvider->GetSleepService()->disableComputerSleep();
         skipRendering = 0;
         playerStateSignal(playerState);
+        int trackCount = 0;
+        mpv_get_property(mpv, "track-list/count", MPV_FORMAT_INT64, &trackCount);
 
         // startRenderingMedia();
         // emit fileLoaded();
@@ -648,4 +650,9 @@ void MpvPlayer::SetVolume(double volume)
     osdTimer.expires_after(OSD_DURATION);
     osdTimer.async_wait(std::bind(&MpvPlayer::removeVolumeOsd, this, _1));
     volumeSignal(this->volume);
+}
+void MpvPlayer::ClosedCaptions(bool enabled)
+{
+    auto sid = enabled ? "1" : "no";
+    mpv_set_property_string(mpv, "sid", sid);
 }

@@ -58,6 +58,8 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
     epgListingWindow->AddChannelActivatedListener(
         [this](ChannelsGroupPtr group, ChannelPtr channel)
         { channelsWindow->ActivateChannelOfGroup(group, channel); });
+    playerBarWindow->AddCCButtonChangedListener(
+        [this](bool enabled) { player.ClosedCaptions(enabled); });
 
 #ifdef STV_UNIX
     auto mprisService = workersProvider->GetMprisService();

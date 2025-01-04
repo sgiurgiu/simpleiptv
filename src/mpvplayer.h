@@ -50,6 +50,7 @@ public:
     {
         volumeSignal.connect(slot);
     }
+    void ClosedCaptions(bool enabled);
 
 private:
     void handleMpvEvent(mpv_event* event);
