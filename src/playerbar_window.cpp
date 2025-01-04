@@ -106,6 +106,7 @@ ImVec2 PlayerBarWindow::ShowWindow()
     if (currentChannel)
     {
         ImGui::SameLine();
+        ImGui::BeginDisabled(subsIds.empty());
         if (ccButtonPressed)
         {
             auto color = ImGui::GetColorU32(ImGuiCol_ButtonActive);
@@ -120,9 +121,16 @@ ImVec2 PlayerBarWindow::ShowWindow()
         if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_CC)))
         {
             ccButtonPressed = !ccButtonPressed;
-            ccButtonChangedSignal(ccButtonPressed);
+            std::string subId = "no";
+            if (ccButtonPressed && !subsIds.empty())
+            {
+                subId = subsIds.at(0);
+            }
+            ccButtonChangedSignal(subId);
         }
         ImGui::PopStyleColor(2);
+        ImGui::EndDisabled();
+
         ImGui::SameLine();
         if (channelLogoTexture)
         {
@@ -287,6 +295,7 @@ void PlayerBarWindow::SetCurrentChannel(ChannelPtr channel)
     fileLoadingError = "";
     epgListings.clear();
     ccButtonPressed = false;
+    subsIds.clear();
     loadChannelLogoData();
     loadEpg();
 }
@@ -320,4 +329,9 @@ void PlayerBarWindow::loadEpg()
                 self->loadingEpgs = false;
             });
     }
+}
+
+void PlayerBarWindow::SetAvailableSubIds(std::vector<std::string> subsIds)
+{
+    this->subsIds = std::move(subsIds);
 }

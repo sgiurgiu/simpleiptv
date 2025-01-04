@@ -50,7 +50,12 @@ public:
     {
         volumeSignal.connect(slot);
     }
-    void ClosedCaptions(bool enabled);
+    template <typename S>
+    void AddSubsAvailableListener(S slot)
+    {
+        subsAvailableSignal.connect(slot);
+    }
+    void ClosedCaptions(const std::string& id);
 
 private:
     void handleMpvEvent(mpv_event* event);
@@ -109,4 +114,7 @@ private:
     PlayerStateSignal playerStateSignal;
     FileLoadingErrorSignal fileLoadingErrorSignal;
     VolumeSignal volumeSignal;
+    using SubsAvailableSignal =
+        boost::signals2::signal<void(std::vector<std::string>)>;
+    SubsAvailableSignal subsAvailableSignal;
 };

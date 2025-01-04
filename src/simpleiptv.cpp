@@ -51,6 +51,9 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
 #endif
             playerBarWindow->SetVolume(vol);
         });
+    player.AddSubsAvailableListener(
+        [this](std::vector<std::string> subsIds)
+        { playerBarWindow->SetAvailableSubIds(std::move(subsIds)); });
 
     playerBarWindow->SetVolume(player.GetVolume());
     playerBarWindow->AddEpgListingButtonChangedListener(
@@ -58,8 +61,8 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
     epgListingWindow->AddChannelActivatedListener(
         [this](ChannelsGroupPtr group, ChannelPtr channel)
         { channelsWindow->ActivateChannelOfGroup(group, channel); });
-    playerBarWindow->AddCCButtonChangedListener(
-        [this](bool enabled) { player.ClosedCaptions(enabled); });
+    playerBarWindow->AddCCButtonChangedListener([this](const std::string& id)
+                                                { player.ClosedCaptions(id); });
 
 #ifdef STV_UNIX
     auto mprisService = workersProvider->GetMprisService();

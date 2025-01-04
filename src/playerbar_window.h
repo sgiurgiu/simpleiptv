@@ -101,6 +101,7 @@ public:
     {
         ccButtonChangedSignal.connect(slot);
     }
+    void SetAvailableSubIds(std::vector<std::string> subsIds);
 
 private:
     void loadChannelLogoData();
@@ -134,7 +135,9 @@ private:
     std::atomic_bool loadingEpgs = false;
     using EpgListingButtonChangedSignal = boost::signals2::signal<void(bool)>;
     EpgListingButtonChangedSignal epgListingButtonChangedSignal;
-    using CCButtonChangedSignal = boost::signals2::signal<void(bool)>;
+    using CCButtonChangedSignal =
+        boost::signals2::signal<void(const std::string& id)>;
     CCButtonChangedSignal ccButtonChangedSignal;
     bool ccButtonPressed = false;
+    std::vector<std::string> subsIds;
 };
