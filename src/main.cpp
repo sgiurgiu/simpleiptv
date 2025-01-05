@@ -15,6 +15,8 @@
 
 #include <openssl/crypto.h>
 
+#include <boost/url.hpp>
+
 struct PreloadOpensslCrypto
 {
     PreloadOpensslCrypto()
@@ -30,7 +32,9 @@ struct PreloadOpensslCrypto
 
 static PreloadOpensslCrypto _dummy;
 
-void runMainLoop(GLFWwindow* window, WorkersProvider& workersProvider);
+void runMainLoop(GLFWwindow* window,
+                 WorkersProvider& workersProvider,
+                 boost::asio::io_context& uiContext);
 void startGraphicalInterface();
 
 static void glfw_error_callback(int error, const char* description)
@@ -115,6 +119,7 @@ int main(int /*argc*/, char** /*argv*/)
 
 void startGraphicalInterface()
 {
+    boost::asio::io_context uiContext;
     WorkersProvider workersProvider;
     auto settingsRepository = workersProvider.GetSettingsRepository();
     // Create window with graphics context
@@ -146,7 +151,7 @@ void startGraphicalInterface()
     // glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(GLMessageCallback, nullptr);
 
-    runMainLoop(window, workersProvider);
+    runMainLoop(window, workersProvider, uiContext);
 
     int width;
     int height;
@@ -161,12 +166,13 @@ void startGraphicalInterface()
     glfwDestroyWindow(window);
 }
 
-void runMainLoop(GLFWwindow* window, WorkersProvider& workersProvider)
+void runMainLoop(GLFWwindow* window,
+                 WorkersProvider& workersProvider,
+                 boost::asio::io_context& uiContext)
 {
 #ifdef STV_DEBUG
     bool show_demo_window = true;
 #endif
-    boost::asio::io_context uiContext;
     auto work = boost::asio::make_work_guard(uiContext);
     SimpleIPTV iptv{ uiContext, &workersProvider };
 
@@ -227,6 +233,5 @@ void runMainLoop(GLFWwindow* window, WorkersProvider& workersProvider)
         glfwSwapBuffers(window);
     }
     work.reset();
-    uiContext.stop();
     glfwSetWindowUserPointer(window, nullptr);
 }

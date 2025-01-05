@@ -327,3 +327,16 @@ void ChannelsRepository::GetGroups(LoadGroupsCallback cb,
                               { cb(std::move(groups)); });
         });
 }
+
+void ChannelsRepository::UpdateChannelLogo(int id, std::string logo)
+{
+    boost::asio::post(
+        executor,
+        [self = shared_from_this(), id, logo = std::move(logo)]() mutable
+        {
+            auto session = DatabaseConnections::GetConnection();
+
+            session << "UPDATE CHANNELS SET LOGO=:logo WHERE CHANNEL_ID=:id",
+                soci::use(logo, "logo"), soci::use(id, "id");
+        });
+}

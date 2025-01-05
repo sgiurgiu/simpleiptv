@@ -60,8 +60,7 @@ void ChannelsWindow::ActivateNextChannel()
 {
     if (activatedChannel)
     {
-        auto next =
-            activatedChannel->getNextNode(workersProvider->GetWorkersExecutor());
+        auto next = activatedChannel->getNextNode(workersProvider, ui_executor);
         activatedChannel->isActivated = false;
         if (next)
         {
@@ -75,15 +74,14 @@ void ChannelsWindow::ActivateNextChannel()
                 }
                 else
                 {
-                    next =
-                        next->getNextNode(workersProvider->GetWorkersExecutor());
+                    next = next->getNextNode(workersProvider, ui_executor);
                 }
             }
         }
         else
         {
-            rootNode->children.begin()->get()->loadChildren(
-                workersProvider->GetWorkersExecutor());
+            rootNode->children.begin()->get()->loadChildren(workersProvider,
+                                                            ui_executor);
             if (!rootNode->children.begin()->get()->children.empty())
             {
                 rootNode->children.begin()->get()->isOpen = true;
@@ -94,8 +92,8 @@ void ChannelsWindow::ActivateNextChannel()
     }
     else
     {
-        rootNode->children.begin()->get()->loadChildren(
-            workersProvider->GetWorkersExecutor());
+        rootNode->children.begin()->get()->loadChildren(workersProvider,
+                                                        ui_executor);
         if (!rootNode->children.begin()->get()->children.empty())
         {
             rootNode->children.begin()->get()->isOpen = true;
@@ -114,8 +112,8 @@ void ChannelsWindow::ActivatePreviousChannel()
 {
     if (activatedChannel)
     {
-        auto next = activatedChannel->getPreviousNode(
-            workersProvider->GetWorkersExecutor());
+        auto next =
+            activatedChannel->getPreviousNode(workersProvider, ui_executor);
         activatedChannel->isActivated = false;
         if (next)
         {
@@ -129,15 +127,14 @@ void ChannelsWindow::ActivatePreviousChannel()
                 }
                 else
                 {
-                    next = next->getPreviousNode(
-                        workersProvider->GetWorkersExecutor());
+                    next = next->getPreviousNode(workersProvider, ui_executor);
                 }
             }
         }
         else
         {
-            rootNode->children.rbegin()->get()->loadChildren(
-                workersProvider->GetWorkersExecutor());
+            rootNode->children.rbegin()->get()->loadChildren(workersProvider,
+                                                             ui_executor);
             if (!rootNode->children.rbegin()->get()->children.empty())
             {
                 rootNode->children.rbegin()->get()->isOpen = true;
@@ -148,8 +145,8 @@ void ChannelsWindow::ActivatePreviousChannel()
     }
     else
     {
-        rootNode->children.rbegin()->get()->loadChildren(
-            workersProvider->GetWorkersExecutor());
+        rootNode->children.rbegin()->get()->loadChildren(workersProvider,
+                                                         ui_executor);
         if (!rootNode->children.rbegin()->get()->children.empty())
         {
             rootNode->children.rbegin()->get()->isOpen = true;
@@ -255,8 +252,8 @@ void ChannelsWindow::loadLocalChannels()
             if (!self)
                 return;
 
-            self->rootNode->setRoot(root,
-                                    self->workersProvider->GetWorkersExecutor());
+            self->rootNode->setRoot(root, self->workersProvider,
+                                    self->ui_executor);
             auto end = std::chrono::high_resolution_clock::now();
             auto duration = end - start;
             spdlog::debug(

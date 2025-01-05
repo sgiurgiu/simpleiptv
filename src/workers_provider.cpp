@@ -1,24 +1,23 @@
 #include "workers_provider.h"
 
+#include <thread>
+
 WorkersProvider::WorkersProvider()
-: io_pool{ 6 }
-, channelsRepository{ ChannelsRepository::Create(io_pool.get_executor()) }
-, proxyRepository{ ProxyRepository::Create(io_pool.get_executor()) }
-, sleepService{ SleepService::Create(io_pool.get_executor()) }
+: networkPool{ 6 }
+, dbPool{ 1 }
+, channelsRepository{ ChannelsRepository::Create(dbPool.get_executor()) }
+, proxyRepository{ ProxyRepository::Create(dbPool.get_executor()) }
+, sleepService{ SleepService::Create(networkPool.get_executor()) }
 , settingsRepository{ SettingsRepository::Create() }
 , networkResourceProvider{ NetworkResourceProvider::Create(
-      io_pool.get_executor(), proxyRepository) }
+      networkPool.get_executor(), proxyRepository) }
 #ifdef STV_UNIX
 , mprisService{ MprisService::Create() }
 #endif
 
 {
 }
-WorkersProvider::~WorkersProvider()
-{
-    io_pool.stop();
-    io_pool.join();
-}
+
 std::shared_ptr<ChannelsRepository> WorkersProvider::GetChannelsRepository()
 {
     return channelsRepository;
@@ -27,9 +26,13 @@ std::shared_ptr<ProxyRepository> WorkersProvider::GetProxyRepository()
 {
     return proxyRepository;
 }
-boost::asio::any_io_executor WorkersProvider::GetWorkersExecutor()
+boost::asio::any_io_executor WorkersProvider::GetNetworkExecutor()
 {
-    return io_pool.get_executor();
+    return networkPool.get_executor();
+}
+boost::asio::any_io_executor WorkersProvider::GetDBExecutor()
+{
+    return dbPool.get_executor();
 }
 std::shared_ptr<SleepService> WorkersProvider::GetSleepService()
 {

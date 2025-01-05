@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <string>
 
 class Channel
@@ -16,10 +17,6 @@ public:
             int xstreamServerId,
             bool favourite,
             std::optional<int> parentId);
-    Channel(const Channel&) = default;
-    Channel(Channel&&) = default;
-    Channel& operator=(const Channel&) = default;
-    Channel& operator=(Channel&&) = default;
 
     int GetId() const
     {
@@ -37,9 +34,26 @@ public:
     {
         return logoUri;
     }
-    const std::string& GetLogo() const
+    bool IsLogoEmpty() const
     {
-        return logo;
+        std::lock_guard<std::mutex> _{ logoMutex };
+        return logo.empty();
+    }
+    std::size_t GetLogoSize() const
+    {
+        std::lock_guard<std::mutex> _{ logoMutex };
+        return logo.size();
+    }
+    constexpr const char* GetLogoData() const
+    {
+        std::lock_guard<std::mutex> _{ logoMutex };
+        return logo.data();
+    }
+
+    void SetLogo(const std::string& logo)
+    {
+        std::lock_guard<std::mutex> _{ logoMutex };
+        this->logo = logo;
     }
     const std::string& GetEPGChannelUri() const
     {
@@ -73,5 +87,6 @@ private:
     int xstreamServerId;
     bool favourite = false;
     std::optional<int> parentId;
+    mutable std::mutex logoMutex;
 };
 using ChannelPtr = std::shared_ptr<Channel>;

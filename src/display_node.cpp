@@ -1,14 +1,15 @@
 #include "display_node.h"
 
+#include <algorithm>
+#include <boost/asio/post.hpp>
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <spdlog/spdlog.h>
 #include <stb_image.h>
 #include <stb_image_resize2.h>
 
-#include <algorithm>
-#include <boost/asio/post.hpp>
-
 #include "fonts/IconsFontAwesome4.h"
+#include "workers_provider.h"
 
 namespace
 {
@@ -43,10 +44,11 @@ void DisplayRootChannelsGroup::renderGroup(
     }
 }
 
-DisplayNode* DisplayNode::getNextNode(const boost::asio::any_io_executor& executor)
+DisplayNode* DisplayNode::getNextNode(WorkersProvider* workersProvider,
+                                      const boost::asio::any_io_executor& ui_executor)
 {
     DisplayNode* curr_node = this;
-    curr_node->loadChildren(executor);
+    curr_node->loadChildren(workersProvider, ui_executor);
     if (!curr_node->children.empty())
     {
         isOpen = true;
@@ -54,7 +56,7 @@ DisplayNode* DisplayNode::getNextNode(const boost::asio::any_io_executor& execut
     }
     while (curr_node->parent != nullptr)
     {
-        curr_node->parent->loadChildren(executor);
+        curr_node->parent->loadChildren(workersProvider, ui_executor);
         if (curr_node->indexInParent + 1 < (int)curr_node->parent->children.size())
         {
             auto node =
@@ -74,18 +76,20 @@ DisplayNode* DisplayNode::getNextNode(const boost::asio::any_io_executor& execut
     return nullptr;
 }
 
-DisplayNode* DisplayNode::getPreviousNode(const boost::asio::any_io_executor& executor)
+DisplayNode*
+DisplayNode::getPreviousNode(WorkersProvider* workersProvider,
+                             const boost::asio::any_io_executor& ui_executor)
 {
     DisplayNode* curr_node = this;
 
     while (curr_node->parent != nullptr)
     {
-        curr_node->parent->loadChildren(executor);
+        curr_node->parent->loadChildren(workersProvider, ui_executor);
         if (curr_node->indexInParent > 0)
         {
             auto node =
                 curr_node->parent->children.at(curr_node->indexInParent - 1).get();
-            node->loadChildren(executor);
+            node->loadChildren(workersProvider, ui_executor);
             node->isOpen = true;
             if (!node->children.empty())
             {
@@ -102,28 +106,30 @@ DisplayNode* DisplayNode::getPreviousNode(const boost::asio::any_io_executor& ex
 }
 
 void DisplayRootChannelsGroup::setRoot(RootChannelsGroupPtr root,
-                                       const boost::asio::any_io_executor& executor)
+                                       WorkersProvider* workersProvider,
+                                       const boost::asio::any_io_executor& ui_executor)
 {
     children.clear();
     this->root = root;
     this->group = root;
     favouritesGroup = DisplayFavouritesChannelsGroup::Create(this);
     root->IterateFavouriteChannels(
-        [this, &executor](ChannelPtr channel)
+        [this, workersProvider, ui_executor](ChannelPtr channel)
         {
             auto dchannel =
                 DisplayChannel::Create(channel, favouritesGroup.get());
             dchannel->indexInParent = favouritesGroup->children.size();
-            dchannel->loadLogo(executor);
+            dchannel->loadLogo(workersProvider, ui_executor);
             favouritesGroup->children.push_back(std::move(dchannel));
         });
     favouritesGroup->indexInParent = 0;
     children.push_back(std::move(favouritesGroup));
-    loadChildren(executor);
+    loadChildren(workersProvider, ui_executor);
 }
 
 void DisplayRootChannelsGroup::loadChildren(
-    const boost::asio::any_io_executor& executor)
+    WorkersProvider* workersProvider,
+    const boost::asio::any_io_executor& ui_executor)
 {
     if (!root || !root->AreGroupsLoaded())
     {
@@ -133,11 +139,11 @@ void DisplayRootChannelsGroup::loadChildren(
     if (children.size() < 2 && root->AreGroupsLoaded())
     {
         root->IterateGroups(
-            [this, &executor](ChannelsGroupPtr group)
+            [this, workersProvider, ui_executor](ChannelsGroupPtr group)
             {
                 children.emplace_back(DisplayChannelsGroup::Create(group, this));
                 children.back().get()->indexInParent = children.size() - 1;
-                children.back().get()->loadChildren(executor);
+                children.back().get()->loadChildren(workersProvider, ui_executor);
             });
     }
 }
@@ -146,10 +152,10 @@ bool DisplayChannel::shouldRender(const std::string& filter) const
 {
     if (filter.empty())
         return true;
-    auto it = std::search(name.begin(), name.end(), filter.begin(),
-                          filter.end(), [](char c1, char c2)
+    auto it = std::search(name.cbegin(), name.cend(), filter.cbegin(),
+                          filter.cend(), [](char c1, char c2)
                           { return std::tolower(c1) == std::tolower(c2); });
-    return it != name.end();
+    return it != name.cend();
 }
 
 void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNodes,
@@ -283,16 +289,17 @@ void DisplayChannel::loadLogoTexture()
         }
     }
 }
-void DisplayChannelsGroup::loadChildren(const boost::asio::any_io_executor& executor)
+void DisplayChannelsGroup::loadChildren(WorkersProvider* workersProvider,
+                                        const boost::asio::any_io_executor& ui_executor)
 {
     if (children.empty() && group)
     {
         group->IterateChannels(
-            [this, &executor](auto& channel)
+            [this, workersProvider, ui_executor](auto& channel)
             {
                 auto dchannel = DisplayChannel::Create(channel, this);
                 children.emplace_back(dchannel);
-                dchannel->loadLogo(executor);
+                dchannel->loadLogo(workersProvider, ui_executor);
                 dchannel->indexInParent = children.size() - 1;
             });
     }
@@ -311,7 +318,6 @@ bool DisplayChannelsGroup::shouldRender(const std::string& filter) const
 void DisplayChannelsGroup::renderGroup(
     std::unordered_set<DisplayNode*>& selectedNodes, const std::string& filter)
 {
-    // loadChildren();
     if (!shouldRender(filter))
         return;
 
@@ -388,20 +394,21 @@ DisplayChannel::DisplayChannel(DisplayNodeKey key,
                                ImGui::GetStyle().FramePadding.y * 2.f } }
 {
 }
-void DisplayChannel::loadLogo(const boost::asio::any_io_executor& executor)
+void DisplayChannel::loadLogo(WorkersProvider* workersProvider,
+                              const boost::asio::any_io_executor& ui_executor)
 {
-    if (!channel->GetLogo().empty())
+    if (!channel->IsLogoEmpty())
     {
-        decodeLogoImage(executor);
+        decodeLogoImage(workersProvider->GetNetworkExecutor());
     }
     else
     {
-        downloadLogoImage(executor);
+        downloadLogoImage(workersProvider, ui_executor);
     }
 }
 void DisplayChannel::decodeLogoImage(const boost::asio::any_io_executor& executor)
 {
-    if (!channel->GetLogo().empty())
+    if (!channel->IsLogoEmpty())
     {
         boost::asio::post(
             executor,
@@ -411,40 +418,64 @@ void DisplayChannel::decodeLogoImage(const boost::asio::any_io_executor& executo
                 if (!selfNode)
                     return;
                 auto self = std::static_pointer_cast<DisplayChannel>(selfNode);
-
-                int width = 0;
-                int height = 0;
-                int channels = 0;
-                auto imageData =
-                    stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(
-                                              self->channel->GetLogo().data()),
-                                          self->channel->GetLogo().size(), &width,
-                                          &height, &channels, STBI_rgb_alpha);
-
-                float ratio = (float)width / (float)height;
-                ImVec2 size = self->displayLogoSize;
-                float area = size.x * size.y;
-                size.x = std::sqrt(ratio * area);
-                size.y = area / size.x;
-                self->displayLogoSize = size;
-
-                auto resizedImageData = stbir_resize_uint8_srgb(
-                    imageData, width, height, width * channels, nullptr, size.x,
-                    size.y, size.x * channels, (stbir_pixel_layout)channels);
-
-                stbi_image_free(imageData);
-                self->logoWidth = size.x;
-                self->logoHeight = size.y;
-                self->logoData = resizedImageData;
-                self->logoChannels = channels;
+                self->decodeLogoImage();
             });
     }
 }
-void DisplayChannel::downloadLogoImage(const boost::asio::any_io_executor& executor)
+void DisplayChannel::decodeLogoImage()
 {
-    // TODO: implement this, one sunny day
-    if (!channel->GetLogo().empty() || channel->GetLogoUri().empty())
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+    auto imageData = stbi_load_from_memory(
+        reinterpret_cast<const stbi_uc*>(channel->GetLogoData()),
+        channel->GetLogoSize(), &width, &height, &channels, STBI_rgb_alpha);
+
+    float ratio = (float)width / (float)height;
+    ImVec2 size = displayLogoSize;
+    float area = size.x * size.y;
+    size.x = std::sqrt(ratio * area);
+    size.y = area / size.x;
+    displayLogoSize = size;
+
+    auto resizedImageData = stbir_resize_uint8_srgb(
+        imageData, width, height, width * channels, nullptr, size.x, size.y,
+        size.x * channels, (stbir_pixel_layout)channels);
+
+    stbi_image_free(imageData);
+    logoWidth = size.x;
+    logoHeight = size.y;
+    logoData = resizedImageData;
+    logoChannels = channels;
+}
+void DisplayChannel::downloadLogoImage(WorkersProvider* workersProvider,
+                                       const boost::asio::any_io_executor& ui_executor)
+{
+    if (!channel->IsLogoEmpty() || channel->GetLogoUri().empty())
         return;
+
+    workersProvider->GetNetworkResourceProvider()->GetResource(
+        channel->GetLogoUri(), workersProvider->GetDBExecutor(),
+        [weak = weak_from_this(), workersProvider,
+         ui_executor](std::string logo, std::error_code ec)
+        {
+            auto selfNode = weak.lock();
+            if (!selfNode)
+                return;
+            auto self = std::static_pointer_cast<DisplayChannel>(selfNode);
+            if (ec)
+            {
+                spdlog::error("Cannot download '{}', failed with error: {}",
+                              self->channel->GetLogoUri(), ec.message());
+                return;
+            }
+            spdlog::debug("Downloaded logo for {}, from {}",
+                          self->channel->GetName(), self->channel->GetLogoUri());
+            self->channel->SetLogo(logo);
+            workersProvider->GetChannelsRepository()->UpdateChannelLogo(
+                self->channel->GetId(), std::move(logo));
+            self->decodeLogoImage();
+        });
 }
 DisplayChannel::~DisplayChannel()
 {

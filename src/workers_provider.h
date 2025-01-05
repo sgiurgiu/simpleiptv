@@ -17,10 +17,10 @@ class WorkersProvider
 {
 public:
     WorkersProvider();
-    ~WorkersProvider();
     std::shared_ptr<ChannelsRepository> GetChannelsRepository();
     std::shared_ptr<ProxyRepository> GetProxyRepository();
-    boost::asio::any_io_executor GetWorkersExecutor();
+    boost::asio::any_io_executor GetNetworkExecutor();
+    boost::asio::any_io_executor GetDBExecutor();
     std::shared_ptr<SleepService> GetSleepService();
     std::shared_ptr<SettingsRepository> GetSettingsRepository();
     std::shared_ptr<NetworkResourceProvider> GetNetworkResourceProvider();
@@ -29,7 +29,8 @@ public:
 #endif
 
 private:
-    boost::asio::thread_pool io_pool;
+    boost::asio::thread_pool networkPool;
+    boost::asio::thread_pool dbPool;
     std::shared_ptr<ChannelsRepository> channelsRepository;
     std::shared_ptr<ProxyRepository> proxyRepository;
     std::shared_ptr<SleepService> sleepService;

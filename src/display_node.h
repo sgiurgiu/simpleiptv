@@ -17,6 +17,7 @@
 
 struct DisplayChannel;
 struct DisplayChannelsGroup;
+class WorkersProvider;
 enum class DisplayNodeType
 {
     ROOT,
@@ -44,10 +45,13 @@ public:
     virtual DisplayNodeType getType() const = 0;
     virtual void render(std::unordered_set<DisplayNode*>& selectedNodes,
                         const std::string& filter) = 0;
-    virtual void loadChildren(const boost::asio::any_io_executor& executor) = 0;
+    virtual void loadChildren(WorkersProvider* workersProvider,
+                              const boost::asio::any_io_executor& ui_executor) = 0;
     virtual bool shouldRender(const std::string& filter) const = 0;
-    DisplayNode* getNextNode(const boost::asio::any_io_executor& executor);
-    DisplayNode* getPreviousNode(const boost::asio::any_io_executor& executor);
+    DisplayNode* getNextNode(WorkersProvider* workersProvider,
+                             const boost::asio::any_io_executor& ui_executor);
+    DisplayNode* getPreviousNode(WorkersProvider* workersProvider,
+                                 const boost::asio::any_io_executor& ui_executor);
 
     template <typename Derived>
     std::shared_ptr<Derived> shared_from_base()
@@ -98,7 +102,8 @@ struct DisplayChannelsGroup : public DisplayNode
     }
     virtual void renderGroup(std::unordered_set<DisplayNode*>& selectedNodes,
                              const std::string& filter);
-    void loadChildren(const boost::asio::any_io_executor& executor) override;
+    void loadChildren(WorkersProvider* workersProvider,
+                      const boost::asio::any_io_executor& ui_executor) override;
     bool shouldRender(const std::string& filter) const override;
     virtual int getUnderlyingID() const override
     {
@@ -129,16 +134,19 @@ struct DisplayChannel : public DisplayNode
         renderChannel(selectedNodes, filter);
     }
     ~DisplayChannel();
-    void loadLogo(const boost::asio::any_io_executor& executor);
+    void loadLogo(WorkersProvider* workersProvider,
+                  const boost::asio::any_io_executor& ui_executor);
     void renderChannel(std::unordered_set<DisplayNode*>& selectedNodes,
                        const std::string& filter);
-    void loadChildren(const boost::asio::any_io_executor&) override
+    void loadChildren(WorkersProvider*, const boost::asio::any_io_executor&) override
     {
     }
     bool shouldRender(const std::string& filter) const override;
     void loadLogoTexture();
     void decodeLogoImage(const boost::asio::any_io_executor& executor);
-    void downloadLogoImage(const boost::asio::any_io_executor& executor);
+    void decodeLogoImage();
+    void downloadLogoImage(WorkersProvider* workersProvider,
+                           const boost::asio::any_io_executor& ui_executor);
     virtual int getUnderlyingID() const override
     {
         return channel ? channel->GetId() : -1;
@@ -173,8 +181,10 @@ struct DisplayRootChannelsGroup : public DisplayChannelsGroup
     void renderGroup(std::unordered_set<DisplayNode*>& selectedNodes,
                      const std::string& filter) override;
     void setRoot(RootChannelsGroupPtr root,
-                 const boost::asio::any_io_executor& executor);
-    void loadChildren(const boost::asio::any_io_executor& executor) override;
+                 WorkersProvider* workersProvider,
+                 const boost::asio::any_io_executor& ui_executor);
+    void loadChildren(WorkersProvider* workersProvider,
+                      const boost::asio::any_io_executor& ui_executor) override;
     void ActivateChannelOfGroup(ChannelsGroupPtr group, ChannelPtr channel);
     virtual int getUnderlyingID() const override
     {

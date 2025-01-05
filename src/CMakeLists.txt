@@ -13,7 +13,7 @@ set(STV_INCLUDES)
 set(Boost_USE_STATIC_LIBS    ON)
 # Boost doesn't provide a pkgconfig file, so we just have to have it installed
 # and discoverable by cmake
-find_package(Boost 1.74 REQUIRED system filesystem program_options asio signals2 url)
+find_package(Boost 1.81 REQUIRED system filesystem program_options asio signals2 url)
 list(APPEND STV_LIBARIES Boost::boost Boost::system Boost::filesystem Boost::url)
 
 if(VCPKG_TOOLCHAIN)
@@ -113,6 +113,7 @@ set(STV_SRCS main.cpp
     boost_error_code_converter.cpp
     epg_listing.cpp
     epg_listings_window.cpp
+    sanitize_url.cpp
     )
 
 if(UNIX)

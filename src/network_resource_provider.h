@@ -7,6 +7,7 @@
 #include <optional>
 
 #include "proxy_repository.h"
+#include "resource_cache.h"
 
 class NetworkResourceProvider
 : public std::enable_shared_from_this<NetworkResourceProvider>
@@ -42,4 +43,5 @@ private:
     boost::asio::any_io_executor executor;
     std::shared_ptr<ProxyRepository> proxyRepository;
     boost::asio::ssl::context sslContext;
+    ResourceCache<std::string, std::string> cache;
 };

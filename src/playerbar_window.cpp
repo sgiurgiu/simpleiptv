@@ -233,14 +233,14 @@ ImVec2 PlayerBarWindow::ShowWindow()
 
 void PlayerBarWindow::loadChannelLogoData()
 {
-    if (currentChannel->GetLogo().empty())
+    if (currentChannel->IsLogoEmpty())
         return;
     int width = 0;
     int height = 0;
     int channels = 0;
     auto imageData = stbi_load_from_memory(
-        reinterpret_cast<const stbi_uc*>(currentChannel->GetLogo().data()),
-        currentChannel->GetLogo().size(), &width, &height, &channels,
+        reinterpret_cast<const stbi_uc*>(currentChannel->GetLogoData()),
+        currentChannel->GetLogoSize(), &width, &height, &channels,
         STBI_rgb_alpha);
 
     float ratio = (float)width / (float)height;

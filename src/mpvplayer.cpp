@@ -56,7 +56,7 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
                      WorkersProvider *workersProvider)
 : ui_executor{ ui_executor }
 , workersProvider{ workersProvider }
-, osdTimer{ this->workersProvider->GetWorkersExecutor() }
+, osdTimer{ this->workersProvider->GetNetworkExecutor() }
 {
     mpv = mpv_create();
     if (!mpv)
