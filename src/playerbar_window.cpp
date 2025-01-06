@@ -327,7 +327,8 @@ void PlayerBarWindow::loadEpg()
                     self->epgListings.emplace_back(listingObject);
                 }
                 self->loadingEpgs = false;
-            });
+            },
+            false);
     }
 }
 
