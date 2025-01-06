@@ -454,6 +454,19 @@ void DisplayChannel::downloadLogoImage(WorkersProvider* workersProvider,
     if (!channel->IsLogoEmpty() || channel->GetLogoUri().empty())
         return;
 
+    /**
+     * We just need a thread (a different one than the UI thread and the network
+     * threads) to get the callback into. We, therefore chose the DB thread as
+     * it kinda seems like a waste to have a thread that will only be used once
+     * in the lifetime of the application (when first downloading) the channels
+     * logos. We can't use the network threads pool because those will be used
+     * at maximum when we're downloading thousands of logos from the internet,
+     * so the callback(s) will only be called very late in the process. We can't
+     * use the UI thread because then we cannot play any channel while the logos
+     * are downloading. It would make for a shitty first experience for the
+     * user. So, we're just using the DB thread here as the callback receiver
+     * (workersProvider->GetDBExecutor()).
+     */
     workersProvider->GetNetworkResourceProvider()->GetResource(
         channel->GetLogoUri(), workersProvider->GetDBExecutor(),
         [weak = weak_from_this(), workersProvider,
@@ -471,8 +484,9 @@ void DisplayChannel::downloadLogoImage(WorkersProvider* workersProvider,
             }
             spdlog::debug("Downloaded logo for {}, from {}",
                           self->channel->GetName(), self->channel->GetLogoUri());
+            // Logo Get<thing>/Set is protected by a mutex in Channel
             self->channel->SetLogo(logo);
-            workersProvider->GetChannelsRepository()->UpdateChannelLogo(
+            workersProvider->GetChannelsRepository()->UpdateChannelLogoSync(
                 self->channel->GetId(), std::move(logo));
             self->decodeLogoImage();
         });

@@ -433,6 +433,7 @@ void EpgListingWindow::loadEpgsOfLoadedChannels()
                 {
                     channel->epgListings.emplace_back(listingObject);
                 }
-            });
+            },
+            false);
     }
 }

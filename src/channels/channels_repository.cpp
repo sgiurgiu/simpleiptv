@@ -330,13 +330,14 @@ void ChannelsRepository::GetGroups(LoadGroupsCallback cb,
 
 void ChannelsRepository::UpdateChannelLogo(int id, std::string logo)
 {
-    boost::asio::post(
-        executor,
-        [self = shared_from_this(), id, logo = std::move(logo)]() mutable
-        {
-            auto session = DatabaseConnections::GetConnection();
+    boost::asio::post(executor, [self = shared_from_this(), id,
+                                 logo = std::move(logo)]() mutable
+                      { self->UpdateChannelLogoSync(id, std::move(logo)); });
+}
+void ChannelsRepository::UpdateChannelLogoSync(int id, std::string logo)
+{
+    auto session = DatabaseConnections::GetConnection();
 
-            session << "UPDATE CHANNELS SET LOGO=:logo WHERE CHANNEL_ID=:id",
-                soci::use(logo, "logo"), soci::use(id, "id");
-        });
+    session << "UPDATE CHANNELS SET LOGO=:logo WHERE CHANNEL_ID=:id",
+        soci::use(logo, "logo"), soci::use(id, "id");
 }

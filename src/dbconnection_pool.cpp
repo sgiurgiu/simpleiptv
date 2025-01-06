@@ -33,6 +33,8 @@ void DatabaseConnections::initTables()
 {
     auto con = GetConnection();
     con << "PRAGMA foreign_keys = ON";
+    con << "PRAGMA synchronous = OFF"; // we only run it one thread (almost,
+                                       // just the settings no)
     con << "CREATE TABLE IF NOT EXISTS SCHEMA_VERSION(VERSION INT)";
     con << "CREATE TABLE IF NOT EXISTS CHANNEL_GROUPS(GROUP_ID "
            "INTEGER NOT NULL PRIMARY KEY, "

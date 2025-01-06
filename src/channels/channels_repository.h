@@ -47,6 +47,7 @@ public:
                    const boost::asio::any_io_executor& cb_executor);
 
     void UpdateChannelLogo(int id, std::string logo);
+    void UpdateChannelLogoSync(int id, std::string logo);
 
 private:
     RootChannelsGroupPtr loadChannelsData();

@@ -404,29 +404,33 @@ NetworkResourceProvider::Create(const boost::asio::any_io_executor& executor,
 void NetworkResourceProvider::GetResource(
     const std::string& url,
     const boost::asio::any_io_executor& cb_executor,
-    ResourceLoadedCallback cb)
+    ResourceLoadedCallback cb,
+    bool cacheResource)
 {
     using namespace std::placeholders;
     proxyRepository->LoadConfiguredProxy(
-        [weak = weak_from_this(), url, cb_executor, cb](HttpProxy proxy)
+        [weak = weak_from_this(), url, cb_executor, cb,
+         cacheResource](HttpProxy proxy)
         {
             auto self = weak.lock();
             if (!self)
                 return;
             self->getResource(std::move(proxy), std::move(url),
-                              std::move(cb_executor), std::move(cb));
+                              std::move(cb_executor), std::move(cb),
+                              cacheResource);
         },
         executor);
 }
 void NetworkResourceProvider::getResource(HttpProxy proxy,
                                           std::string url,
                                           boost::asio::any_io_executor cb_executor,
-                                          ResourceLoadedCallback cb)
+                                          ResourceLoadedCallback cb,
+                                          bool cacheResource)
 {
     try
     {
-        auto logo = cache.Get(url);
-        if (logo)
+        auto logo = cacheResource ? cache.Get(url) : std::optional<std::string>{};
+        if (cacheResource && logo)
         {
             spdlog::debug("Got {} from cache", url);
             auto func = std::bind(cb, logo.value(), std::error_code{});
@@ -437,13 +441,13 @@ void NetworkResourceProvider::getResource(HttpProxy proxy,
             spdlog::debug("Downloading {}", url);
             auto request = std::make_shared<RequestSession>(
                 sslContext, executor, proxy, url,
-                [weak = weak_from_this(), url, cb_executor,
-                 cb](std::string body, std::error_code ec)
+                [weak = weak_from_this(), url, cb_executor, cb,
+                 cacheResource](std::string body, std::error_code ec)
                 {
                     auto self = weak.lock();
                     if (!self)
                         return;
-                    if (!ec)
+                    if (!ec && cacheResource)
                     {
                         self->cache.Put(std::move(url), body);
                     }

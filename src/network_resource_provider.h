@@ -31,13 +31,15 @@ public:
     // the callback will be called on the cb_executor provided
     void GetResource(const std::string& url,
                      const boost::asio::any_io_executor& cb_executor,
-                     ResourceLoadedCallback cb);
+                     ResourceLoadedCallback cb,
+                     bool cacheResource = true);
 
 private:
     void getResource(HttpProxy proxy,
                      std::string url,
                      boost::asio::any_io_executor cb_executor,
-                     ResourceLoadedCallback cb);
+                     ResourceLoadedCallback cb,
+                     bool cacheResource);
 
 private:
     boost::asio::any_io_executor executor;
