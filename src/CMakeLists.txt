@@ -103,7 +103,7 @@ set(STV_SRCS main.cpp
     channels/channels_group.cpp
     channels/channel.cpp
     channels/root_channel_group.cpp
-    display_node.cpp
+    display_tree_node.cpp
     proxy_repository.cpp
     settings_repository.cpp
     playerbar_window.cpp
@@ -114,6 +114,8 @@ set(STV_SRCS main.cpp
     epg_listing.cpp
     epg_listings_window.cpp
     sanitize_url.cpp
+    servers/server.cpp
+    servers/servers_repository.cpp
     )
 
 if(UNIX)

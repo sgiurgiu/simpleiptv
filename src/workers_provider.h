@@ -6,6 +6,7 @@
 #include "channels/channels_repository.h"
 #include "network_resource_provider.h"
 #include "proxy_repository.h"
+#include "servers/servers_repository.h"
 #include "settings_repository.h"
 #include "sleep_service.h"
 
@@ -24,6 +25,7 @@ public:
     std::shared_ptr<SleepService> GetSleepService();
     std::shared_ptr<SettingsRepository> GetSettingsRepository();
     std::shared_ptr<NetworkResourceProvider> GetNetworkResourceProvider();
+    std::shared_ptr<ServersRepository> GetServersRepository();
 #ifdef STV_UNIX
     std::shared_ptr<MprisService> GetMprisService();
 #endif
@@ -36,6 +38,7 @@ private:
     std::shared_ptr<SleepService> sleepService;
     std::shared_ptr<SettingsRepository> settingsRepository;
     std::shared_ptr<NetworkResourceProvider> networkResourceProvider;
+    std::shared_ptr<ServersRepository> serversRepository;
 #ifdef STV_UNIX
     std::shared_ptr<MprisService> mprisService;
 #endif

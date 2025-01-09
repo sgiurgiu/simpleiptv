@@ -1,9 +1,11 @@
-#include "display_node.h"
+#include "display_tree_node.h"
 
 #include <algorithm>
 #include <boost/asio/post.hpp>
+#include <boost/url.hpp>
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <stb_image.h>
 #include <stb_image_resize2.h>
@@ -333,13 +335,13 @@ void DisplayChannelsGroup::renderGroup(
 
     if (ImGui::TreeNodeEx(name.c_str(), tree_node_flags))
     {
+        isOpen = true;
         if (group && !group->AreChannelsLoaded())
         {
             ImGui::Text("Loading...");
         }
         else
         {
-            isOpen = true;
             for (auto& c : children)
             {
                 c->render(selectedNodes, filter);
@@ -560,4 +562,232 @@ void DisplayChannel::activate()
     activatedChannelSignal(this);
     isActivated = true;
     shouldScrollToChannel = true;
+    spdlog::debug("activated {} - {}", name, channel->GetUri());
+}
+
+void DisplayServer::render(std::unordered_set<DisplayNode*>& selectedNodes,
+                           const std::string& filter)
+{
+    ImGuiTreeNodeFlags tree_node_flags = ImGuiTreeNodeFlags_SpanAvailWidth |
+                                         ImGuiTreeNodeFlags_OpenOnArrow |
+                                         ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    if (selected)
+    {
+        tree_node_flags |= ImGuiTreeNodeFlags_Selected;
+    }
+
+    ImGui::SetNextItemOpen(isOpen);
+
+    if (ImGui::TreeNodeEx(name.c_str(), tree_node_flags))
+    {
+        isOpen = true;
+        for (auto& c : children)
+        {
+            c->render(selectedNodes, filter);
+        }
+        ImGui::TreePop();
+    }
+    else if (ImGui::IsItemToggledOpen())
+    {
+        isOpen = false;
+        clearSelectedChildren(this, selectedNodes);
+    }
+}
+
+DisplayServer::DisplayServer(DisplayNodeKey key,
+                             WorkersProvider* workersProvider,
+                             const boost::asio::any_io_executor& ui_executor,
+                             ServerPtr server)
+: DisplayChannelsGroup{ key,
+                        reinterpret_cast<const char*>(ICON_FA_SERVER " ") +
+                            server->GetHost(),
+                        nullptr }
+, server{ server }
+{
+    boost::url url;
+    url.set_scheme(server->GetUrlScheme());
+    url.set_host(server->GetHost());
+    url.set_port(server->GetPort());
+    url.set_path("/player_api.php");
+    auto params = url.params();
+    params.set("username", server->GetUsername());
+    params.set("password", server->GetPassword());
+    params.set("action", "get_live_categories");
+
+    children.push_back(DisplayServerCategory::Create(
+        reinterpret_cast<const char*>(ICON_FA_TELEVISION " Live"), url.buffer(),
+        workersProvider, ui_executor, this));
+    params.replace(params.find("action"), { "action", "get_vod_categories" });
+    children.push_back(DisplayServerCategory::Create(
+        reinterpret_cast<const char*>(ICON_FA_VIDEO_CAMERA " VODs"),
+        url.buffer(), workersProvider, ui_executor, this));
+}
+void DisplayServerCategory::render(std::unordered_set<DisplayNode*>& selectedNodes,
+                                   const std::string& filter)
+{
+    ImGuiTreeNodeFlags tree_node_flags = ImGuiTreeNodeFlags_SpanAvailWidth |
+                                         ImGuiTreeNodeFlags_OpenOnArrow |
+                                         ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    if (selected)
+    {
+        tree_node_flags |= ImGuiTreeNodeFlags_Selected;
+    }
+
+    ImGui::SetNextItemOpen(isOpen);
+
+    if (ImGui::TreeNodeEx(name.c_str(), tree_node_flags))
+    {
+        isOpen = true;
+        if (children.empty())
+        {
+            ImGui::Text("Loading...");
+            if (!areChildrenLoading)
+            {
+                areChildrenLoading = true;
+                loadRemoteChildren();
+            }
+        }
+        else
+        {
+            for (auto& c : children)
+            {
+                c->render(selectedNodes, filter);
+            }
+        }
+        ImGui::TreePop();
+    }
+    else if (ImGui::IsItemToggledOpen())
+    {
+        isOpen = false;
+        clearSelectedChildren(this, selectedNodes);
+    }
+}
+void DisplayServerCategory::loadRemoteChildren()
+{
+    spdlog::debug("DisplayServerCategory - loading remote children from {}", url);
+    workersProvider->GetNetworkResourceProvider()->GetResource(
+        url, ui_executor,
+        [weak = weak_from_this()](std::string body, std::error_code ec)
+        {
+            auto selfNode = weak.lock();
+            if (!selfNode)
+                return;
+            auto self = std::static_pointer_cast<DisplayServerCategory>(selfNode);
+            if (ec)
+            {
+                return;
+            }
+
+            nlohmann::json json = nlohmann::json::parse(body);
+            for (const auto& cat : json)
+            {
+                auto catId = cat["category_id"].get<std::string>();
+                auto catName = cat["category_name"].get<std::string>();
+                boost::url url = boost::urls::parse_uri(self->url).value();
+                auto params = url.params();
+                auto actionIt = params.find("action");
+                std::string action = "get_live_streams";
+                if ((*actionIt)->value == "get_vod_categories")
+                {
+                    action = "get_vod_streams";
+                }
+                params.replace(actionIt, { "action", action });
+                params.set("category_id", catId);
+                self->children.push_back(DisplayRemoteChannelsGroup::Create(
+                    catName, url.buffer(), self->workersProvider,
+                    self->ui_executor, self.get()));
+            }
+        },
+        false);
+}
+void DisplayRemoteChannelsGroup::render(
+    std::unordered_set<DisplayNode*>& selectedNodes, const std::string& filter)
+{
+    ImGuiTreeNodeFlags tree_node_flags = ImGuiTreeNodeFlags_SpanAvailWidth |
+                                         ImGuiTreeNodeFlags_OpenOnArrow |
+                                         ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    if (selected)
+    {
+        tree_node_flags |= ImGuiTreeNodeFlags_Selected;
+    }
+
+    ImGui::SetNextItemOpen(isOpen);
+
+    if (ImGui::TreeNodeEx(name.c_str(), tree_node_flags))
+    {
+        isOpen = true;
+        if (children.empty())
+        {
+            ImGui::Text("Loading...");
+            if (!areChildrenLoading)
+            {
+                areChildrenLoading = true;
+                loadRemoteChildren();
+            }
+        }
+        else
+        {
+            for (auto& c : children)
+            {
+                c->render(selectedNodes, filter);
+            }
+        }
+        ImGui::TreePop();
+    }
+    else if (ImGui::IsItemToggledOpen())
+    {
+        isOpen = false;
+        clearSelectedChildren(this, selectedNodes);
+    }
+}
+void DisplayRemoteChannelsGroup::loadRemoteChildren()
+{
+    spdlog::debug(
+        "DisplayRemoteChannelsGroup - loading remote children from {}", url);
+    workersProvider->GetNetworkResourceProvider()->GetResource(
+        url, ui_executor,
+        [weak = weak_from_this()](std::string body, std::error_code ec)
+        {
+            auto selfNode = weak.lock();
+            if (!selfNode)
+                return;
+            auto self =
+                std::static_pointer_cast<DisplayRemoteChannelsGroup>(selfNode);
+            if (ec)
+            {
+                return;
+            }
+
+            nlohmann::json json = nlohmann::json::parse(body);
+            for (const auto& ch : json)
+            {
+                auto streamId = ch["stream_id"].get<int>();
+                auto streamType = ch["stream_type"].get<std::string>();
+                auto name = ch["name"].get<std::string>();
+                auto icon = ch["stream_icon"].get<std::string>();
+
+                boost::url channelUrl = boost::urls::parse_uri(self->url).value();
+                boost::url epgUrl = channelUrl;
+
+                auto channelParams = channelUrl.params();
+                auto username = (*channelParams.find("username"))->value;
+                auto password = (*channelParams.find("password"))->value;
+                channelParams.clear();
+
+                channelUrl.set_path(std::format("/{}/{}/{}/{}.ts", streamType,
+                                                username, password, streamId));
+                auto epgParams = epgUrl.params();
+                epgParams.replace(epgParams.find("action"),
+                                  { "action", "get_short_epg" });
+                epgParams.set("stream_id", std::to_string(streamId));
+
+                auto channel = std::make_shared<Channel>(
+                    -1, name, channelUrl.buffer(), icon, "", epgUrl.buffer(),
+                    "", -1, false, -1);
+
+                self->children.push_back(
+                    DisplayChannel::Create(channel, self.get()));
+            }
+        },
+        false);
 }

@@ -7,7 +7,7 @@
 #include <memory>
 
 #include "channels/root_channel_group.h"
-#include "display_node.h"
+#include "display_tree_node.h"
 #include "serverpopup.h"
 #include "workers_provider.h"
 
@@ -48,6 +48,7 @@ public:
 private:
     void initialize();
     void loadLocalChannels();
+    void loadSavedServers();
     void showLocalChannelsTab();
     void showRemoteChannelsTab();
     void showMenu();
@@ -58,6 +59,7 @@ private:
     float bgAlpha = 0.f;
     bool quit = false;
     std::shared_ptr<DisplayRootChannelsGroup> rootNode;
+    std::vector<std::shared_ptr<DisplayServer>> servers;
     std::string channelsFilter;
     using ChannelActivatedSignal = boost::signals2::signal<void(ChannelPtr)>;
     ChannelActivatedSignal channelActivatedSignal;

@@ -10,4 +10,6 @@ public:
 
 private:
     static void initTables();
+    static int getSchemaVersion(soci::session& con);
+    static void incrementSchemaVersion(soci::session& con, int version);
 };

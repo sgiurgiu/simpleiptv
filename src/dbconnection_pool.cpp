@@ -58,4 +58,38 @@ void DatabaseConnections::initTables()
 
     con << "CREATE TABLE IF NOT EXISTS SETTINGS(KEY TEXT PRIMARY KEY, VALUE "
            "TEXT)";
+    int version = getSchemaVersion(con);
+    if (version < 1)
+    {
+        con << "ALTER TABLE XSTREAM_SERVERS ADD COLUMN STATUS TEXT";
+        con << "ALTER TABLE XSTREAM_SERVERS ADD COLUMN EXPIRY_DATE INT";
+        con << "ALTER TABLE XSTREAM_SERVERS ADD COLUMN IS_TRIAL BOOLEAN";
+        con << "ALTER TABLE XSTREAM_SERVERS ADD COLUMN MAX_CONNECTIONS INT";
+        con << "ALTER TABLE XSTREAM_SERVERS ADD COLUMN CREATED_AT INT";
+        con << "ALTER TABLE XSTREAM_SERVERS ADD COLUMN RTMP_PORT TEXT";
+        con << "ALTER TABLE XSTREAM_SERVERS ADD COLUMN HTTPS_PORT TEXT";
+        con << "CREATE TABLE IF NOT EXISTS SERVER_OUTPUT_FORMATS "
+               "(XSTREAM_SERVER_ID INT, FORMAT TEXT, FOREIGN KEY "
+               "(XSTREAM_SERVER_ID) REFERENCES "
+               "XSTREAM_SERVERS(SERVER_ID))";
+        incrementSchemaVersion(con, version);
+    }
+}
+int DatabaseConnections::getSchemaVersion(soci::session& con)
+{
+    int version = 0;
+    con << "SELECT VERSION FROM SCHEMA_VERSION", soci::into(version);
+    return version;
+}
+void DatabaseConnections::incrementSchemaVersion(soci::session& con, int version)
+{
+    if (version == 0)
+    {
+        con << "INSERT INTO SCHEMA_VERSION (VERSION) VALUES(1)";
+    }
+    else
+    {
+        con << "UPDATE SCHEMA_VERSION SET VERSION=:ver",
+            soci::use(version + 1, "ver");
+    }
 }

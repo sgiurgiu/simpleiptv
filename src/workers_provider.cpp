@@ -11,13 +11,17 @@ WorkersProvider::WorkersProvider()
 , settingsRepository{ SettingsRepository::Create() }
 , networkResourceProvider{ NetworkResourceProvider::Create(
       networkPool.get_executor(), proxyRepository) }
+, serversRepository{ ServersRepository::Create(dbPool.get_executor()) }
 #ifdef STV_UNIX
 , mprisService{ MprisService::Create() }
 #endif
 
 {
 }
-
+std::shared_ptr<ServersRepository> WorkersProvider::GetServersRepository()
+{
+    return serversRepository;
+}
 std::shared_ptr<ChannelsRepository> WorkersProvider::GetChannelsRepository()
 {
     return channelsRepository;

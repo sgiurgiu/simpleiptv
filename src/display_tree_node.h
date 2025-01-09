@@ -5,6 +5,7 @@
 
 #include "channels/channel.h"
 #include "channels/root_channel_group.h"
+#include "servers/server.h"
 
 #include <atomic>
 #include <memory>
@@ -18,12 +19,17 @@
 struct DisplayChannel;
 struct DisplayChannelsGroup;
 class WorkersProvider;
+struct DisplayServerLive;
+struct DisplayServerVods;
 enum class DisplayNodeType
 {
     ROOT,
     FAVOURITES,
     GROUP,
-    CHANNEL
+    CHANNEL,
+    SERVER,
+    SERVER_CATEGORY,
+    REMOTE_GROUP
 };
 struct DisplayNode : public std::enable_shared_from_this<DisplayNode>
 {
@@ -216,4 +222,145 @@ struct DisplayFavouritesChannelsGroup : public DisplayChannelsGroup
     {
         return DisplayNodeType::FAVOURITES;
     }
+};
+
+struct DisplayServer : public DisplayChannelsGroup
+{
+    DisplayServer(DisplayNodeKey key,
+                  WorkersProvider* workersProvider,
+                  const boost::asio::any_io_executor& ui_executor,
+                  ServerPtr server);
+    static std::shared_ptr<DisplayServer>
+    Create(WorkersProvider* workersProvider,
+           const boost::asio::any_io_executor& ui_executor,
+           ServerPtr server)
+    {
+        return std::make_shared<DisplayServer>(DisplayNodeKey{}, workersProvider,
+                                               ui_executor, server);
+    }
+
+    virtual int getUnderlyingID() const override
+    {
+        return server->GetId();
+    }
+    virtual DisplayNodeType getType() const override
+    {
+        return DisplayNodeType::SERVER;
+    }
+    virtual void render(std::unordered_set<DisplayNode*>& selectedNodes,
+                        const std::string& filter) override;
+    virtual void loadChildren(WorkersProvider*,
+                              const boost::asio::any_io_executor&) override
+    {
+    }
+    virtual bool shouldRender(const std::string&) const override
+    {
+        return true;
+    }
+
+    ServerPtr server;
+};
+struct DisplayServerCategory : public DisplayChannelsGroup
+{
+    DisplayServerCategory(DisplayNodeKey key,
+                          const std::string& name,
+                          const std::string& url,
+                          WorkersProvider* workersProvider,
+                          const boost::asio::any_io_executor& ui_executor,
+                          DisplayServer* parent)
+    : DisplayChannelsGroup{ key, name, parent }
+    , displayServer{ parent }
+    , url{ url }
+    , workersProvider{ workersProvider }
+    , ui_executor{ ui_executor }
+    {
+    }
+    static std::shared_ptr<DisplayServerCategory>
+    Create(const std::string& name,
+           const std::string& url,
+           WorkersProvider* workersProvider,
+           const boost::asio::any_io_executor& ui_executor,
+           DisplayServer* parent)
+    {
+        return std::make_shared<DisplayServerCategory>(
+            DisplayNodeKey{}, name, url, workersProvider, ui_executor, parent);
+    }
+
+    virtual int getUnderlyingID() const override
+    {
+        return -1;
+    }
+    virtual DisplayNodeType getType() const override
+    {
+        return DisplayNodeType::SERVER_CATEGORY;
+    }
+    virtual void render(std::unordered_set<DisplayNode*>& selectedNodes,
+                        const std::string& filter) override;
+    virtual void loadChildren(WorkersProvider*,
+                              const boost::asio::any_io_executor&) override
+    {
+    }
+    virtual bool shouldRender(const std::string&) const override
+    {
+        return true;
+    }
+    // we have another one because we want to control here how we load our children
+    void loadRemoteChildren();
+    DisplayServer* displayServer;
+    std::string url;
+    bool areChildrenLoading = false;
+    WorkersProvider* workersProvider;
+    boost::asio::any_io_executor ui_executor;
+};
+struct DisplayRemoteChannelsGroup : public DisplayChannelsGroup
+{
+    DisplayRemoteChannelsGroup(DisplayNodeKey key,
+                               const std::string& name,
+                               const std::string& url,
+                               WorkersProvider* workersProvider,
+                               const boost::asio::any_io_executor& ui_executor,
+                               DisplayServerCategory* parent)
+    : DisplayChannelsGroup{ key, name, parent }
+    , serverCategory{ parent }
+    , url{ url }
+    , workersProvider{ workersProvider }
+    , ui_executor{ ui_executor }
+    {
+    }
+    static std::shared_ptr<DisplayRemoteChannelsGroup>
+    Create(const std::string& name,
+           const std::string& url,
+           WorkersProvider* workersProvider,
+           const boost::asio::any_io_executor& ui_executor,
+           DisplayServerCategory* parent)
+    {
+        return std::make_shared<DisplayRemoteChannelsGroup>(
+            DisplayNodeKey{}, name, url, workersProvider, ui_executor, parent);
+    }
+
+    virtual int getUnderlyingID() const override
+    {
+        return -1;
+    }
+    virtual DisplayNodeType getType() const override
+    {
+        return DisplayNodeType::REMOTE_GROUP;
+    }
+    virtual void render(std::unordered_set<DisplayNode*>& selectedNodes,
+                        const std::string& filter) override;
+    virtual void loadChildren(WorkersProvider*,
+                              const boost::asio::any_io_executor&) override
+    {
+    }
+    virtual bool shouldRender(const std::string&) const override
+    {
+        return true;
+    }
+    // we have another one because we want to control here how we load our children
+    void loadRemoteChildren();
+    DisplayServerCategory* serverCategory;
+    std::string url;
+    bool areChildrenLoading = false;
+    WorkersProvider* workersProvider;
+    boost::asio::any_io_executor ui_executor;
 };

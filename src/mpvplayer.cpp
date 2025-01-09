@@ -648,6 +648,8 @@ double MpvPlayer::GetVolume() const
 void MpvPlayer::SetVolume(double volume)
 {
     this->volume = volume;
+    mpv_set_property_string(mpv, "mute", "no");
+
     mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &this->volume);
     spdlog::debug("volume set to {}", this->volume);
 

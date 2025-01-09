@@ -15,6 +15,7 @@ namespace
 // constexpr float MAX_TIMEOUT = 5.f;
 constexpr float INITIAL_BG_ALPHA = 0.6f;
 static std::unordered_set<DisplayNode*> localSelectedNodes;
+static std::unordered_set<DisplayNode*> remoteSelectedNodes;
 } // namespace
 
 std::shared_ptr<ChannelsWindow>
@@ -54,6 +55,7 @@ void ChannelsWindow::initialize()
             self->channelActivatedSignal(channel->channel);
         });
     loadLocalChannels();
+    loadSavedServers();
 }
 
 void ChannelsWindow::ActivateNextChannel()
@@ -239,6 +241,13 @@ void ChannelsWindow::showLocalChannelsTab()
 }
 void ChannelsWindow::showRemoteChannelsTab()
 {
+    ImGui::BeginChild("##remoteChannelsTab", ImVec2(0, 0), ImGuiChildFlags_None,
+                      ImGuiWindowFlags_HorizontalScrollbar);
+    for (auto& s : servers)
+    {
+        s->render(remoteSelectedNodes, "");
+    }
+    ImGui::EndChild();
 }
 
 void ChannelsWindow::loadLocalChannels()
@@ -288,4 +297,38 @@ void ChannelsWindow::ActivateChannelOfGroup(ChannelsGroupPtr group,
                                             ChannelPtr channel)
 {
     rootNode->ActivateChannelOfGroup(group, channel);
+}
+
+void ChannelsWindow::loadSavedServers()
+{
+    workersProvider->GetServersRepository()->LoadServers(
+        [weak = weak_from_this()](std::vector<ServerPtr> servers)
+        {
+            auto self = weak.lock();
+            if (!self)
+                return;
+
+            for (const auto& s : servers)
+            {
+                auto server = DisplayServer::Create(self->workersProvider,
+                                                    self->ui_executor, s);
+                server->activatedChannelSignal.connect(
+                    [weak = self->weak_from_this()](DisplayChannel* channel)
+                    {
+                        auto self = weak.lock();
+                        if (!self)
+                            return;
+                        if (self->activatedChannel)
+                        {
+                            self->activatedChannel->isActivated = false;
+                        }
+                        self->activatedChannel = channel;
+                        self->activatedChannel->isActivated = true;
+                        self->channelActivatedSignal(channel->channel);
+                    });
+
+                self->servers.push_back(server);
+            }
+        },
+        ui_executor);
 }
