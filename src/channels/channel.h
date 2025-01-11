@@ -44,7 +44,7 @@ public:
         std::lock_guard<std::mutex> _{ logoMutex };
         return logo.size();
     }
-    constexpr const char* GetLogoData() const
+    const char* GetLogoData() const
     {
         std::lock_guard<std::mutex> _{ logoMutex };
         return logo.data();
