@@ -1,0 +1,43 @@
+# This is an example PKGBUILD file. Use this as a start to creating your own,
+# and remove these comments. For more information, see 'man PKGBUILD'.
+# NOTE: Please fill out the license field for your package! If it is unknown,
+# then please put 'unknown'.
+
+# Maintainer: Sergiu Giurgiu <sgiurgiu11@gmail.com>
+pkgname=simpleiptv
+pkgver=0.0.1
+pkgrel=1
+epoch=
+pkgdesc="Simple IPTV"
+arch=('x86_64')
+url=""
+license=('GPL')
+groups=('media')
+depends=('mpv')
+makedepends=('cmake' 'clang')
+checkdepends=()
+optdepends=()
+provides=()
+conflicts=()
+replaces=()
+backup=()
+options=()
+install=
+changelog=
+source=()
+noextract=()
+sha256sums=()
+validpgpkeys=()
+
+
+build() {
+	cd ../..
+	cmake --workflow --preset=release-tgz
+}
+
+
+package() {
+#	cd "$pkgname-$pkgver"
+	mkdir -p "$pkgdir/usr"
+	tar -xvf "../../build-release/$pkgname-$pkgver.tar.gz" -C "$pkgdir/usr"
+}

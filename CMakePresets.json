@@ -13,6 +13,10 @@
             "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
             "environment": {
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER":"/usr/bin/clang",
+                "CMAKE_CXX_COMPILER":"/usr/bin/clang++"
             }
         },
         {
@@ -22,9 +26,7 @@
             "description": "Default build using Ninja generator",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "ENABLE_TESTS": "ON",
-                "CMAKE_C_COMPILER":"/usr/bin/clang",
-                "CMAKE_CXX_COMPILER":"/usr/bin/clang++"
+                "ENABLE_TESTS": "ON"
             }
         },
         {
@@ -89,6 +91,13 @@
             "configurePreset": "release",
             "generators": [
                 "RPM"
+            ]
+        },
+        {
+            "name": "release-tgz",
+            "configurePreset": "release",
+            "generators": [
+                "TGZ"
             ]
         },
         {
@@ -160,6 +169,23 @@
                 {
                     "type": "package",
                     "name": "release-deb"
+                }
+            ]
+        },
+        {
+            "name": "release-tgz",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "release"
+                },
+                {
+                    "type": "build",
+                    "name": "release"
+                },
+                {
+                    "type": "package",
+                    "name": "release-tgz"
                 }
             ]
         },
