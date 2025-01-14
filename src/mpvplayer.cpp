@@ -616,6 +616,7 @@ void MpvPlayer::VolumeToggleMute()
     using namespace std::placeholders;
     osdTimer.expires_after(OSD_DURATION);
     osdTimer.async_wait(std::bind(&MpvPlayer::removeVolumeOsd, this, _1));
+    volumeSignal(mute ? 0.0 : volume);
 }
 void MpvPlayer::VolumeIncrease()
 {

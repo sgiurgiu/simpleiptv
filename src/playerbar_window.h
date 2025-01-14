@@ -74,10 +74,7 @@ public:
     {
         fileLoadingError = error;
     }
-    void SetVolume(double vol)
-    {
-        volume = vol;
-    }
+    void SetVolume(double vol);
     template <typename S>
     void AddVolumeListener(S slot)
     {
@@ -145,4 +142,5 @@ private:
     bool ccButtonPressed = false;
     std::vector<std::string> subsIds;
     PlayerState playerState = PlayerState::STOPPED;
+    std::string volumeIcon;
 };

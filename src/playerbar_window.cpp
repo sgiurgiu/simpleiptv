@@ -13,7 +13,9 @@
 PlayerBarWindow::PlayerBarWindow(Key,
                                  const boost::asio::any_io_executor& ui_executor,
                                  WorkersProvider* workersProvider)
-: ui_executor{ ui_executor }, workersProvider{ workersProvider }
+: ui_executor{ ui_executor }
+, workersProvider{ workersProvider }
+, volumeIcon{ reinterpret_cast<const char*>(ICON_FA_VOLUME_UP) }
 {
 }
 std::shared_ptr<PlayerBarWindow>
@@ -85,7 +87,8 @@ ImVec2 PlayerBarWindow::ShowWindow()
         nextChannelSignal();
     }
     ImGui::SameLine();
-    ImGui::Button(reinterpret_cast<const char*>(ICON_FA_VOLUME_UP));
+
+    ImGui::Button(volumeIcon.c_str());
     bool isVolumeHovered = ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal);
     if (isVolumeHovered || isVolumeSliderHovered ||
         (std::chrono::steady_clock::now() - lastVolumeHoveredTime <=
@@ -339,4 +342,16 @@ void PlayerBarWindow::loadEpg()
 void PlayerBarWindow::SetAvailableSubIds(std::vector<std::string> subsIds)
 {
     this->subsIds = std::move(subsIds);
+}
+void PlayerBarWindow::SetVolume(double vol)
+{
+    volume = vol;
+    if (volume <= 0.0)
+    {
+        volumeIcon = reinterpret_cast<const char*>(ICON_FA_VOLUME_OFF);
+    }
+    else
+    {
+        volumeIcon = reinterpret_cast<const char*>(ICON_FA_VOLUME_UP);
+    }
 }
