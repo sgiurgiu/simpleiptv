@@ -387,7 +387,7 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
             [[fallthrough]];
         case mpv_end_file_reason::MPV_END_FILE_REASON_STOP:
             playerState = PlayerState::STOPPED;
-            // playerStateSignal(playerState);
+            playerStateSignal(playerState);
             break;
         default:
             break;

@@ -66,15 +66,19 @@ ImVec2 PlayerBarWindow::ShowWindow()
         previousChannelSignal();
     }
     ImGui::SameLine();
+    ImGui::BeginDisabled(playerState == PlayerState::PLAYING || !currentChannel);
     if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_PLAY)))
     {
         playChannelSignal();
     }
+    ImGui::EndDisabled();
     ImGui::SameLine();
+    ImGui::BeginDisabled(playerState != PlayerState::PLAYING);
     if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_STOP)))
     {
         stopChannelSignal();
     }
+    ImGui::EndDisabled();
     ImGui::SameLine();
     if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_STEP_FORWARD)))
     {

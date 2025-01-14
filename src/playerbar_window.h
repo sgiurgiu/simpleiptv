@@ -102,6 +102,10 @@ public:
         ccButtonChangedSignal.connect(slot);
     }
     void SetAvailableSubIds(std::vector<std::string> subsIds);
+    void SetCurrentPlayerState(PlayerState state)
+    {
+        playerState = state;
+    }
 
 private:
     void loadChannelLogoData();
@@ -140,4 +144,5 @@ private:
     CCButtonChangedSignal ccButtonChangedSignal;
     bool ccButtonPressed = false;
     std::vector<std::string> subsIds;
+    PlayerState playerState = PlayerState::STOPPED;
 };

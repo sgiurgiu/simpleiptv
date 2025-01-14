@@ -64,6 +64,10 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
     playerBarWindow->AddCCButtonChangedListener([this](const std::string& id)
                                                 { player.ClosedCaptions(id); });
 
+    player.AddPlayerStateListener(
+        [this](PlayerState state)
+        { playerBarWindow->SetCurrentPlayerState(state); });
+
 #ifdef STV_UNIX
     auto mprisService = workersProvider->GetMprisService();
     mprisService->AddNextListener([this]()
