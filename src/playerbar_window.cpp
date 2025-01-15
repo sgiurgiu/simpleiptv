@@ -1,3 +1,5 @@
+#include <GL/glew.h>
+
 #include "playerbar_window.h"
 
 #include <imgui.h>

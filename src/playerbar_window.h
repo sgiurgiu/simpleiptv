@@ -12,6 +12,7 @@
 #include "channels/channel.h"
 #include "epg_listing.h"
 #include "workers_provider.h"
+#include "mpvplayer_state.h"
 
 class PlayerBarWindow : public std::enable_shared_from_this<PlayerBarWindow>
 {
