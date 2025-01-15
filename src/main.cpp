@@ -138,7 +138,7 @@ void startGraphicalInterface()
         return;
     }
     glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // Enable vsync
+    glfwSwapInterval(0); // Disable vsync
 
     glewInit();
 
@@ -186,17 +186,19 @@ void runMainLoop(GLFWwindow* window,
                 reinterpret_cast<SimpleIPTV*>(glfwGetWindowUserPointer(window));
             desktop->setSize(width, height);
         });
+
     glfwSetWindowSize(window, 1280, 720);
     glClearColor(0.3f, 0.3f, 0.3f, 1.f);
 
     // Main loop
     bool done = false;
-
+    auto start = std::chrono::steady_clock::now();
     while (!done)
     {
         done = glfwWindowShouldClose(window);
-
+        // spdlog::debug("before - glfwPollEvents");
         glfwPollEvents();
+        // spdlog::debug("after glfwPollEvents");
 
         if (iptv.shouldQuit())
         {
@@ -230,7 +232,24 @@ void runMainLoop(GLFWwindow* window,
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
+        // on wayland with EGL, eglSwapBuffers blocks when the window is
+        // minimized when glfwSwapInterval(1) (vsync)
+        // now, that would be fine, but if we're playing video
+        // mpv complains loudly if we're not calling mpv_render_context_render
+        // The worst thing is, in wayland, I have no way to know if the window
+        // is minimized. Way to go wayland.
+        // Disabling vsync, we're not blocking here anymore
+        // but then we have to do the wait ourselves
+        // Ideally, we would try to match the monitor's (which one's) refresh
+        // rate but ... that would be a bit more complicated, so for now just
+        // set it at 16ms (60Hz).
         glfwSwapBuffers(window);
+
+        auto end = std::chrono::steady_clock::now();
+        auto durationSpentDrawing = end - start;
+        std::this_thread::sleep_for(std::chrono::milliseconds{ 16 } -
+                                    durationSpentDrawing);
+        start = std::chrono::steady_clock::now();
     }
     work.reset();
     glfwSetWindowUserPointer(window, nullptr);
