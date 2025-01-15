@@ -34,7 +34,10 @@ public:
 } // namespace
 
 SleepService::SleepService(Key, const boost::asio::any_io_executor& executor)
-: executor{ executor }, sessionConnection{ sdbus::createSessionBusConnection() }
+: executor{ executor }
+#ifdef STV_UNIX
+, sessionConnection{ sdbus::createSessionBusConnection() }
+#endif
 {
 }
 std::shared_ptr<SleepService>

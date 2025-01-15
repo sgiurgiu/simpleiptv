@@ -1,3 +1,5 @@
+#include <GL/glew.h>
+
 #include "display_tree_node.h"
 
 #include <algorithm>

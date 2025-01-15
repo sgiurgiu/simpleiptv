@@ -1,3 +1,10 @@
+#if defined(_MSC_VER)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <Windows.h>
+#endif
+
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <boost/asio/io_context.hpp>
