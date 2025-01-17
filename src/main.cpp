@@ -240,14 +240,14 @@ void runMainLoop(GLFWwindow* window,
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         // on wayland with EGL, eglSwapBuffers blocks when the window is
-        // minimized when glfwSwapInterval(1) (vsync)
-        // now, that would be fine, but if we're playing video
+        // minimized when glfwSwapInterval(1) (vsync enabled).
+        // Now, that would be fine, but if we're playing video
         // mpv complains loudly if we're not calling mpv_render_context_render
         // The worst thing is, in wayland, I have no way to know if the window
         // is minimized. Way to go wayland.
         // Disabling vsync, we're not blocking here anymore
         // but then we have to do the wait ourselves
-        // Ideally, we would try to match the monitor's (which one's) refresh
+        // Ideally, we would try to match the monitor's (which one's?) refresh
         // rate but ... that would be a bit more complicated, so for now just
         // set it at 16ms (60Hz).
         glfwSwapBuffers(window);
