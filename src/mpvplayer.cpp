@@ -425,9 +425,6 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
             }
         }
         subsAvailableSignal(std::move(subIds));
-
-        // startRenderingMedia();
-        // emit fileLoaded();
     }
     break;
     default:
