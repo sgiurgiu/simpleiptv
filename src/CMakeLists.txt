@@ -116,6 +116,7 @@ set(STV_SRCS main.cpp
     sanitize_url.cpp
     servers/server.cpp
     servers/servers_repository.cpp
+    settings/http_proxy_dialog.cpp
     )
 
 if(UNIX)

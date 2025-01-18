@@ -9,6 +9,7 @@
 #include "channels/root_channel_group.h"
 #include "display_tree_node.h"
 #include "serverpopup.h"
+#include "settings/http_proxy_dialog.h"
 #include "workers_provider.h"
 
 class ChannelsWindow : public std::enable_shared_from_this<ChannelsWindow>
@@ -65,4 +66,5 @@ private:
     ChannelActivatedSignal channelActivatedSignal;
     DisplayChannel* activatedChannel = nullptr;
     bool pinned = false;
+    std::shared_ptr<HTTPProxyDialog> httpProxyDialog;
 };

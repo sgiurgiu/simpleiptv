@@ -35,6 +35,7 @@ ChannelsWindow::ChannelsWindow(Key,
 , workersProvider{ workersProvider }
 , bgAlpha{ INITIAL_BG_ALPHA }
 , rootNode{ DisplayRootChannelsGroup::Create() }
+, httpProxyDialog{ HTTPProxyDialog::Create(ui_executor, workersProvider) }
 {
 }
 
@@ -227,6 +228,8 @@ ImVec2 ChannelsWindow::ShowWindow(float playerBarHeight)
         ImGui::EndTabBar();
     }
 
+    httpProxyDialog->ShowDialog();
+
     ImGui::End();
     return size;
 }
@@ -289,6 +292,15 @@ void ChannelsWindow::showMenu()
             ImGui::MenuItem("Quit", "Ctrl+Q", &quit);
             ImGui::EndMenu();
         }
+        if (ImGui::BeginMenu("Settings"))
+        {
+            if (ImGui::MenuItem("HTTP Proxy"))
+            {
+                httpProxyDialog->SetShowHTTPProxyDialog(true);
+            }
+            ImGui::EndMenu();
+        }
+
         ImGui::EndMenuBar();
     }
 }

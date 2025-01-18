@@ -32,3 +32,17 @@ void ProxyRepository::LoadConfiguredProxy(
             boost::asio::post(cb_executor, [cb, proxy]() { cb(proxy); });
         });
 }
+void ProxyRepository::SaveConfiguredProxy(HttpProxy proxy)
+{
+    boost::asio::post(executor,
+                      [self = shared_from_this(), proxy]()
+                      {
+                          auto session = DatabaseConnections::GetConnection();
+                          int use = proxy.use ? 1 : 0;
+                          session << "DELETE FROM HTTP_PROXY";
+                          session << "INSERT INTO HTTP_PROXY (HOST, PORT, USE) "
+                                     "VALUES (:host, :port, :use)",
+                              soci::use(proxy.host), soci::use(proxy.port),
+                              soci::use(use);
+                      });
+}

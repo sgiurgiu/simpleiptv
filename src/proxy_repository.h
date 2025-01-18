@@ -34,7 +34,7 @@ public:
     // the callback will be called on the cb_executor provided
     void LoadConfiguredProxy(LoadProxyCallback cb,
                              const boost::asio::any_io_executor& cb_executor);
-
+    void SaveConfiguredProxy(HttpProxy proxy);
 private:
     boost::asio::any_io_executor executor;
 };
