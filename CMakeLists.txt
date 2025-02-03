@@ -6,7 +6,6 @@ option(ASAN_ENABLE "Build with sanitization on" OFF)
 if(ENABLE_TESTS)
   list(APPEND VCPKG_MANIFEST_FEATURES "tests")
 endif()
-set(VCPKG_OVERLAY_PORTS "${CMAKE_CURRENT_LIST_DIR}/vcpkg-ports")
 
 project(simpleiptv LANGUAGES C CXX
     VERSION 0.0.1

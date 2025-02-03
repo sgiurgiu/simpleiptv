@@ -79,3 +79,5 @@ build_version
 build/
 .vscode/
 build-release/
+build-asan/
+

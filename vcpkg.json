@@ -2,7 +2,6 @@
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "simpleiptv",
   "version-string": "0.0.1",
-  "builtin-baseline": "d4f3e122069912636c123b7ece673f6e01513cea",
   "dependencies": [
     "boost-asio",
     "boost-algorithm",
