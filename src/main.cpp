@@ -194,7 +194,7 @@ void runMainLoop(GLFWwindow* window,
             desktop->setSize(width, height);
         });
 
-    glfwSetWindowSize(window, 1280, 720);
+//    glfwSetWindowSize(window, 1280, 720);
     glClearColor(0.3f, 0.3f, 0.3f, 1.f);
 
     // Main loop
