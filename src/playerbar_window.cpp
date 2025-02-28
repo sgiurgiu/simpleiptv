@@ -311,9 +311,12 @@ void PlayerBarWindow::SetCurrentChannel(ChannelPtr channel)
 
 void PlayerBarWindow::loadEpg()
 {
+    if (loadedEpgs)
+        return;
     if (!loadingEpgs && !currentChannel->GetEPGChannelUri().empty())
     {
         loadingEpgs = true;
+        loadedEpgs = true;
         workersProvider->GetNetworkResourceProvider()->GetResource(
             currentChannel->GetEPGChannelUri(), ui_executor,
             [weak = weak_from_this()](std::string body, std::error_code ec)

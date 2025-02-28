@@ -194,7 +194,7 @@ void runMainLoop(GLFWwindow* window,
             desktop->setSize(width, height);
         });
 
-//    glfwSetWindowSize(window, 1280, 720);
+    //    glfwSetWindowSize(window, 1280, 720);
     glClearColor(0.3f, 0.3f, 0.3f, 1.f);
 
     // Main loop
@@ -210,6 +210,12 @@ void runMainLoop(GLFWwindow* window,
         if (iptv.shouldQuit())
         {
             glfwSetWindowShouldClose(window, true);
+        }
+        {
+            int width;
+            int height;
+            glfwGetFramebufferSize(window, &width, &height);
+            iptv.setSize(width, height);
         }
 
         glClear(GL_COLOR_BUFFER_BIT);

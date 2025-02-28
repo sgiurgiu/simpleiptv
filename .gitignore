@@ -80,4 +80,4 @@ build/
 .vscode/
 build-release/
 build-asan/
-
+.cache/

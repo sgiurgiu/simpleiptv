@@ -78,6 +78,13 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
     mpv_set_property_string(mpv, "config", "no");
     mpv_set_property_string(mpv, "input-vo-keyboard", "no");
     mpv_set_property_string(mpv, "vo", "libmpv");
+
+#ifdef STV_UNIX
+    mpv_set_property_string(mpv, "ao", "pipewire");
+#else
+    mpv_set_property_string(mpv, "ao", "auto");
+#endif
+    mpv_set_property_string(mpv, "hwdec", "auto");
     mpv_observe_property(mpv, 0, "height", MPV_FORMAT_DOUBLE);
     mpv_observe_property(mpv, 0, "width", MPV_FORMAT_DOUBLE);
     mpv_observe_property(mpv, 0, "pause", MPV_FORMAT_FLAG);

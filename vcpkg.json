@@ -37,7 +37,7 @@
       "features": [
         "opengl3-binding",
         "glfw-binding",
-        "freetype-lunasvg"
+        "freetype"
       ]
     },
     {

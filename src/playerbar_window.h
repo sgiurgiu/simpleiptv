@@ -11,8 +11,8 @@
 
 #include "channels/channel.h"
 #include "epg_listing.h"
-#include "workers_provider.h"
 #include "mpvplayer_state.h"
+#include "workers_provider.h"
 
 class PlayerBarWindow : public std::enable_shared_from_this<PlayerBarWindow>
 {
@@ -135,6 +135,7 @@ private:
     VolumeSignal volumeSignal;
     std::vector<EpgListing> epgListings;
     std::atomic_bool loadingEpgs = false;
+    std::atomic_bool loadedEpgs = false;
     using EpgListingButtonChangedSignal = boost::signals2::signal<void(bool)>;
     EpgListingButtonChangedSignal epgListingButtonChangedSignal;
     using CCButtonChangedSignal =
