@@ -304,6 +304,8 @@ void PlayerBarWindow::SetCurrentChannel(ChannelPtr channel)
     fileLoadingError = "";
     epgListings.clear();
     ccButtonPressed = false;
+    loadedEpgs = false;
+    loadingEpgs = false;
     subsIds.clear();
     loadChannelLogoData();
     loadEpg();
