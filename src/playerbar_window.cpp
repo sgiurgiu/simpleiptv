@@ -307,6 +307,11 @@ void PlayerBarWindow::SetCurrentChannel(ChannelPtr channel)
     loadedEpgs = false;
     loadingEpgs = false;
     subsIds.clear();
+    if (channelLogoTexture)
+    {
+        glDeleteTextures(1, &channelLogoTexture);
+        channelLogoTexture = 0;
+    }
     loadChannelLogoData();
     loadEpg();
 }
