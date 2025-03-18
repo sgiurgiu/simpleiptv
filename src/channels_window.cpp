@@ -194,7 +194,7 @@ ImVec2 ChannelsWindow::ShowWindow(float playerBarHeight)
 
     auto mainViewport = ImGui::GetMainViewport();
     ImVec2 size;
-    size.x = mainViewport->WorkSize.x * 0.2f;
+    size.x = std::fmin(mainViewport->WorkSize.x * 0.2f, 300.f);
     size.y = mainViewport->WorkSize.y - ImGui::GetStyle().WindowBorderSize -
              playerBarHeight;
 
@@ -237,6 +237,20 @@ ImVec2 ChannelsWindow::ShowWindow(float playerBarHeight)
 void ChannelsWindow::showLocalChannelsTab()
 {
     ImGui::InputTextWithHint("##filterChannels", "Filter", &channelsFilter);
+
+    ImGui::SameLine(0, 0);
+    ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, 0x00000000);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0x00000000);
+
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2{});
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{});
+    if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_ERASER)))
+    {
+        channelsFilter.clear();
+    }
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(3);
     ImGui::BeginChild("##localChannelsTab", ImVec2(0, 0), ImGuiChildFlags_None,
                       ImGuiWindowFlags_HorizontalScrollbar);
     rootNode->render(localSelectedNodes, channelsFilter);
