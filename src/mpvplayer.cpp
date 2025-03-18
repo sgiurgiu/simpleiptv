@@ -80,9 +80,9 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
     mpv_set_property_string(mpv, "vo", "libmpv");
 
 #ifdef STV_UNIX
-    mpv_set_property_string(mpv, "ao", "pipewire");
+    // mpv_set_property_string(mpv, "ao", "auto");
 #else
-    mpv_set_property_string(mpv, "ao", "auto");
+    // mpv_set_property_string(mpv, "ao", "auto");
 #endif
     mpv_set_property_string(mpv, "hwdec", "auto");
     mpv_observe_property(mpv, 0, "height", MPV_FORMAT_DOUBLE);
