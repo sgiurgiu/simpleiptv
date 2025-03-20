@@ -2,6 +2,7 @@
 
 #include <boost/asio/post.hpp>
 #include <chrono>
+#include <cmath>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
@@ -37,6 +38,7 @@ ChannelsWindow::ChannelsWindow(Key,
 , rootNode{ DisplayRootChannelsGroup::Create() }
 , httpProxyDialog{ HTTPProxyDialog::Create(ui_executor, workersProvider) }
 {
+    width = workersProvider->GetSettingsRepository()->GetChannelsWindowWidth(300);
 }
 
 void ChannelsWindow::initialize()
@@ -194,7 +196,7 @@ ImVec2 ChannelsWindow::ShowWindow(float playerBarHeight)
 
     auto mainViewport = ImGui::GetMainViewport();
     ImVec2 size;
-    size.x = std::fmin(mainViewport->WorkSize.x * 0.2f, 300.f);
+    size.x = width.value_or(mainViewport->WorkSize.x * 0.2f);
     size.y = mainViewport->WorkSize.y - ImGui::GetStyle().WindowBorderSize -
              playerBarHeight;
 
@@ -204,8 +206,7 @@ ImVec2 ChannelsWindow::ShowWindow(float playerBarHeight)
     ImGui::SetNextWindowBgAlpha(bgAlpha);
 
     if (!ImGui::Begin("Channels", nullptr,
-                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-                          ImGuiWindowFlags_MenuBar))
+                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_MenuBar))
     {
         ImGui::End();
         return { 0, 0 };
@@ -229,8 +230,15 @@ ImVec2 ChannelsWindow::ShowWindow(float playerBarHeight)
     }
 
     httpProxyDialog->ShowDialog();
+    if (width != (int)std::floor(ImGui::GetWindowSize().x))
+    {
+        width = std::floor(ImGui::GetWindowSize().x);
+        workersProvider->GetSettingsRepository()->SetChannelsWindowWidth(
+            width.value());
+    }
 
     ImGui::End();
+
     return size;
 }
 

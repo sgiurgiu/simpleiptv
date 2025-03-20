@@ -23,6 +23,8 @@ public:
     int GetWindowHeight(int defaultValue);
     void SetWindowWidth(int value);
     void SetWindowHeight(int value);
+    int GetChannelsWindowWidth(int defaultValue);
+    void SetChannelsWindowWidth(int value);
 
 private:
     int GetIntValue(const std::string& key, int defaultValue);

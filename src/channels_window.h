@@ -5,6 +5,7 @@
 #include <chrono>
 #include <imgui.h>
 #include <memory>
+#include <optional>
 
 #include "channels/root_channel_group.h"
 #include "display_tree_node.h"
@@ -67,4 +68,5 @@ private:
     DisplayChannel* activatedChannel = nullptr;
     bool pinned = false;
     std::shared_ptr<HTTPProxyDialog> httpProxyDialog;
+    std::optional<int> width;
 };

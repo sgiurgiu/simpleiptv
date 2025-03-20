@@ -30,6 +30,15 @@ void SettingsRepository::SetWindowHeight(int value)
     SetIntValue("WINDOW_HEIGHT", value);
 }
 
+int SettingsRepository::GetChannelsWindowWidth(int defaultValue)
+{
+    return GetIntValue("CHANNELS_WINDOW_WIDTH", defaultValue);
+}
+void SettingsRepository::SetChannelsWindowWidth(int value)
+{
+    SetIntValue("CHANNELS_WINDOW_WIDTH", value);
+}
+
 int SettingsRepository::GetIntValue(const std::string& key, int defaultValue)
 {
     auto session = DatabaseConnections::GetConnection();
