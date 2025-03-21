@@ -1,6 +1,7 @@
 #pragma once
 
 #include <GL/gl.h>
+#include <chrono>
 #include <imgui.h>
 
 #include "channels/channel.h"
@@ -9,6 +10,9 @@
 
 #include <atomic>
 #include <memory>
+#include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -258,7 +262,42 @@ struct DisplayServer : public DisplayChannelsGroup
         return true;
     }
 
+    void showInfoDialog();
+
     ServerPtr server;
+    WorkersProvider* workersProvider;
+    boost::asio::any_io_executor ui_executor;
+    struct UserInfo
+    {
+        UserInfo(const nlohmann::json& json);
+        std::string username;
+        std::string password;
+        std::string message;
+        int auth = -1;
+        std::string status;
+        std::string expiryDate;
+        std::string createdAtDate;
+        bool isTrial = false;
+        int activeCons = 0; // connections?
+        int maxConnections = 0;
+        std::vector<std::string> outputFormats;
+    };
+    struct ServerInfo
+    {
+        ServerInfo(const nlohmann::json& json);
+        std::string url;
+        std::string port;
+        std::string httpsPort;
+        std::string serverProtocol;
+        std::string rtmpPort;
+        std::string timezone;
+        std::string timestampNow;
+        std::string timeNow;
+        bool process = false;
+    };
+    std::optional<UserInfo> userInfo;
+    std::optional<ServerInfo> serverInfo;
+    std::optional<std::string> error;
 };
 struct DisplayServerCategory : public DisplayChannelsGroup
 {
