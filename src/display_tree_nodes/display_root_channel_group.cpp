@@ -1,0 +1,110 @@
+#include "display_root_channel_group.h"
+
+#include "display_channel.h"
+#include "display_favourite_channel_group.h"
+
+void DisplayRootChannelsGroup::renderGroup(
+    std::unordered_set<DisplayNode*>& selectedNodes, const std::string& filter)
+{
+    // loadChildren();
+    for (auto& g : children)
+    {
+        g->render(selectedNodes, filter);
+    }
+}
+
+void DisplayRootChannelsGroup::setRoot(RootChannelsGroupPtr root,
+                                       WorkersProvider* workersProvider,
+                                       const boost::asio::any_io_executor& ui_executor)
+{
+    children.clear();
+    this->root = root;
+    this->group = root;
+    favouritesGroup = DisplayFavouritesChannelsGroup::Create(this);
+    root->IterateFavouriteChannels(
+        [this, workersProvider, ui_executor](ChannelPtr channel)
+        {
+            auto dchannel =
+                DisplayChannel::Create(channel, favouritesGroup.get());
+            dchannel->indexInParent = favouritesGroup->children.size();
+            dchannel->loadLogo(workersProvider, ui_executor);
+            favouritesGroup->children.push_back(std::move(dchannel));
+        });
+    favouritesGroup->indexInParent = 0;
+    children.push_back(std::move(favouritesGroup));
+    loadChildren(workersProvider, ui_executor);
+}
+
+void DisplayRootChannelsGroup::loadChildren(
+    WorkersProvider* workersProvider,
+    const boost::asio::any_io_executor& ui_executor)
+{
+    if (!root || !root->AreGroupsLoaded())
+    {
+        return;
+    }
+
+    if (children.size() < 2 && root->AreGroupsLoaded())
+    {
+        root->IterateGroups(
+            [this, workersProvider, ui_executor](ChannelsGroupPtr group)
+            {
+                children.emplace_back(DisplayChannelsGroup::Create(group, this));
+                children.back().get()->indexInParent = children.size() - 1;
+                children.back().get()->loadChildren(workersProvider, ui_executor);
+            });
+    }
+}
+
+void DisplayRootChannelsGroup::ActivateChannelOfGroup(ChannelsGroupPtr group,
+                                                      ChannelPtr channel)
+{
+    DisplayNodeType groupType = DisplayNodeType::GROUP;
+    if (group->GetId() < 0 && channel->IsFavourite())
+    {
+        // we got a special group
+        groupType = DisplayNodeType::FAVOURITES;
+    }
+
+    auto findGroup = [group, groupType](this auto const& findGroup,
+                                        DisplayNode* node) -> DisplayNode*
+    {
+        DisplayNode* foundNode = nullptr;
+        for (const auto& child : node->children)
+        {
+            if (child->getType() == groupType &&
+                child->getUnderlyingID() == group->GetId())
+            {
+                foundNode = child.get();
+                break;
+            }
+            else
+            {
+                foundNode = findGroup(child.get());
+            }
+        }
+        return foundNode;
+    };
+
+    auto foundGroup = findGroup(this);
+    if (foundGroup)
+    {
+        foundGroup->isOpen = true;
+        auto channelIt =
+            std::find_if(foundGroup->children.begin(), foundGroup->children.end(),
+                         [id = channel->GetId()](const auto& c)
+                         {
+                             return id == c->getUnderlyingID() &&
+                                    c->getType() == DisplayNodeType::CHANNEL;
+                         });
+        if (channelIt != foundGroup->children.cend())
+        {
+            DisplayChannel* channel =
+                dynamic_cast<DisplayChannel*>(channelIt->get());
+            if (channel)
+            {
+                channel->activate();
+            }
+        }
+    }
+}

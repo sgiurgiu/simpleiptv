@@ -2,13 +2,13 @@
 
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/signals2.hpp>
-#include <chrono>
 #include <imgui.h>
 #include <memory>
 #include <optional>
 
-#include "channels/root_channel_group.h"
-#include "display_tree_node.h"
+#include "display_tree_nodes/display_root_channel_group.h"
+#include "display_tree_nodes/display_server_node.h"
+
 #include "serverpopup.h"
 #include "settings/http_proxy_dialog.h"
 #include "workers_provider.h"

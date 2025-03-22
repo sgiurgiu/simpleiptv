@@ -103,7 +103,6 @@ set(STV_SRCS main.cpp
     channels/channels_group.cpp
     channels/channel.cpp
     channels/root_channel_group.cpp
-    display_tree_node.cpp
     proxy_repository.cpp
     settings_repository.cpp
     playerbar_window.cpp
@@ -117,6 +116,15 @@ set(STV_SRCS main.cpp
     servers/server.cpp
     servers/servers_repository.cpp
     settings/http_proxy_dialog.cpp
+    display_tree_nodes/common.cpp
+    display_tree_nodes/display_node.cpp
+    display_tree_nodes/display_channel.cpp
+    display_tree_nodes/display_channel_group.cpp
+    display_tree_nodes/display_favourite_channel_group.cpp
+    display_tree_nodes/display_remote_channel_group.cpp
+    display_tree_nodes/display_server_node.cpp
+    display_tree_nodes/display_server_category.cpp
+    display_tree_nodes/display_root_channel_group.cpp
     )
 
 if(UNIX)

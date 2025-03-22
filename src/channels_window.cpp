@@ -9,6 +9,7 @@
 #include <spdlog/spdlog.h>
 #include <unordered_set>
 
+#include "display_tree_nodes/display_channel.h"
 #include "fonts/IconsFontAwesome4.h"
 
 namespace

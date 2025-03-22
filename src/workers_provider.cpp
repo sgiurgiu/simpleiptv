@@ -1,7 +1,5 @@
 #include "workers_provider.h"
 
-#include <thread>
-
 WorkersProvider::WorkersProvider()
 : networkPool{ 6 }
 , dbPool{ 1 }
