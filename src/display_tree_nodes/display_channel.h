@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imgui.h>
+#include <GL/glew.h>
 
 #include "../channels/channel.h"
 #include "display_node.h"

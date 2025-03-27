@@ -1,9 +1,10 @@
 #pragma once
 
-#include <GL/gl.h>
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/signals2.hpp>
 #include <unordered_set>
+#include <memory>
+#include <vector>
 
 enum class DisplayNodeType
 {
