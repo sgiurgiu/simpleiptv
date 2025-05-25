@@ -1,5 +1,7 @@
 #include "display_channel.h"
 
+#include <GL/glew.h>
+
 #include <algorithm>
 #include <boost/asio/post.hpp>
 #include <imgui_internal.h>
