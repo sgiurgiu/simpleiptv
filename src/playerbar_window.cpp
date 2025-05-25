@@ -2,6 +2,7 @@
 
 #include "playerbar_window.h"
 
+#include <boost/asio/post.hpp>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
@@ -300,8 +301,6 @@ void PlayerBarWindow::SetCurrentChannel(ChannelPtr channel)
     fileLoadingError = "";
     epgListings.clear();
     ccButtonPressed = false;
-    loadedEpgs = false;
-    loadingEpgs = false;
     subsIds.clear();
     if (channelLogoTexture)
     {
@@ -318,11 +317,16 @@ void PlayerBarWindow::loadEpg(int retry)
     {
         workersProvider->GetNetworkResourceProvider()->GetResource(
             currentChannel->GetEPGChannelUri(), ui_executor,
-            [weak = weak_from_this(), retry](std::string body, std::error_code ec)
+            [weak = weak_from_this(), retry,
+             channel = currentChannel](std::string body, std::error_code ec)
             {
                 auto self = weak.lock();
                 if (!self)
                     return;
+                if (self->currentChannel != channel)
+                {
+                    return;
+                }
                 if (ec)
                 {
                     boost::asio::post(self->ui_executor, [self, retry]()
