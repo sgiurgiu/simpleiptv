@@ -107,7 +107,7 @@ public:
 
 private:
     void loadChannelLogoData();
-    void loadEpg();
+    void loadEpg(int retry);
 
 private:
     boost::asio::any_io_executor ui_executor;
@@ -134,8 +134,6 @@ private:
     using VolumeSignal = boost::signals2::signal<void(double)>;
     VolumeSignal volumeSignal;
     std::vector<EpgListing> epgListings;
-    std::atomic_bool loadingEpgs = false;
-    std::atomic_bool loadedEpgs = false;
     using EpgListingButtonChangedSignal = boost::signals2::signal<void(bool)>;
     EpgListingButtonChangedSignal epgListingButtonChangedSignal;
     using CCButtonChangedSignal =

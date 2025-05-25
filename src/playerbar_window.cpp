@@ -175,10 +175,6 @@ ImVec2 PlayerBarWindow::ShowWindow()
                 }
                 ImGui::PopStyleColor(5);
             }
-            else if (!loadingEpgs)
-            {
-                loadEpg();
-            }
         }
     }
     else if (!fileLoadingError.empty())
@@ -313,30 +309,32 @@ void PlayerBarWindow::SetCurrentChannel(ChannelPtr channel)
         channelLogoTexture = 0;
     }
     loadChannelLogoData();
-    loadEpg();
+    loadEpg(0);
 }
 
-void PlayerBarWindow::loadEpg()
+void PlayerBarWindow::loadEpg(int retry)
 {
-    if (loadedEpgs)
-        return;
-    if (!loadingEpgs && !currentChannel->GetEPGChannelUri().empty())
+    if (!currentChannel->GetEPGChannelUri().empty() && retry < 5)
     {
-        loadingEpgs = true;
-        loadedEpgs = true;
         workersProvider->GetNetworkResourceProvider()->GetResource(
             currentChannel->GetEPGChannelUri(), ui_executor,
-            [weak = weak_from_this()](std::string body, std::error_code ec)
+            [weak = weak_from_this(), retry](std::string body, std::error_code ec)
             {
                 auto self = weak.lock();
                 if (!self)
                     return;
                 if (ec)
+                {
+                    boost::asio::post(self->ui_executor, [self, retry]()
+                                      { self->loadEpg(retry + 1); });
                     return;
+                }
                 auto json = nlohmann::json::parse(body, nullptr, false, true);
                 if (json.is_discarded() || !json.is_object())
                 {
                     // bad data
+                    boost::asio::post(self->ui_executor, [self, retry]()
+                                      { self->loadEpg(retry + 1); });
                     return;
                 }
                 auto epg_listings = json["epg_listings"];
@@ -345,7 +343,6 @@ void PlayerBarWindow::loadEpg()
                 {
                     self->epgListings.emplace_back(listingObject);
                 }
-                self->loadingEpgs = false;
             },
             false);
     }
