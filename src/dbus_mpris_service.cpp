@@ -116,7 +116,7 @@ bool MprisService::MediaPlayer2Adaptor::Fullscreen()
 {
     return false;
 }
-void MprisService::MediaPlayer2Adaptor::Fullscreen(const bool& value)
+void MprisService::MediaPlayer2Adaptor::Fullscreen(const bool&)
 {
 }
 bool MprisService::MediaPlayer2Adaptor::CanSetFullscreen()

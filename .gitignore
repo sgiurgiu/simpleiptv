@@ -81,3 +81,5 @@ build/
 build-release/
 build-asan/
 .cache/
+.zed/
+
