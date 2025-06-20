@@ -72,9 +72,13 @@ public:
     {
         return parentId;
     }
-    int IsFavourite() const
+    bool IsFavourite() const
     {
         return favourite;
+    }
+    void SetFavourite(bool value)
+    {
+        favourite = value;
     }
 
 private:

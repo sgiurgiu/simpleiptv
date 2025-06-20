@@ -6,12 +6,16 @@
 struct DisplayFavouritesChannelsGroup : public DisplayChannelsGroup
 {
     DisplayFavouritesChannelsGroup(DisplayNodeKey,
+                                   WorkersProvider* workersProvider,
+                                   boost::asio::any_io_executor ui_executor,
                                    DisplayRootChannelsGroup* parent);
     static std::shared_ptr<DisplayFavouritesChannelsGroup>
-    Create(DisplayRootChannelsGroup* parent)
+    Create(WorkersProvider* workersProvider,
+           boost::asio::any_io_executor ui_executor,
+           DisplayRootChannelsGroup* parent)
     {
-        return std::make_shared<DisplayFavouritesChannelsGroup>(DisplayNodeKey{},
-                                                                parent);
+        return std::make_shared<DisplayFavouritesChannelsGroup>(
+            DisplayNodeKey{}, workersProvider, ui_executor, parent);
     }
     virtual int getUnderlyingID() const override
     {

@@ -1,9 +1,8 @@
 #include "display_channel_group.h"
 
-#include <imgui.h>
-
 #include "common.h"
 #include "display_channel.h"
+#include <imgui.h>
 
 void DisplayChannelsGroup::loadChildren(WorkersProvider* workersProvider,
                                         const boost::asio::any_io_executor& ui_executor)
@@ -13,9 +12,10 @@ void DisplayChannelsGroup::loadChildren(WorkersProvider* workersProvider,
         group->IterateChannels(
             [this, workersProvider, ui_executor](auto& channel)
             {
-                auto dchannel = DisplayChannel::Create(channel, this);
+                auto dchannel = DisplayChannel::Create(channel, workersProvider,
+                                                       ui_executor, this);
                 children.emplace_back(dchannel);
-                dchannel->loadLogo(workersProvider, ui_executor);
+                dchannel->loadLogo();
                 dchannel->indexInParent = children.size() - 1;
             });
     }
@@ -72,4 +72,28 @@ void DisplayChannelsGroup::renderGroup(
     if (ImGui::IsItemHovered())
     {
     }
+}
+
+void DisplayChannelsGroup::removeChannel(std::shared_ptr<DisplayChannel> channel)
+{
+    if (!channel)
+        return;
+    if (group)
+    {
+        group->RemoveChannel(channel->channel->GetId());
+    }
+    std::erase(children, channel);
+}
+void DisplayChannelsGroup::addChannel(ChannelPtr channel)
+{
+    if (group)
+    {
+        group->AddChannel(channel);
+    }
+
+    auto dchannel =
+        DisplayChannel::Create(channel, workersProvider, ui_executor, this);
+    children.emplace_back(dchannel);
+    dchannel->loadLogo();
+    dchannel->indexInParent = children.size() - 1;
 }

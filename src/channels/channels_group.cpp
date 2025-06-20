@@ -1,7 +1,5 @@
 #include "channels_group.h"
 
-#include <algorithm>
-
 ChannelsGroup::ChannelsGroup(int id, std::string name, std::optional<int> parentId)
 : id{ id }, name{ std::move(name) }, parentId{ std::move(parentId) }
 {
@@ -18,17 +16,13 @@ void ChannelsGroup::AddChannel(ChannelPtr channel)
 }
 void ChannelsGroup::RemoveChannelGroup(int id)
 {
-    groups.erase(std::remove_if(groups.begin(), groups.end(),
-                                [id](ChannelsGroupPtr group)
-                                { return group->id == id; }),
-                 groups.end());
+    std::erase_if(groups,
+                  [id](ChannelsGroupPtr group) { return group->id == id; });
 }
 void ChannelsGroup::RemoveChannel(int id)
 {
-    channels.erase(std::remove_if(channels.begin(), channels.end(),
-                                  [id](ChannelPtr channel)
-                                  { return channel->GetId() == id; }),
-                   channels.end());
+    std::erase_if(channels,
+                  [id](ChannelPtr channel) { return channel->GetId() == id; });
 }
 void ChannelsGroup::AddChannels(std::vector<ChannelPtr> channels)
 {

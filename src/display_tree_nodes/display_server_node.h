@@ -44,8 +44,6 @@ struct DisplayServer : public DisplayChannelsGroup
     void showInfoDialog();
 
     ServerPtr server;
-    WorkersProvider* workersProvider;
-    boost::asio::any_io_executor ui_executor;
     struct UserInfo
     {
         UserInfo(const nlohmann::json& json);

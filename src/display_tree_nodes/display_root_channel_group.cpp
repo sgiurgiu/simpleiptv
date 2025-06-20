@@ -20,18 +20,19 @@ void DisplayRootChannelsGroup::setRoot(RootChannelsGroupPtr root,
     children.clear();
     this->root = root;
     this->group = root;
-    favouritesGroup = DisplayFavouritesChannelsGroup::Create(this);
+    favouritesGroup = DisplayFavouritesChannelsGroup::Create(workersProvider,
+                                                             ui_executor, this);
     root->IterateFavouriteChannels(
         [this, workersProvider, ui_executor](ChannelPtr channel)
         {
-            auto dchannel =
-                DisplayChannel::Create(channel, favouritesGroup.get());
+            auto dchannel = DisplayChannel::Create(
+                channel, workersProvider, ui_executor, favouritesGroup.get());
             dchannel->indexInParent = favouritesGroup->children.size();
-            dchannel->loadLogo(workersProvider, ui_executor);
+            dchannel->loadLogo();
             favouritesGroup->children.push_back(std::move(dchannel));
         });
     favouritesGroup->indexInParent = 0;
-    children.push_back(std::move(favouritesGroup));
+    children.push_back(favouritesGroup);
     loadChildren(workersProvider, ui_executor);
 }
 
@@ -49,7 +50,8 @@ void DisplayRootChannelsGroup::loadChildren(
         root->IterateGroups(
             [this, workersProvider, ui_executor](ChannelsGroupPtr group)
             {
-                children.emplace_back(DisplayChannelsGroup::Create(group, this));
+                children.emplace_back(DisplayChannelsGroup::Create(
+                    group, workersProvider, ui_executor, this));
                 children.back().get()->indexInParent = children.size() - 1;
                 children.back().get()->loadChildren(workersProvider, ui_executor);
             });

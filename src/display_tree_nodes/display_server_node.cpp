@@ -343,10 +343,8 @@ DisplayServer::DisplayServer(DisplayNodeKey key,
 : DisplayChannelsGroup{ key,
                         reinterpret_cast<const char*>(ICON_FA_SERVER " ") +
                             server->GetHost(),
-                        nullptr }
+                        workersProvider, ui_executor, nullptr }
 , server{ server }
-, workersProvider{ workersProvider }
-, ui_executor{ ui_executor }
 {
     boost::url url;
     url.set_scheme(server->GetUrlScheme());

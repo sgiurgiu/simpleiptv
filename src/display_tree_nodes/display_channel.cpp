@@ -4,6 +4,9 @@
 
 #include <algorithm>
 #include <boost/asio/post.hpp>
+
+#include <cassert>
+#include <imgui.h>
 #include <imgui_internal.h>
 #include <spdlog/spdlog.h>
 #include <stb_image.h>
@@ -11,6 +14,8 @@
 
 #include "../workers_provider.h"
 #include "display_channel_group.h"
+#include "display_node.h"
+#include "display_root_channel_group.h"
 
 namespace
 {
@@ -26,17 +31,20 @@ void clearSelectedNodes(std::unordered_set<DisplayNode*>& selectedNodes)
 
 DisplayChannel::DisplayChannel(DisplayNodeKey key,
                                ChannelPtr channel,
+                               WorkersProvider* workersProvider,
+                               const boost::asio::any_io_executor& ui_executor,
                                DisplayChannelsGroup* parent)
 : DisplayNode{ key, channel->GetName(), parent }
 , channel{ channel }
+, workersProvider{ workersProvider }
+, ui_executor{ ui_executor }
 , displayLogoSize{ ImVec2{ (ImGui::GetFontSize() * 2.f / 3.f) +
                                ImGui::GetStyle().FramePadding.x * 2.f,
                            (ImGui::GetFontSize() * 2.f / 3.f) +
                                ImGui::GetStyle().FramePadding.y * 2.f } }
 {
 }
-void DisplayChannel::loadLogo(WorkersProvider* workersProvider,
-                              const boost::asio::any_io_executor& ui_executor)
+void DisplayChannel::loadLogo()
 {
     if (!channel->IsLogoEmpty())
     {
@@ -229,6 +237,7 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
             }
         }
     }
+    showPopup(selectedNodes);
     if (shouldScrollToChannel)
     {
         ImGui::ScrollToItem(ImGuiScrollFlags_None);
@@ -292,5 +301,42 @@ void DisplayChannel::loadLogoTexture()
         {
             parent->maxLogoWidth = size.x;
         }
+    }
+}
+
+void DisplayChannel::showPopup(std::unordered_set<DisplayNode*>& selectedNodes)
+{
+    if (ImGui::BeginPopupContextItem())
+    {
+        bool favourite = parent->getType() == DisplayNodeType::FAVOURITES &&
+                         channel->IsFavourite();
+        if (!favourite && ImGui::Selectable("Add Favourite"))
+        {
+            // set favourite && add to favourites parent
+            workersProvider->GetChannelsRepository()->UpdateChannelFavourite(
+                channel->GetId(), true);
+            DisplayChannelsGroup* p = parent;
+            while (p->parent != nullptr)
+            {
+                p = p->parent;
+            }
+            assert(p != nullptr && p->getType() == DisplayNodeType::ROOT);
+            DisplayRootChannelsGroup* root =
+                static_cast<DisplayRootChannelsGroup*>(p);
+            root->favouritesGroup->addChannel(channel);
+        }
+        if (favourite && ImGui::Selectable("Remove Favourite"))
+        {
+            workersProvider->GetChannelsRepository()->UpdateChannelFavourite(
+                channel->GetId(), false);
+            selectedNodes.erase(this);
+            boost::asio::post(ui_executor,
+                              [self = shared_from_base<DisplayChannel>()]()
+                              {
+                                  auto p = self->parent;
+                                  p->removeChannel(self);
+                              });
+        }
+        ImGui::EndPopup();
     }
 }

@@ -11,11 +11,9 @@ struct DisplayServerCategory : public DisplayChannelsGroup
                           WorkersProvider* workersProvider,
                           const boost::asio::any_io_executor& ui_executor,
                           DisplayServer* parent)
-    : DisplayChannelsGroup{ key, name, parent }
+    : DisplayChannelsGroup{ key, name, workersProvider, ui_executor, parent }
     , displayServer{ parent }
     , url{ url }
-    , workersProvider{ workersProvider }
-    , ui_executor{ ui_executor }
     {
     }
     static std::shared_ptr<DisplayServerCategory>
@@ -52,6 +50,4 @@ struct DisplayServerCategory : public DisplayChannelsGroup
     DisplayServer* displayServer;
     std::string url;
     bool areChildrenLoading = false;
-    WorkersProvider* workersProvider;
-    boost::asio::any_io_executor ui_executor;
 };

@@ -48,6 +48,8 @@ public:
 
     void UpdateChannelLogo(int id, std::string logo);
     void UpdateChannelLogoSync(int id, std::string logo);
+    void UpdateChannelFavourite(int id, bool favourite);
+    void UpdateChannelFavouriteSync(int id, bool favourite);
 
 private:
     RootChannelsGroupPtr loadChannelsData();

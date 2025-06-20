@@ -36,7 +36,7 @@ ChannelsWindow::ChannelsWindow(Key,
 : ui_executor{ ui_executor }
 , workersProvider{ workersProvider }
 , bgAlpha{ INITIAL_BG_ALPHA }
-, rootNode{ DisplayRootChannelsGroup::Create() }
+, rootNode{ DisplayRootChannelsGroup::Create(workersProvider, ui_executor) }
 , httpProxyDialog{ HTTPProxyDialog::Create(ui_executor, workersProvider) }
 {
     width = workersProvider->GetSettingsRepository()->GetChannelsWindowWidth(300);

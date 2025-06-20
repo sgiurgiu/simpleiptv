@@ -1,7 +1,7 @@
 #pragma once
 
-#include <imgui.h>
 #include <GL/glew.h>
+#include <imgui.h>
 
 #include "../channels/channel.h"
 #include "display_node.h"
@@ -10,12 +10,17 @@ struct DisplayChannel : public DisplayNode
 {
     DisplayChannel(DisplayNodeKey,
                    ChannelPtr channel,
+                   WorkersProvider* workersProvider,
+                   const boost::asio::any_io_executor& ui_executor,
                    DisplayChannelsGroup* parent);
-    static std::shared_ptr<DisplayChannel> Create(ChannelPtr channel,
-                                                  DisplayChannelsGroup* parent)
+    static std::shared_ptr<DisplayChannel>
+    Create(ChannelPtr channel,
+           WorkersProvider* workersProvider,
+           const boost::asio::any_io_executor& ui_executor,
+           DisplayChannelsGroup* parent)
     {
-        return std::make_shared<DisplayChannel>(DisplayNodeKey{}, channel,
-                                                parent);
+        return std::make_shared<DisplayChannel>(
+            DisplayNodeKey{}, channel, workersProvider, ui_executor, parent);
     }
     void render(std::unordered_set<DisplayNode*>& selectedNodes,
                 const std::string& filter) override
@@ -23,13 +28,13 @@ struct DisplayChannel : public DisplayNode
         renderChannel(selectedNodes, filter);
     }
     ~DisplayChannel();
-    void loadLogo(WorkersProvider* workersProvider,
-                  const boost::asio::any_io_executor& ui_executor);
+    void loadLogo();
     void renderChannel(std::unordered_set<DisplayNode*>& selectedNodes,
                        const std::string& filter);
     void loadChildren(WorkersProvider*, const boost::asio::any_io_executor&) override
     {
     }
+
     bool shouldRender(const std::string& filter) const override;
     void loadLogoTexture();
     void decodeLogoImage(const boost::asio::any_io_executor& executor);
@@ -45,8 +50,11 @@ struct DisplayChannel : public DisplayNode
         return DisplayNodeType::CHANNEL;
     }
     void activate();
+    void showPopup(std::unordered_set<DisplayNode*>& selectedNodes);
 
     ChannelPtr channel;
+    WorkersProvider* workersProvider;
+    boost::asio::any_io_executor ui_executor;
     bool isActivated = false;
     GLuint channelLogoTexture = 0;
     std::atomic_int logoWidth = 0;

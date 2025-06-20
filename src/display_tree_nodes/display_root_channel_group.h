@@ -5,13 +5,18 @@
 
 struct DisplayRootChannelsGroup : public DisplayChannelsGroup
 {
-    DisplayRootChannelsGroup(DisplayNodeKey key)
-    : DisplayChannelsGroup{ key, "", nullptr }
+    DisplayRootChannelsGroup(DisplayNodeKey key,
+                             WorkersProvider* workersProvider,
+                             const boost::asio::any_io_executor& ui_executor)
+    : DisplayChannelsGroup{ key, "", workersProvider, ui_executor, nullptr }
     {
     }
-    static std::shared_ptr<DisplayRootChannelsGroup> Create()
+    static std::shared_ptr<DisplayRootChannelsGroup>
+    Create(WorkersProvider* workersProvider,
+           const boost::asio::any_io_executor& ui_executor)
     {
-        return std::make_shared<DisplayRootChannelsGroup>(DisplayNodeKey{});
+        return std::make_shared<DisplayRootChannelsGroup>(
+            DisplayNodeKey{}, workersProvider, ui_executor);
     }
     void renderGroup(std::unordered_set<DisplayNode*>& selectedNodes,
                      const std::string& filter) override;

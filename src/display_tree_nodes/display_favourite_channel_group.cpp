@@ -3,9 +3,13 @@
 #include "../fonts/IconsFontAwesome4.h"
 
 DisplayFavouritesChannelsGroup::DisplayFavouritesChannelsGroup(
-    DisplayNodeKey key, DisplayRootChannelsGroup* parent)
+    DisplayNodeKey key,
+    WorkersProvider* workersProvider,
+    boost::asio::any_io_executor ui_executor,
+    DisplayRootChannelsGroup* parent)
 : DisplayChannelsGroup{
-    key, reinterpret_cast<const char*>(ICON_FA_STAR " Favourites"), parent
+    key, reinterpret_cast<const char*>(ICON_FA_STAR " Favourites"),
+    workersProvider, ui_executor, parent
 }
 {
     isOpen = true;

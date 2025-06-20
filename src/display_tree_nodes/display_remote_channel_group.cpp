@@ -94,7 +94,8 @@ void DisplayRemoteChannelsGroup::loadRemoteChildren()
                     "", -1, false, -1);
 
                 self->children.push_back(
-                    DisplayChannel::Create(channel, self.get()));
+                    DisplayChannel::Create(channel, self->workersProvider,
+                                           self->ui_executor, self.get()));
             }
         },
         false);

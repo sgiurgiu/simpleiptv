@@ -8,27 +8,42 @@ struct DisplayChannelsGroup : public DisplayNode
 {
     DisplayChannelsGroup(DisplayNodeKey key,
                          const std::string& name,
+                         WorkersProvider* workersProvider,
+                         const boost::asio::any_io_executor& ui_executor,
                          DisplayChannelsGroup* parent)
     : DisplayNode{ key, name, parent }
+    , workersProvider{ workersProvider }
+    , ui_executor{ ui_executor }
     {
     }
     DisplayChannelsGroup(DisplayNodeKey key,
                          ChannelsGroupPtr group,
+                         WorkersProvider* workersProvider,
+                         const boost::asio::any_io_executor& ui_executor,
                          DisplayChannelsGroup* parent)
-    : DisplayNode{ key, group->GetName(), parent }, group{ group }
+    : DisplayNode{ key, group->GetName(), parent }
+    , group{ group }
+    , workersProvider{ workersProvider }
+    , ui_executor{ ui_executor }
     {
     }
     static std::shared_ptr<DisplayChannelsGroup>
-    Create(const std::string& name, DisplayChannelsGroup* parent)
+    Create(const std::string& name,
+           WorkersProvider* workersProvider,
+           const boost::asio::any_io_executor& ui_executor,
+           DisplayChannelsGroup* parent)
     {
-        return std::make_shared<DisplayChannelsGroup>(DisplayNodeKey{}, name,
-                                                      parent);
+        return std::make_shared<DisplayChannelsGroup>(
+            DisplayNodeKey{}, name, workersProvider, ui_executor, parent);
     }
     static std::shared_ptr<DisplayChannelsGroup>
-    Create(ChannelsGroupPtr group, DisplayChannelsGroup* parent)
+    Create(ChannelsGroupPtr group,
+           WorkersProvider* workersProvider,
+           const boost::asio::any_io_executor& ui_executor,
+           DisplayChannelsGroup* parent)
     {
-        return std::make_shared<DisplayChannelsGroup>(DisplayNodeKey{}, group,
-                                                      parent);
+        return std::make_shared<DisplayChannelsGroup>(
+            DisplayNodeKey{}, group, workersProvider, ui_executor, parent);
     }
 
     virtual ~DisplayChannelsGroup() = default;
@@ -50,7 +65,10 @@ struct DisplayChannelsGroup : public DisplayNode
     {
         return DisplayNodeType::GROUP;
     }
-
+    void removeChannel(std::shared_ptr<DisplayChannel> channel);
+    void addChannel(ChannelPtr channel);
     ChannelsGroupPtr group;
+    WorkersProvider* workersProvider;
+    boost::asio::any_io_executor ui_executor;
     float maxLogoWidth = 0.0;
 };

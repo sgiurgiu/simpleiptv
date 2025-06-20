@@ -341,3 +341,15 @@ void ChannelsRepository::UpdateChannelLogoSync(int id, std::string logo)
     session << "UPDATE CHANNELS SET LOGO=:logo WHERE CHANNEL_ID=:id",
         soci::use(logo, "logo"), soci::use(id, "id");
 }
+void ChannelsRepository::UpdateChannelFavourite(int id, bool favourite)
+{
+    boost::asio::post(executor, [self = shared_from_this(), id, favourite]() mutable
+                      { self->UpdateChannelFavouriteSync(id, favourite); });
+}
+void ChannelsRepository::UpdateChannelFavouriteSync(int id, bool favourite)
+{
+    auto session = DatabaseConnections::GetConnection();
+
+    session << "UPDATE CHANNELS SET FAVOURITE=:favourite WHERE CHANNEL_ID=:id",
+        soci::use(favourite ? 1 : 0, "favourite"), soci::use(id, "id");
+}
