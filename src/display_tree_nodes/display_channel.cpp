@@ -308,6 +308,9 @@ void DisplayChannel::showPopup(std::unordered_set<DisplayNode*>& selectedNodes)
 {
     if (ImGui::BeginPopupContextItem())
     {
+        clearSelectedNodes(selectedNodes);
+        selectedNodes.insert(this);
+        selected = true;
         bool favourite = parent->getType() == DisplayNodeType::FAVOURITES &&
                          channel->IsFavourite();
         if (!favourite && ImGui::Selectable("Add Favourite"))
@@ -329,7 +332,7 @@ void DisplayChannel::showPopup(std::unordered_set<DisplayNode*>& selectedNodes)
         {
             workersProvider->GetChannelsRepository()->UpdateChannelFavourite(
                 channel->GetId(), false);
-            selectedNodes.erase(this);
+            clearSelectedNodes(selectedNodes);
             boost::asio::post(ui_executor,
                               [self = shared_from_base<DisplayChannel>()]()
                               {
