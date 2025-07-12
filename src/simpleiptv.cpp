@@ -14,7 +14,7 @@
 namespace
 {
 static constexpr std::chrono::seconds ChannelsWindowTimerExpiry{ 5 };
-static constexpr std::chrono::milliseconds resizeDebounceDelay{ 100 };
+static constexpr std::chrono::milliseconds resizeDebounceDelay{ 16 };
 } // namespace
 
 SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
