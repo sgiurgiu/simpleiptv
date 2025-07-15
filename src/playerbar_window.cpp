@@ -1,6 +1,7 @@
 #include <GL/glew.h>
 
 #include "playerbar_window.h"
+#include "stv_utils.h"
 
 #include <boost/asio/post.hpp>
 #include <imgui.h>
@@ -49,6 +50,8 @@ ImVec2 PlayerBarWindow::ShowWindow()
     ImGui::SetNextWindowSize(size, ImGuiCond_None);
     ImGui::SetNextWindowBgAlpha(bgAlpha);
 
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, windowBackground);
+
     if (!ImGui::Begin("Player Bar", nullptr,
                       ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
                           // ImGuiWindowFlags_NoBackground |
@@ -68,12 +71,14 @@ ImVec2 PlayerBarWindow::ShowWindow()
 
     if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_STEP_BACKWARD)))
     {
+        windowBackground = noChannelWindowBackground;
         previousChannelSignal();
     }
     ImGui::SameLine();
     ImGui::BeginDisabled(playerState == PlayerState::PLAYING || !currentChannel);
     if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_PLAY)))
     {
+        windowBackground = noChannelWindowBackground;
         playChannelSignal();
     }
     ImGui::EndDisabled();
@@ -81,12 +86,14 @@ ImVec2 PlayerBarWindow::ShowWindow()
     ImGui::BeginDisabled(playerState != PlayerState::PLAYING);
     if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_STOP)))
     {
+        windowBackground = noChannelWindowBackground;
         stopChannelSignal();
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
     if (ImGui::Button(reinterpret_cast<const char*>(ICON_FA_STEP_FORWARD)))
     {
+        windowBackground = noChannelWindowBackground;
         nextChannelSignal();
     }
     ImGui::SameLine();
@@ -231,7 +238,7 @@ ImVec2 PlayerBarWindow::ShowWindow()
     }
     ImGui::SetItemTooltip("Show/Hide Electronic Program Guide");
 
-    ImGui::PopStyleColor(2);
+    ImGui::PopStyleColor(3);
 
     ImGui::End();
     return size;
@@ -269,6 +276,15 @@ void PlayerBarWindow::loadChannelLogoData()
         channelLogoTexture = 0;
     }
 
+    /*{
+        auto [bg_r, bg_g, bg_b, _] = Utils::GetContrastColor(
+            resizedImageData, (int)size.x, (int)size.y, channels);
+        float s = 1.0f / 255.0f;
+        windowBackground.x = bg_r * s;
+        windowBackground.y = bg_g * s;
+        windowBackground.z = bg_b * s;
+    }*/
+
     glGenTextures(1, &channelLogoTexture);
     glBindTexture(GL_TEXTURE_2D, channelLogoTexture);
 
@@ -295,6 +311,7 @@ void PlayerBarWindow::loadChannelLogoData()
     stbi_image_free(imageData);
     stbi_image_free(resizedImageData);
 }
+
 void PlayerBarWindow::SetCurrentChannel(ChannelPtr channel)
 {
     currentChannel = channel;
@@ -307,6 +324,7 @@ void PlayerBarWindow::SetCurrentChannel(ChannelPtr channel)
         glDeleteTextures(1, &channelLogoTexture);
         channelLogoTexture = 0;
     }
+    windowBackground = noChannelWindowBackground;
     loadChannelLogoData();
     loadEpg(0);
 }

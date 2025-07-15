@@ -17,7 +17,7 @@
 
 #include "dbconnection_pool.h"
 #include "simpleiptv.h"
-#include "utils.h"
+#include "stv_utils.h"
 #include "workers_provider.h"
 
 #include <openssl/crypto.h>
@@ -150,6 +150,9 @@ void startGraphicalInterface()
     glewInit();
 
     ImGui::StyleColorsDark();
+    // ImGui::StyleColorsLight();
+    /*ImGui::GetStyle().Colors[ImGuiCol_WindowBg] =
+        ImVec4(0.56f, 0.56f, 0.56f, 0.94f);*/
     // Setup Platform/Renderer backends
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(nullptr);

@@ -2,7 +2,7 @@
 #include <soci/connection-pool.h>
 #include <soci/sqlite3/soci-sqlite3.h>
 
-#include "utils.h"
+#include "stv_utils.h"
 
 namespace
 {

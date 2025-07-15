@@ -95,7 +95,7 @@ set(STV_SRCS main.cpp
     mpvplayer.cpp
     simpleiptv.cpp
     channels_window.cpp
-    utils.cpp
+    stv_utils.cpp
     serverpopup.cpp
     dbconnection_pool.cpp
     workers_provider.cpp

@@ -12,6 +12,7 @@
 #include <stb_image.h>
 #include <stb_image_resize2.h>
 
+#include "../stv_utils.h"
 #include "../workers_provider.h"
 #include "display_channel_group.h"
 #include "display_node.h"
@@ -92,6 +93,9 @@ void DisplayChannel::decodeLogoImage()
         size.x * channels, (stbir_pixel_layout)channels);
 
     stbi_image_free(imageData);
+
+    // Utils::EnhanceLogo(resizedImageData, size.x, size.y, channels);
+
     logoWidth = size.x;
     logoHeight = size.y;
     logoData = resizedImageData;

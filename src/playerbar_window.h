@@ -5,6 +5,7 @@
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/signals2.hpp>
 #include <chrono>
+#include <cstdint>
 #include <imgui.h>
 #include <memory>
 #include <vector>
@@ -143,4 +144,7 @@ private:
     std::vector<std::string> subsIds;
     PlayerState playerState = PlayerState::STOPPED;
     std::string volumeIcon;
+
+    ImVec4 windowBackground = { 0.0f, 0.0f, 0.0f, 0.6f };
+    ImVec4 noChannelWindowBackground = windowBackground;
 };
