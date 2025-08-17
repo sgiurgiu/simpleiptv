@@ -21,9 +21,9 @@
 #include <GLFW/glfw3native.h>
 #endif
 #include <format>
+#include <functional>
 
 #include "mpvhelper.h"
-#include "stv_utils.h"
 #include <spdlog/spdlog.h>
 
 namespace
@@ -92,27 +92,12 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
     int64_t cacheSecs = 30;
     mpv_set_property(mpv, "cache-secs", MPV_FORMAT_INT64, &cacheSecs);
     mpv_set_property(mpv, "demuxer-readahead-secs", MPV_FORMAT_INT64, &cacheSecs);
-
+    using namespace std::placeholders;
+    auto proxySettingsCb = std::bind(&MpvPlayer::proxySettings, this, _1);
     this->workersProvider->GetProxyRepository()->LoadConfiguredProxy(
-        [this](auto proxy)
-        {
-            if (proxy.use)
-            {
-                auto proxyUrl =
-                    std::format("http://{}:{}", proxy.host, proxy.port);
-                mpv_set_option_string(mpv, "http-proxy", proxyUrl.c_str());
-            }
-            if (mpv_initialize(mpv) < 0)
-                throw std::runtime_error("could not initialize mpv context");
-            int errorCode =
-                mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
-            if (errorCode)
-            {
-                spdlog::error("Cannot set volume: {}",
-                              mpv_error_string(errorCode));
-            }
-        },
-        ui_executor);
+        proxySettingsCb, ui_executor);
+    this->workersProvider->GetProxyRepository()->AddUpdatedProxySignalListener(
+        proxySettingsCb);
     mpv_set_option_string(mpv, "hwdec", "auto");
     // mpv_set_option_string(mpv, "gpu-debug", "true");
 
@@ -120,6 +105,27 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
     mpv_set_property(mpv, "volume-max", MPV_FORMAT_DOUBLE, &volMax);
 
     mpv_set_wakeup_callback(mpv, MpvPlayer::onMpvEvents, this);
+
+    if (mpv_initialize(mpv) < 0)
+        throw std::runtime_error("could not initialize mpv context");
+    int errorCode = mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
+    if (errorCode)
+    {
+        spdlog::error("Cannot set volume: {}", mpv_error_string(errorCode));
+    }
+}
+
+void MpvPlayer::proxySettings(HttpProxy proxy)
+{
+    if (proxy.use)
+    {
+        auto proxyUrl = std::format("http://{}:{}", proxy.host, proxy.port);
+        mpv_set_property_string(mpv, "http-proxy", proxyUrl.c_str());
+    }
+    else
+    {
+        mpv_set_property_string(mpv, "http-proxy", "");
+    }
 }
 
 MpvPlayer::~MpvPlayer()

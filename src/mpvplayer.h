@@ -4,11 +4,11 @@
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/signals2.hpp>
-#include <chrono>
 #include <imgui.h>
 
 #include "channels/channel.h"
 #include "mpvplayer_state.h"
+#include "proxy_repository.h"
 #include "workers_provider.h"
 
 struct mpv_handle;
@@ -71,6 +71,8 @@ private:
 
     void updateDisplay();
     void removeVolumeOsd(const boost::system::error_code& ec);
+
+    void proxySettings(HttpProxy proxy);
 
 private:
     const boost::asio::any_io_executor& ui_executor;

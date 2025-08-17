@@ -29,7 +29,8 @@ void ProxyRepository::LoadConfiguredProxy(
                 soci::into(proxy.host), soci::into(proxy.port), soci::into(use);
             proxy.use = (use == 1);
 
-            boost::asio::post(cb_executor, [cb, proxy]() { cb(proxy); });
+            boost::asio::post(cb_executor,
+                              [cb, proxy]() { cb(std::move(proxy)); });
         });
 }
 void ProxyRepository::SaveConfiguredProxy(HttpProxy proxy)
@@ -44,5 +45,6 @@ void ProxyRepository::SaveConfiguredProxy(HttpProxy proxy)
                                      "VALUES (:host, :port, :use)",
                               soci::use(proxy.host), soci::use(proxy.port),
                               soci::use(use);
+                          self->proxySettingsSignal(std::move(proxy));
                       });
 }
