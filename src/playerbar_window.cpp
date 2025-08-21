@@ -333,6 +333,9 @@ void PlayerBarWindow::loadEpg(int retry)
 {
     if (!currentChannel->GetEPGChannelUri().empty() && retry < 5)
     {
+        spdlog::info("Loading epg for channel {}, retry {}. URL used: {}",
+                     currentChannel->GetName(), retry,
+                     currentChannel->GetEPGChannelUri());
         workersProvider->GetNetworkResourceProvider()->GetResource(
             currentChannel->GetEPGChannelUri(), ui_executor,
             [weak = weak_from_this(), retry,
@@ -347,6 +350,10 @@ void PlayerBarWindow::loadEpg(int retry)
                 }
                 if (ec)
                 {
+                    spdlog::error("Failed retrieving EPG for channel {}, retry "
+                                  "{}. URL used: {}, with error: ",
+                                  channel->GetName(), retry,
+                                  channel->GetEPGChannelUri(), ec.message());
                     boost::asio::post(self->ui_executor, [self, retry]()
                                       { self->loadEpg(retry + 1); });
                     return;
@@ -354,13 +361,21 @@ void PlayerBarWindow::loadEpg(int retry)
                 auto json = nlohmann::json::parse(body, nullptr, false, true);
                 if (json.is_discarded() || !json.is_object())
                 {
+                    spdlog::error("Failed retrieving EPG for channel {}, retry "
+                                  "{}. URL used: {}, with error: ",
+                                  channel->GetName(), retry,
+                                  channel->GetEPGChannelUri(),
+                                  " json discarded or json is not object");
                     // bad data
                     boost::asio::post(self->ui_executor, [self, retry]()
                                       { self->loadEpg(retry + 1); });
                     return;
                 }
                 auto epg_listings = json["epg_listings"];
-
+                spdlog::info("Success loaded epg for channel {}, retry {}. URL "
+                             "used: {}, listings count: {}",
+                             channel->GetName(), retry,
+                             channel->GetEPGChannelUri(), epg_listings.size());
                 for (const auto& listingObject : epg_listings)
                 {
                     self->epgListings.emplace_back(listingObject);

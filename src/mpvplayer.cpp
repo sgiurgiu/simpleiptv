@@ -99,6 +99,7 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
     this->workersProvider->GetProxyRepository()->AddUpdatedProxySignalListener(
         proxySettingsCb);
     mpv_set_option_string(mpv, "hwdec", "auto");
+    mpv_set_option_string(mpv, "ytdl", "no");
     // mpv_set_option_string(mpv, "gpu-debug", "true");
 
     double volMax = 150.0;
