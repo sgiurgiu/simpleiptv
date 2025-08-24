@@ -2,8 +2,8 @@
 
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/signals2.hpp>
-#include <unordered_set>
 #include <memory>
+#include <unordered_set>
 #include <vector>
 
 enum class DisplayNodeType
@@ -30,6 +30,7 @@ protected:
 
 public:
     using ActivatedChannelSignal = boost::signals2::signal<void(DisplayChannel*)>;
+    using ReloadLocalChannelsSignal = boost::signals2::signal<void()>;
     DisplayNode(DisplayNodeKey);
     DisplayNode(DisplayNodeKey, DisplayChannelsGroup* parent);
     DisplayNode(DisplayNodeKey,
@@ -62,4 +63,5 @@ public:
     bool isOpen = false;
     std::vector<std::shared_ptr<DisplayNode>> children;
     ActivatedChannelSignal activatedChannelSignal;
+    ReloadLocalChannelsSignal reloadLocalChannelsSignal;
 };

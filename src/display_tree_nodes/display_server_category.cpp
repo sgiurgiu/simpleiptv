@@ -3,6 +3,7 @@
 #include <boost/url.hpp>
 #include <imgui.h>
 #include <spdlog/spdlog.h>
+#include <utility>
 
 #include "../workers_provider.h"
 #include "common.h"
@@ -79,9 +80,12 @@ void DisplayServerCategory::loadRemoteChildren()
                 }
                 params.replace(actionIt, { "action", action });
                 params.set("category_id", catId);
-                self->children.push_back(DisplayRemoteChannelsGroup::Create(
+                auto group = DisplayRemoteChannelsGroup::Create(
                     catName, url.buffer(), self->workersProvider,
-                    self->ui_executor, self.get()));
+                    self->ui_executor, self.get());
+                group->reloadLocalChannelsSignal.connect(
+                    std::ref(self->reloadLocalChannelsSignal));
+                self->children.push_back(std::move(group));
             }
         },
         false);

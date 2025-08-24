@@ -3,6 +3,9 @@
 #include "display_channel_group.h"
 #include "display_server_category.h"
 
+#include <functional>
+#include <vector>
+
 struct DisplayRemoteChannelsGroup : public DisplayChannelsGroup
 {
     DisplayRemoteChannelsGroup(DisplayNodeKey key,
@@ -45,9 +48,14 @@ struct DisplayRemoteChannelsGroup : public DisplayChannelsGroup
     {
         return true;
     }
+    void showPopup();
     // we have another one because we want to control here how we load our children
     void loadRemoteChildren();
+    void saveGroupLocally();
     DisplayServerCategory* serverCategory;
     std::string url;
     bool areChildrenLoading = false;
+    bool areChildrenLoaded = false;
+    using SaveGroupFunction = std::function<void()>;
+    std::vector<SaveGroupFunction> saveGroupCallbacks;
 };

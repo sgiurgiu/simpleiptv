@@ -31,11 +31,11 @@ public:
     {
         return id;
     }
-    std::string GetName() const
+    const std::string& GetName() const
     {
         return name;
     }
-    std::optional<int> GetParentId() const
+    const std::optional<int>& GetParentId() const
     {
         return parentId;
     }

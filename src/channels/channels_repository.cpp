@@ -1,12 +1,16 @@
 #include "channels_repository.h"
 
 #include "../dbconnection_pool.h"
+#include "channels_group.h"
 
 #include <algorithm>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/asio/post.hpp>
 #include <iterator>
+#include <memory>
+#include <optional>
 #include <soci/soci.h>
+#include <soci/use.h>
 #include <spdlog/spdlog.h>
 
 ChannelsRepository::ChannelsRepository(Key,
@@ -90,15 +94,7 @@ std::map<int, ChannelsGroupPtr> ChannelsRepository::loadAllGroups()
     for (const auto& r : rows)
     {
         int id = r.get<int>(0);
-        std::string name = r.get<std::string>(1);
-        std::optional<int> parentId;
-        if (r.get_indicator(2) == soci::i_ok)
-        {
-            parentId = r.get<int>(2);
-        }
-        auto group = std::make_shared<ChannelsGroup>(id, std::move(name),
-                                                     std::move(parentId));
-        groups.emplace(id, std::move(group));
+        groups.emplace(id, loadGroup(r));
     }
 
     return groups;
@@ -149,16 +145,14 @@ ChannelsRepository::loadGroups(std::optional<int> parentId)
     auto ind = parentId ? soci::i_ok : soci::i_null;
 
     soci::rowset<soci::row> rows = { (
-        session.prepare << "SELECT GROUP_ID, NAME FROM "
+        session.prepare << "SELECT GROUP_ID, NAME, PARENT_GROUP_ID FROM "
                            "CHANNEL_GROUPS WHERE IIF(:id IS NULL, "
                            "PARENT_GROUP_ID IS NULL, PARENT_GROUP_ID=:id) "
                            "ORDER BY GROUP_ID",
         soci::use(id, ind, "id")) };
     for (const auto& r : rows)
     {
-        auto group = std::make_shared<ChannelsGroup>(
-            r.get<int>(0), r.get<std::string>(1), parentId);
-        groups.push_back(group);
+        groups.push_back(loadGroup(r));
     }
 
     return groups;
@@ -352,4 +346,146 @@ void ChannelsRepository::UpdateChannelFavouriteSync(int id, bool favourite)
 
     session << "UPDATE CHANNELS SET FAVOURITE=:favourite WHERE CHANNEL_ID=:id",
         soci::use(favourite ? 1 : 0, "favourite"), soci::use(id, "id");
+}
+ChannelsGroupPtr ChannelsRepository::findGroup(const std::string& name)
+{
+    auto session = DatabaseConnections::GetConnection();
+    soci::rowset<soci::row> rows = { (
+        session.prepare
+            << "SELECT GROUP_ID, NAME, PARENT_GROUP_ID FROM "
+               "CHANNEL_GROUPS WHERE NAME = :name ORDER BY GROUP_ID",
+        soci::use(name, "name")) };
+    for (const auto& r : rows)
+    {
+        return loadGroup(r);
+    }
+    return ChannelsGroupPtr{};
+}
+
+ChannelsGroupPtr ChannelsRepository::loadGroup(const soci::row& r)
+{
+    int id = r.get<int>(0);
+    std::string name = r.get<std::string>(1);
+    std::optional<int> parentId;
+    if (r.get_indicator(2) == soci::i_ok)
+    {
+        parentId = r.get<int>(2);
+    }
+    return std::make_shared<ChannelsGroup>(id, std::move(name),
+                                           std::move(parentId));
+}
+
+void ChannelsRepository::SaveGroup(ChannelsGroupPtr group,
+                                   SaveGroupCallback cb,
+                                   const boost::asio::any_io_executor& cb_executor)
+{
+    boost::asio::post(
+        executor,
+        [self = shared_from_this(), group = std::move(group),
+         cb = std::move(cb), cb_executor]() mutable
+        {
+            std::optional<int> id;
+            {
+                auto session = DatabaseConnections::GetConnection();
+                soci::rowset<soci::row> rows = { (
+                    session.prepare
+                        << "INSERT INTO CHANNEL_GROUPS(NAME) VALUES(:name) "
+                           "RETURNING GROUP_ID ",
+                    soci::use(group->GetName(), "name")) };
+                for (const auto& r : rows)
+                {
+                    id = r.get<int>(0);
+                    break;
+                }
+            }
+            if (id)
+            {
+                ChannelsGroupPtr g = std::make_shared<ChannelsGroup>(
+                    id.value(), group->GetName(), std::nullopt);
+                group->IterateChannels([g, self](auto channel)
+                                       { self->upsertChannel(channel, g); });
+                boost::asio::post(cb_executor, [g, cb = std::move(cb)]() mutable
+                                  { cb(std::move(g)); });
+            }
+        });
+}
+
+// update or insert group and its children
+void ChannelsRepository::UpsertGroup(ChannelsGroupPtr group,
+                                     SaveGroupCallback cb,
+                                     const boost::asio::any_io_executor& cb_executor)
+{
+    boost::asio::post(executor,
+                      [self = shared_from_this(), group = std::move(group),
+                       cb = std::move(cb), cb_executor]() mutable
+                      {
+                          auto foundGroup = self->findGroup(group->GetName());
+                          if (foundGroup)
+                          {
+                              group->IterateChannels(
+                                  [self, foundGroup](auto channel)
+                                  { self->upsertChannel(channel, foundGroup); });
+                              boost::asio::post(cb_executor,
+                                                [group, cb = std::move(cb)]() mutable
+                                                { cb(std::move(group)); });
+                          }
+                          else
+                          {
+                              self->SaveGroup(group, std::move(cb), cb_executor);
+                          }
+                      });
+}
+
+ChannelPtr ChannelsRepository::upsertChannel(ChannelPtr channel,
+                                             ChannelsGroupPtr parent)
+{
+    auto session = DatabaseConnections::GetConnection();
+    soci::rowset<soci::row> rows = { (
+        session.prepare << "SELECT CHANNEL_ID FROM CHANNELS WHERE URI = :uri",
+        soci::use(channel->GetUri(), "uri")) };
+    std::optional<int> id;
+    for (const auto& r : rows)
+    {
+        id = r.get<int>(0);
+        break;
+    }
+
+    if (id)
+    {
+        session << "UPDATE CHANNELS SET NAME=:name, LOGO_URI = :logo_uri, "
+                   "LOGO = NULL, EPG_CHANNEL_URI = :epg_uri, "
+                   "EPG_CHANNEL_ID = :epg_id, XSTREAM_SERVER_ID = "
+                   ":xstream_server_id, "
+                   " GROUP_ID = :group_id "
+                   "WHERE CHANNEL_ID=:id ",
+            soci::use(channel->GetName(), "name"),
+            soci::use(channel->GetLogoUri(), "logo_uri"),
+            soci::use(channel->GetEPGChannelUri(), "epg_uri"),
+            soci::use(channel->GetEPGChannelId(), "epg_id"),
+            soci::use(channel->GetXStreamServerId(), "xstream_server_id"),
+            soci::use(parent->GetId(), "group_id"), soci::use(id.value(), "id");
+    }
+    else
+    {
+        rows = { (session.prepare
+                      << "INSERT INTO CHANNELS (NAME, URI, LOGO_URI, "
+                         "EPG_CHANNEL_URI, EPG_CHANNEL_ID, XSTREAM_SERVER_ID, "
+                         "GROUP_ID)"
+                         " VALUES(:name, :uri, :logo_uri, :epg_uri, :epg_id, "
+                         ":xstream_server_id, :group_id) RETURNING CHANNEL_ID",
+                  soci::use(channel->GetName(), "name"),
+                  soci::use(channel->GetUri(), "uri"),
+                  soci::use(channel->GetLogoUri(), "logo_uri"),
+                  soci::use(channel->GetEPGChannelUri(), "epg_uri"),
+                  soci::use(channel->GetEPGChannelId(), "epg_id"),
+                  soci::use(channel->GetXStreamServerId(), "xstream_server_id"),
+                  soci::use(parent->GetId(), "group_id")) };
+        for (const auto& r : rows)
+        {
+            id = r.get<int>(0);
+            break;
+        }
+        // TODO: actually set the channel id, return a new object, etc.
+    }
+    return channel;
 }

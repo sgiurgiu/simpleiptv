@@ -7,6 +7,8 @@
 #include <optional>
 #include <vector>
 
+#include "channel.h"
+#include "channels_group.h"
 #include "root_channel_group.h"
 
 namespace soci
@@ -50,6 +52,15 @@ public:
     void UpdateChannelLogoSync(int id, std::string logo);
     void UpdateChannelFavourite(int id, bool favourite);
     void UpdateChannelFavouriteSync(int id, bool favourite);
+    using SaveGroupCallback = std::function<void(ChannelsGroupPtr)>;
+    void SaveGroup(ChannelsGroupPtr group,
+                   SaveGroupCallback cb,
+                   const boost::asio::any_io_executor& cb_executor);
+    // update or insert group and its children
+    void UpsertGroup(ChannelsGroupPtr group,
+                     SaveGroupCallback cb,
+                     const boost::asio::any_io_executor& cb_executor);
+    void UpsertChannel();
 
 private:
     RootChannelsGroupPtr loadChannelsData();
@@ -59,9 +70,12 @@ private:
                    const boost::asio::any_io_executor& cb_executor);
     std::vector<ChannelPtr> loadChannels(ChannelsGroupPtr group);
     ChannelPtr loadChannel(const soci::row&);
+    ChannelsGroupPtr loadGroup(const soci::row&);
 
     std::map<int, ChannelsGroupPtr> loadAllGroups();
     std::vector<ChannelPtr> loadAllChannels();
+    ChannelsGroupPtr findGroup(const std::string& name);
+    ChannelPtr upsertChannel(ChannelPtr channel, ChannelsGroupPtr parent);
 
 private:
     boost::asio::any_io_executor executor;

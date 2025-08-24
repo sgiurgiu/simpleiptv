@@ -356,11 +356,17 @@ DisplayServer::DisplayServer(DisplayNodeKey key,
     params.set("password", server->GetPassword());
     params.set("action", "get_live_categories");
 
-    children.push_back(DisplayServerCategory::Create(
+    auto liveCategory = DisplayServerCategory::Create(
         reinterpret_cast<const char*>(ICON_FA_TELEVISION " Live"), url.buffer(),
-        workersProvider, ui_executor, this));
+        workersProvider, ui_executor, this);
+    liveCategory->reloadLocalChannelsSignal.connect(
+        std::ref(reloadLocalChannelsSignal));
+    children.push_back(std::move(liveCategory));
     params.replace(params.find("action"), { "action", "get_vod_categories" });
-    children.push_back(DisplayServerCategory::Create(
+    auto vodCategory = DisplayServerCategory::Create(
         reinterpret_cast<const char*>(ICON_FA_VIDEO_CAMERA " VODs"),
-        url.buffer(), workersProvider, ui_executor, this));
+        url.buffer(), workersProvider, ui_executor, this);
+    vodCategory->reloadLocalChannelsSignal.connect(
+        std::ref(reloadLocalChannelsSignal));
+    children.push_back(std::move(vodCategory));
 }

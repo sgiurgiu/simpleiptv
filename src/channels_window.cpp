@@ -361,6 +361,14 @@ void ChannelsWindow::loadSavedServers()
                         self->activatedChannel->isActivated = true;
                         self->channelActivatedSignal(channel->channel);
                     });
+                server->reloadLocalChannelsSignal.connect(
+                    [weak = self->weak_from_this()]()
+                    {
+                        auto self = weak.lock();
+                        if (!self)
+                            return;
+                        self->loadLocalChannels();
+                    });
 
                 self->servers.push_back(server);
             }
