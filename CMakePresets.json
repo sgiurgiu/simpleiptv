@@ -86,7 +86,7 @@
             "name": "release-windows",
             "configurePreset": "release-windows",
             "cleanFirst": true,
-            "jobs": 4
+            "jobs": 8
         }
     ],
     "packagePresets": [
