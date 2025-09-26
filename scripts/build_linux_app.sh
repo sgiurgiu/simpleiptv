@@ -28,7 +28,8 @@ then
 fi
 
 cd /tmp/simpleiptv
-${cmake_exe} -DCPACK_DISTRIBUTION=${distro} --workflow --preset=${CMAKE_PRESET}
+export CPACK_DISTRIBUTION=${distro}
+${cmake_exe}  --workflow --preset=${CMAKE_PRESET}
 
 mkdir -p /tmp/simpleiptv/packages
 cp /tmp/build/simpleiptv-${SIMPLEIPTV_VERSION}-${distro}.* /tmp/simpleiptv/packages/
