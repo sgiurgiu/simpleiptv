@@ -41,9 +41,7 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "ENABLE_TESTS": "OFF",
-                "CMAKE_INSTALL_PREFIX": "/usr",
-                "CMAKE_C_COMPILER":"/usr/bin/clang",
-                "CMAKE_CXX_COMPILER":"/usr/bin/clang++"
+                "CMAKE_INSTALL_PREFIX": "/usr"
             },
             "condition": {
                 "type": "equals",
