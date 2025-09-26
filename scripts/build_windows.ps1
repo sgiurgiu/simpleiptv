@@ -20,6 +20,11 @@ function Invoke-CmdScript {
   }
 }
 
+# Stop the script when a cmdlet or a native command fails
+$ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $true
+
+
 Invoke-CmdScript "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
 
 $packagesDir = ".\packages"
@@ -35,7 +40,6 @@ set-item Env:libMpvDir $libMpvDir
 set-item Env:libMpvIncludeDir $libMpvIncludeDir
 
 cmake --workflow --preset=release-windows
-
 
 Copy-Item "$buildDir\*.msi" -Destination $packagesDir
 
