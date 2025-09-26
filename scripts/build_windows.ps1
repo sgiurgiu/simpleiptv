@@ -24,7 +24,6 @@ function Invoke-CmdScript {
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
 
-
 Invoke-CmdScript "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
 
 $packagesDir = ".\packages"
@@ -38,6 +37,9 @@ echo "Using lib mpv include directory: $libMpvIncludeDir"
 
 set-item Env:libMpvDir $libMpvDir    
 set-item Env:libMpvIncludeDir $libMpvIncludeDir
+$version = git describe --tags
+set-item Env:SIMPLEIPTV_VERSION $version
+echo "Building Simple IPTV Version $version"
 
 cmake --workflow --preset=release-windows
 

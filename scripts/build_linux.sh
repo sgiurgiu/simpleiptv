@@ -17,7 +17,6 @@ if [[ -z "${CONTAINER_REGISTRY+x}" ]]; then
     echo "FATAL: Please set the CONTAINER_REGISTRY environment variable to point to where the containers are located."
     exit 1
 fi
-
 SIMPLEIPTV_VERSION=$(git describe --tags || true)
 if [ -z ${SIMPLEIPTV_VERSION} ]; then
     SIMPLEIPTV_VERSION="1.0.dev"
