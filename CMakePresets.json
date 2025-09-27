@@ -129,6 +129,18 @@
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             }
+        },
+        {
+            "name": "release-windows-zip",
+            "configurePreset": "release-windows",
+            "generators": [
+                "ZIP"
+            ],
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
         }
     ],
     "workflowPresets": [
@@ -214,6 +226,23 @@
                 {
                     "type": "package",
                     "name": "release-windows"
+                }
+            ]
+        },
+        {
+            "name": "release-windows-zip",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "release-windows"
+                },
+                {
+                    "type": "build",
+                    "name": "release-windows"
+                },
+                {
+                    "type": "package",
+                    "name": "release-windows-zip"
                 }
             ]
         }
