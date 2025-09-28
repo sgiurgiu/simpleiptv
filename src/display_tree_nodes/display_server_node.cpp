@@ -5,12 +5,19 @@
 #include <charconv>
 #include <chrono>
 #include <cstdint>
+#include <fmt/chrono.h>
+#include <fmt/format.h>
 #include <imgui.h>
 
 #include "../fonts/IconsFontAwesome4.h"
 #include "../workers_provider.h"
 #include "common.h"
 #include "display_server_category.h"
+
+#if __cpp_lib_chrono < 201907L
+#include <date/date.h>
+#include <date/tz.h>
+#endif
 
 void DisplayServer::render(std::unordered_set<DisplayNode*>& selectedNodes,
                            const std::string& filter)
@@ -199,10 +206,11 @@ DisplayServer::UserInfo::UserInfo(const nlohmann::json& json)
         }
         const std::chrono::system_clock::time_point epoch =
             std::chrono::system_clock::from_time_t(date);
-
-        expiryDate = std::format("{0:%F} {0:%R} {1:}",
+#if __cpp_lib_chrono >= 201907L
+        expiryDate = fmt::format("{0:%F} {0:%R} {1:}",
                                  std::chrono::current_zone()->to_local(epoch),
                                  std::chrono::current_zone()->name());
+#endif
     }
     if (json.contains("created_at"))
     {
@@ -223,10 +231,11 @@ DisplayServer::UserInfo::UserInfo(const nlohmann::json& json)
         }
         const std::chrono::system_clock::time_point epoch =
             std::chrono::system_clock::from_time_t(date);
-
-        createdAtDate = std::format("{0:%F} {0:%R} {1:}",
+#if __cpp_lib_chrono >= 201907L
+        createdAtDate = fmt::format("{0:%F} {0:%R} {1:}",
                                     std::chrono::current_zone()->to_local(epoch),
                                     std::chrono::current_zone()->name());
+#endif
     }
     if (json.contains("is_trial"))
     {
@@ -325,10 +334,17 @@ DisplayServer::ServerInfo::ServerInfo(const nlohmann::json& json)
 
         try
         {
+#if __cpp_lib_chrono >= 201907L
             auto chronotimezone = std::chrono::locate_zone(timezone);
-            timestampNow = std::format("{0:%F} {0:%R} {1:}",
+            timestampNow = fmt::format("{0:%F} {0:%R} {1:}",
                                        chronotimezone->to_local(epoch),
                                        chronotimezone->name());
+#else
+            auto chronotimezone = date::locate_zone(timezone);
+            auto timeInZone = date::make_zoned(chronotimezone, epoch);
+            timestampNow = date::format("{0:%F} {0:%R} ", timeInZone);
+            timestampNow += chronotimezone->name();
+#endif
         }
         catch (const std::exception& ex)
         {

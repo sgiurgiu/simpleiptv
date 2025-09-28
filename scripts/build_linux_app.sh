@@ -27,7 +27,7 @@ then
     fi
 fi
 
-cmake_exe=$(find /opt/ -name cmake -type f -executable -print)
+cmake_exe=$(find /opt/ -name cmake -type f -executable -print | sort | head -n 1)
 if [[ -z ${cmake_exe} ]]
 then
     echo "Cannot find cmake in /opt using whatever is installed"
@@ -47,7 +47,7 @@ then
     mkdir -p /tmp/simpleiptv/AppDir/usr
     tar -xvf /tmp/simpleiptv/build-release/simpleiptv-${SIMPLEIPTV_VERSION}-${distro}.tar.gz -C /tmp/simpleiptv/AppDir/usr
     cp -f /tmp/simpleiptv/simpleiptv_appimage.desktop /tmp/simpleiptv/AppDir/usr/share/applications/simpleiptv.desktop
-    /opt/appimagetool-x86_64.AppImage -s deploy ./AppDir/usr/share/applications/simpleiptv.desktop
+    /opt/linuxdeployqt-continuous-x86_64.AppImage ./AppDir/usr/share/applications/simpleiptv.desktop -appimage
 else
     cp /tmp/simpleiptv/build-release/${package_name}.* /tmp/simpleiptv/packages/
 fi

@@ -2,7 +2,7 @@
 
 #include <boost/asio/post.hpp>
 #include <boost/url.hpp>
-#include <cstddef>
+#include <fmt/format.h>
 #include <imgui.h>
 #include <memory>
 #include <optional>
@@ -109,7 +109,7 @@ void DisplayRemoteChannelsGroup::loadRemoteChildren()
                 auto password = (*channelParams.find("password"))->value;
                 channelParams.clear();
 
-                channelUrl.set_path(std::format("/{}/{}/{}/{}.ts", streamType,
+                channelUrl.set_path(fmt::format("/{}/{}/{}/{}.ts", streamType,
                                                 username, password, streamId));
                 auto epgParams = epgUrl.params();
                 epgParams.replace(epgParams.find("action"),

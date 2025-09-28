@@ -1,12 +1,12 @@
 #include "dbus_mpris_service.h"
 
-#include <format>
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 #include <unistd.h>
 
 MprisService::MprisService(Key)
 : sessionConnection{ sdbus::createSessionBusConnection() }
-, serviceName{ std::format("org.mpris.MediaPlayer2.simpleiptv.instance{}",
+, serviceName{ fmt::format("org.mpris.MediaPlayer2.simpleiptv.instance{}",
                            getpid()) }
 {
     sessionConnection->requestName(serviceName);
@@ -227,7 +227,7 @@ std::map<std::string, sdbus::Variant> MprisService::MediaPlayer2Adaptor::Metadat
     std::map<std::string, sdbus::Variant> metadata;
     if (service->currentChannel)
     {
-        metadata["mpris:trackid"] = sdbus::Variant{ std::format(
+        metadata["mpris:trackid"] = sdbus::Variant{ fmt::format(
             "/simpleiptv/track/{}", service->currentChannel->GetId()) };
         metadata["mpris:artUrl"] =
             sdbus::Variant{ service->currentChannel->GetLogoUri() };

@@ -4,6 +4,11 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
+#if __cpp_lib_chrono < 201907L
+#include <date/date.h>
+#include <date/tz.h>
+#endif
+
 class EpgListing
 {
 public:
@@ -14,8 +19,15 @@ public:
     std::string GetTitle() const;
     std::string GetDescription() const;
     std::chrono::system_clock::duration GetDuration() const;
-    std::chrono::local_time<std::chrono::system_clock::duration> GetStartTime() const;
-    std::chrono::local_time<std::chrono::system_clock::duration> GetEndTime() const;
+#if __cpp_lib_chrono >= 201907L
+    using LocalTime =
+        std::chrono::local_time<std::chrono::system_clock::duration>;
+#else
+    using LocalTime = date::local_time<std::chrono::system_clock::duration>;
+#endif
+
+    LocalTime GetStartTime() const;
+    LocalTime GetEndTime() const;
 
 private:
     std::string decode64(const std::string& val);
@@ -28,14 +40,14 @@ private:
     std::string description;
     std::string channelId;
     std::string streamId;
-    std::chrono::system_clock::time_point startTime;
-    std::chrono::system_clock::time_point endTime;
-    std::chrono::local_time<std::chrono::system_clock::duration> localStartTime;
-    std::chrono::local_time<std::chrono::system_clock::duration> localEndTime;
     std::string startLocalHour;
     std::string endLocalHour;
     std::string startLocalTimeString;
     std::string endLocalTimeString;
     std::string timeAndProgram;
     std::string time;
+    std::chrono::system_clock::time_point startTime;
+    std::chrono::system_clock::time_point endTime;
+    LocalTime localStartTime;
+    LocalTime localEndTime;
 };

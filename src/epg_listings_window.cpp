@@ -9,6 +9,9 @@
 #include <boost/asio/post.hpp>
 #include <chrono>
 
+#include <fmt/chrono.h>
+#include <fmt/format.h>
+
 #include "fonts/IconsFontAwesome4.h"
 
 namespace
@@ -32,6 +35,7 @@ void EpgListingWindow::reloadCoveredHours()
 {
     coveredHours.clear();
     columnsStartPos.clear();
+#if __cpp_lib_chrono >= 201907L
     auto tp =
         std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
     auto top_of_the_hour_tp = std::chrono::floor<std::chrono::hours>(tp);
@@ -43,16 +47,21 @@ void EpgListingWindow::reloadCoveredHours()
     }
     maxCoveredHour = top_of_the_hour_tp;
     columnsStartPos.resize(columnsCount);
+#endif
 }
 bool EpgListingWindow::shouldReloadCoveredHours() const
 {
     if (coveredHours.empty())
         return true;
+#if __cpp_lib_chrono >= 201907L
     auto tp =
         std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
     auto top_of_the_hour_tp = std::chrono::floor<std::chrono::hours>(tp);
     return (coveredHours.begin()->time_since_epoch() !=
             top_of_the_hour_tp.time_since_epoch());
+#else
+    return false;
+#endif
 }
 std::shared_ptr<EpgListingWindow>
 EpgListingWindow::Create(const boost::asio::any_io_executor& executor,
@@ -85,9 +94,16 @@ bool EpgListingWindow::ShowWindow()
         loadChannelsOfSelectedGroup();
     }
     {
+#if __cpp_lib_chrono >= 201907L
         auto tp = std::chrono::current_zone()->to_local(
             std::chrono::system_clock::now());
         currentLocalTime = std::chrono::time_point_cast<std::chrono::seconds>(tp);
+#else
+        auto tp = date::make_zoned(date::current_zone(),
+                                   std::chrono::system_clock::now())
+                      .get_local_time();
+        currentLocalTime = date::floor<std::chrono::seconds>(tp);
+#endif
     }
 
     auto availableSpace = ImGui::GetContentRegionAvail().x;
@@ -340,7 +356,11 @@ bool EpgListingWindow::addHoursHeaderBar()
     for (const auto& time : coveredHours)
     {
         pos += ImVec2(colWidth, 0.f);
-        auto format = std::format("{:%H:%M}", time);
+#if __cpp_lib_chrono >= 201907L
+        auto format = fmt::format("{:%H:%M}", time);
+#else
+        auto format = date::format("{:%H:%M}", time);
+#endif
         maxListingVec = pos + ImVec2(colWidth, headerHeight);
         drawList->PushClipRect(pos, maxListingVec);
         drawList->AddRectFilled(pos, maxListingVec, 0xFF3D3837, 0);

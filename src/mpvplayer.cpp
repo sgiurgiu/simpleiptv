@@ -20,10 +20,10 @@
 #define GLFW_EXPOSE_NATIVE_WAYLAND
 #include <GLFW/glfw3native.h>
 #endif
-#include <format>
-#include <functional>
 
 #include "mpvhelper.h"
+#include <fmt/format.h>
+#include <functional>
 #include <spdlog/spdlog.h>
 
 namespace
@@ -120,7 +120,7 @@ void MpvPlayer::proxySettings(HttpProxy proxy)
 {
     if (proxy.use)
     {
-        auto proxyUrl = std::format("http://{}:{}", proxy.host, proxy.port);
+        auto proxyUrl = fmt::format("http://{}:{}", proxy.host, proxy.port);
         mpv_set_property_string(mpv, "http-proxy", proxyUrl.c_str());
     }
     else
@@ -208,7 +208,7 @@ void MpvPlayer::compileShaders()
     if (!success)
     {
         glGetShaderInfoLog(vertexShader, sizeof(infoLog), NULL, infoLog);
-        throw std::runtime_error(std::format(
+        throw std::runtime_error(fmt::format(
             "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n{}", infoLog));
     };
 
@@ -220,7 +220,7 @@ void MpvPlayer::compileShaders()
     if (!success)
     {
         glGetShaderInfoLog(fragmentShader, sizeof(infoLog), NULL, infoLog);
-        throw std::runtime_error(std::format(
+        throw std::runtime_error(fmt::format(
             "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n{}", infoLog));
     };
 
@@ -235,7 +235,7 @@ void MpvPlayer::compileShaders()
     {
         glGetProgramInfoLog(frameShaderProgram, sizeof(infoLog), NULL, infoLog);
         throw std::runtime_error(
-            std::format("ERROR::SHADER::PROGRAM::LINKING_FAILED\\n{}", infoLog));
+            fmt::format("ERROR::SHADER::PROGRAM::LINKING_FAILED\\n{}", infoLog));
     }
 
     // delete the shaders as they're linked into our program now and no longer
@@ -430,11 +430,11 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
         for (int i = 0; i < tracksCount; i++)
         {
             char *type = mpv_get_property_string(
-                mpv, std::format("track-list/{}/type", i).c_str());
+                mpv, fmt::format("track-list/{}/type", i).c_str());
             if (type == std::string("sub"))
             {
                 char *id = mpv_get_property_string(
-                    mpv, std::format("track-list/{}/id", i).c_str());
+                    mpv, fmt::format("track-list/{}/id", i).c_str());
                 subIds.emplace_back(id);
             }
         }
@@ -629,7 +629,7 @@ void MpvPlayer::VolumeToggleMute()
         { "format", { "ass-events" } },
         { "res_x", { width } },
         { "res_y", { height } },
-        { "data", { std::format("{{\\an9\\fs36}}Mute {}", mute ? "on" : "off") } }
+        { "data", { fmt::format("{{\\an9\\fs36}}Mute {}", mute ? "on" : "off") } }
     };
     NodeBuilder builder{ node };
     mpv_command_node(mpv, builder.GetNode(), nullptr);
@@ -680,7 +680,7 @@ void MpvPlayer::SetVolume(double volume)
         { "format", { "ass-events" } },
         { "res_x", { width } },
         { "res_y", { height } },
-        { "data", { std::format("{{\\an9\\fs36}}Volume {}", (int)this->volume) } }
+        { "data", { fmt::format("{{\\an9\\fs36}}Volume {}", (int)this->volume) } }
     };
     NodeBuilder builder{ node };
     mpv_command_node(mpv, builder.GetNode(), nullptr);

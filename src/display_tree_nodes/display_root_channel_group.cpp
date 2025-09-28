@@ -68,24 +68,27 @@ void DisplayRootChannelsGroup::ActivateChannelOfGroup(ChannelsGroupPtr group,
         groupType = DisplayNodeType::FAVOURITES;
     }
 
-    auto findGroup = [group, groupType](this auto const& findGroup,
-                                        DisplayNode* node) -> DisplayNode*
+    auto findGroup = [group, groupType](DisplayNode* node) -> DisplayNode*
     {
-        DisplayNode* foundNode = nullptr;
-        for (const auto& child : node->children)
+        auto doFindNode = [&](auto& self, DisplayNode* node) -> DisplayNode*
         {
-            if (child->getType() == groupType &&
-                child->getUnderlyingID() == group->GetId())
+            DisplayNode* foundNode = nullptr;
+            for (const auto& child : node->children)
             {
-                foundNode = child.get();
-                break;
+                if (child->getType() == groupType &&
+                    child->getUnderlyingID() == group->GetId())
+                {
+                    foundNode = child.get();
+                    break;
+                }
+                else
+                {
+                    foundNode = self(self, child.get());
+                }
             }
-            else
-            {
-                foundNode = findGroup(child.get());
-            }
-        }
-        return foundNode;
+            return foundNode;
+        };
+        return doFindNode(doFindNode, node);
     };
 
     auto foundGroup = findGroup(this);

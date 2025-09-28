@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/signals2.hpp>
+#include <chrono>
 #include <imgui.h>
 #include <memory>
 #include <vector>
@@ -9,6 +10,11 @@
 #include "channels/channels_group.h"
 #include "epg_listing.h"
 #include "workers_provider.h"
+
+#if __cpp_lib_chrono < 201907L
+#include <date/date.h>
+#include <date/tz.h>
+#endif
 
 class EpgListingWindow : public std::enable_shared_from_this<EpgListingWindow>
 {
@@ -77,10 +83,16 @@ private:
     int totalChannels = 0;
     int columnsCount = INITIAL_COLUMNS_COUNT;
     int channelsLoadedEpgs = 0;
+#if __cpp_lib_chrono >= 201907L
     using HoursTimePoint =
         std::chrono::time_point<std::chrono::local_t, std::chrono::milliseconds>;
+    using LocalSeconds = std::chrono::local_seconds;
+#else
+    using HoursTimePoint = date::local_time<std::chrono::milliseconds>;
+    using LocalSeconds = date::local_time<std::chrono::seconds>;
+#endif
     std::vector<HoursTimePoint> coveredHours;
-    std::chrono::local_seconds currentLocalTime;
+    LocalSeconds currentLocalTime;
     HoursTimePoint maxCoveredHour;
     HoursTimePoint minCoveredHour;
     std::vector<std::pair<ImVec2, HoursTimePoint>> columnsStartPos;

@@ -22,6 +22,7 @@
     "zlib",
     "stb",
     "nlohmann-json",
+    "date",
     {
       "name": "glfw3",
       "features": [

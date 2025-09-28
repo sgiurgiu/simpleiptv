@@ -8,7 +8,7 @@
 #include <boost/beast/ssl.hpp>
 #include <boost/system/system_error.hpp>
 #include <boost/url.hpp>
-#include <format>
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
 #include "boost_error_code_converter.h"
@@ -164,7 +164,7 @@ private:
             return;
         }
 
-        auto dataToWrite = std::format("CONNECT {0}:{1} HTTP/1.1\r\n"
+        auto dataToWrite = fmt::format("CONNECT {0}:{1} HTTP/1.1\r\n"
                                        "Proxy-Connection: close\r\n"
                                        "Connection: close\r\n"
                                        "Host: {0}:{1}\r\n\r\n",
