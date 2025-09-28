@@ -30,10 +30,10 @@ EpgListing::EpgListing(const nlohmann::json& json)
     localEndTime =
         date::make_zoned(date::current_zone(), endTime).get_local_time();
 
-    startLocalHour = date::format("{:%H:%M}", localStartTime);
-    endLocalHour = date::format("{:%H:%M}", localEndTime);
-    startLocalTimeString = date::format("{:%c}", localStartTime);
-    endLocalTimeString = date::format("{:%c}", localEndTime);
+    startLocalHour = date::format("%H:%M", localStartTime);
+    endLocalHour = date::format("%H:%M", localEndTime);
+    startLocalTimeString = date::format("%Y-%m-%d %H:%M", localStartTime);
+    endLocalTimeString = date::format("%Y-%m-%d %H:%M", localEndTime);
 #endif
 
     timeAndProgram = fmt::format("{}-{} {}", startLocalHour, endLocalHour, title);

@@ -39,6 +39,12 @@ void EpgListingWindow::reloadCoveredHours()
     auto tp =
         std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
     auto top_of_the_hour_tp = std::chrono::floor<std::chrono::hours>(tp);
+#else
+    auto tp =
+        date::make_zoned(date::current_zone(), std::chrono::system_clock::now())
+            .get_local_time();
+    auto top_of_the_hour_tp = date::floor<std::chrono::hours>(tp);
+#endif
     minCoveredHour = top_of_the_hour_tp;
     for (int i = 0; i < columnsCount - 1; i++)
     {
@@ -47,7 +53,6 @@ void EpgListingWindow::reloadCoveredHours()
     }
     maxCoveredHour = top_of_the_hour_tp;
     columnsStartPos.resize(columnsCount);
-#endif
 }
 bool EpgListingWindow::shouldReloadCoveredHours() const
 {
@@ -57,11 +62,14 @@ bool EpgListingWindow::shouldReloadCoveredHours() const
     auto tp =
         std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
     auto top_of_the_hour_tp = std::chrono::floor<std::chrono::hours>(tp);
+#else
+    auto tp =
+        date::make_zoned(date::current_zone(), std::chrono::system_clock::now())
+            .get_local_time();
+    auto top_of_the_hour_tp = date::floor<std::chrono::hours>(tp);
+#endif
     return (coveredHours.begin()->time_since_epoch() !=
             top_of_the_hour_tp.time_since_epoch());
-#else
-    return false;
-#endif
 }
 std::shared_ptr<EpgListingWindow>
 EpgListingWindow::Create(const boost::asio::any_io_executor& executor,
@@ -359,7 +367,7 @@ bool EpgListingWindow::addHoursHeaderBar()
 #if __cpp_lib_chrono >= 201907L
         auto format = fmt::format("{:%H:%M}", time);
 #else
-        auto format = date::format("{:%H:%M}", time);
+        auto format = date::format("%H:%M", time);
 #endif
         maxListingVec = pos + ImVec2(colWidth, headerHeight);
         drawList->PushClipRect(pos, maxListingVec);

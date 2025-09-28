@@ -210,6 +210,14 @@ DisplayServer::UserInfo::UserInfo(const nlohmann::json& json)
         expiryDate = fmt::format("{0:%F} {0:%R} {1:}",
                                  std::chrono::current_zone()->to_local(epoch),
                                  std::chrono::current_zone()->name());
+#else
+        {
+            auto chronotimezone = date::current_zone();
+            auto timeInZone = date::make_zoned(chronotimezone, epoch);
+            auto str = date::format("%F %R ", timeInZone);
+            str += chronotimezone->name();
+            expiryDate = str;
+        }
 #endif
     }
     if (json.contains("created_at"))
@@ -235,6 +243,14 @@ DisplayServer::UserInfo::UserInfo(const nlohmann::json& json)
         createdAtDate = fmt::format("{0:%F} {0:%R} {1:}",
                                     std::chrono::current_zone()->to_local(epoch),
                                     std::chrono::current_zone()->name());
+#else
+        {
+            auto chronotimezone = date::current_zone();
+            auto timeInZone = date::make_zoned(chronotimezone, epoch);
+            auto str = date::format("%F %R ", timeInZone);
+            str += chronotimezone->name();
+            createdAtDate = str;
+        }
 #endif
     }
     if (json.contains("is_trial"))
@@ -342,7 +358,7 @@ DisplayServer::ServerInfo::ServerInfo(const nlohmann::json& json)
 #else
             auto chronotimezone = date::locate_zone(timezone);
             auto timeInZone = date::make_zoned(chronotimezone, epoch);
-            timestampNow = date::format("{0:%F} {0:%R} ", timeInZone);
+            timestampNow = date::format("%F %R ", timeInZone);
             timestampNow += chronotimezone->name();
 #endif
         }
