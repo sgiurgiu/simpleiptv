@@ -5,6 +5,7 @@ variables:
 stages:          # List of stages for jobs, and their order of execution
   - tagging
   - build
+  - deploy
 
 Tagging from pipeline:
   stage: tagging
@@ -49,3 +50,16 @@ windows-job:
             - packages/
     script:
         - scripts/build_windows.ps1
+
+publish:
+  stage: deploy
+  script:
+    - |
+      for f in packages/*; \
+      do \
+      filename=$(basename "$f") \
+      [ -f "$f" ] && curl --location --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+           --upload-file $f \
+           "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/my_package/${CI_COMMIT_TAG}/$filename"; \
+      done
+
