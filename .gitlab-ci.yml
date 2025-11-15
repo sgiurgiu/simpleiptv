@@ -57,6 +57,8 @@ publish:
     - linux
   script:
     - |
+      set -x
+      echo "Publishing artifacts..."
       for f in packages/*; do
         if [ -f "$f" ]; then
           filename=$(basename "$f")
