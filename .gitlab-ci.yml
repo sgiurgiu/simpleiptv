@@ -53,6 +53,8 @@ windows-job:
 
 publish:
   stage: deploy
+  tags:
+    - linux
   script:
     - |
       for f in packages/*; do
