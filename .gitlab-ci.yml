@@ -62,10 +62,11 @@ publish:
       for f in packages/*; do
         if [ -f "$f" ]; then
           filename=$(basename "$f")
+          full_path=$(realpath "$f")
           curl --location --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
-           --upload-file $f \
+           --upload-file $full_path \
            "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/simpleiptv/$filename"
-          echo "Uploaded: f: $f, filename: $filename"
+          echo "Uploaded: f: $full_path, filename: $filename"
         fi
       done
 
