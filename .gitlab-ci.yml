@@ -1,14 +1,9 @@
-# ==========================
-# GLOBAL SETTINGS
-# ==========================
-
 variables:
   SIMPLEIPTV_VERSION: "1.0.1"
   GIT_SUBMODULE_STRATEGY: recursive
 
 workflow:
   rules:
-    # Never run pipelines for tags pushed by the bump script
     - if: $CI_COMMIT_TAG
       when: never
     - when: always
@@ -18,32 +13,26 @@ stages:
   - build
   - publish
 
-
-# ==========================
-# 1) VERSION BUMP JOB
-# ==========================
-
 bump-version:
   stage: version
-  tags: [linux]
+  tags:
+    - linux
   only:
     - master
-  script:
-    - scripts/bump_version.sh
-    - echo "Version bumped to: $(cat version.txt)"
+  script: |
+    #!/bin/bash
+    set -euo pipefail
+    scripts/bump_version.sh
+    echo "Version bumped to: $(cat version.txt)"
   artifacts:
     expire_in: 2 hours
     paths:
       - version.txt
 
-
-# ==========================
-# 2) PARALLEL BUILD JOBS
-# ==========================
-
 build-linux:
   stage: build
-  tags: [linux]
+  tags:
+    - linux
   only:
     - master
   needs:
@@ -60,28 +49,24 @@ build-linux:
 
 build-windows:
   stage: build
-  tags: [windows]
+  tags:
+    - windows
   only:
     - master
   needs:
     - job: bump-version
       artifacts: true
   script:
-    - echo "Building Windows artifacts..."
-    - scripts/build_windows.ps1
+    - powershell -File scripts/build_windows.ps1
   artifacts:
     expire_in: 6 hours
     paths:
       - packages/
 
-
-# ==========================
-# 3) PUBLISH JOB
-# ==========================
-
 publish:
   stage: publish
-  tags: [linux]
+  tags:
+    - linux
   only:
     - master
   needs:
@@ -91,10 +76,8 @@ publish:
       artifacts: true
     - job: build-windows
       artifacts: true
-
   script: |
     set -x
-
     VERSION=$(cat version.txt)
     echo "Publishing SimpleIPTV version $VERSION..."
 
@@ -108,7 +91,6 @@ publish:
         curl --location --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
           --upload-file "$full_path" \
           "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/simpleiptv/${VERSION}/${filename}"
-
       fi
     done
 
