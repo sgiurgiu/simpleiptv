@@ -48,6 +48,7 @@ then
     tar -xvf /tmp/simpleiptv/build-release/simpleiptv-${SIMPLEIPTV_VERSION}-${distro}.tar.gz -C /tmp/simpleiptv/AppDir/usr
     cp -f /tmp/simpleiptv/simpleiptv_appimage.desktop /tmp/simpleiptv/AppDir/usr/share/applications/simpleiptv.desktop
     /opt/linuxdeployqt-continuous-x86_64.AppImage ./AppDir/usr/share/applications/simpleiptv.desktop -appimage
+    cp SimpleIPTV*.AppImage /tmp/simpleiptv/packages/
 else
     cp /tmp/simpleiptv/build-release/${package_name}.* /tmp/simpleiptv/packages/
 fi

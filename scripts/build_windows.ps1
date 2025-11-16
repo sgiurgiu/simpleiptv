@@ -40,6 +40,7 @@ set-item Env:libMpvIncludeDir $libMpvIncludeDir
 $version = git describe --tags
 set-item Env:SIMPLEIPTV_VERSION $version
 echo "Building Simple IPTV Version $version"
+set-item DISTRIBUTION=windows
 
 cmake --workflow --preset=release-windows
 
