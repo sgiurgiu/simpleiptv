@@ -40,11 +40,11 @@ set-item Env:libMpvIncludeDir $libMpvIncludeDir
 $version = git describe --tags
 set-item Env:SIMPLEIPTV_VERSION $version
 echo "Building Simple IPTV Version $version"
-set-item DISTRIBUTION=windows
+set-item Env:DISTRIBUTION "windows"
 
 cmake --workflow --preset=release-windows
 
-Copy-Item "$buildDir\*.msi" -Destination $packagesDir
-
+Copy-Item -Path "$buildDir\*.msi" -Destination $packagesDir -Verbose
+echo "Copying $buildDir\*.msi to $packagesDir"
 
 
