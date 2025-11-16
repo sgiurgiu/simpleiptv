@@ -16,6 +16,9 @@ Tagging from pipeline:
     - scripts/bump_version.sh
   only:
     - master
+  artifacts:
+    paths:
+      - version.txt
 
 
 linux-job:       # This job runs in the build stage, which runs first.
@@ -58,15 +61,17 @@ publish:
   script:
     - |
       set -x
-      echo "Publishing artifacts..."
+      VERSION=$(cat version.txt)
+      echo "Publishing artifacts for version $VERSION..."
       for f in packages/*; do
         if [ -f "$f" ]; then
           filename=$(basename "$f")
           full_path=$(realpath "$f")
           curl --location --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
            --upload-file $full_path \
-           "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/simpleiptv/$filename"
+           "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/simpleiptv/${VERSION}/$filename"
           echo "Uploaded: f: $full_path, filename: $filename"
         fi
       done
+
 
