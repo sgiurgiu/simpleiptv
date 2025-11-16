@@ -27,6 +27,7 @@ $PSNativeCommandUseErrorActionPreference = $true
 Invoke-CmdScript "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
 
 $packagesDir = ".\packages"
+$buildDir = ".\build-release"
 
 Remove-Item -LiteralPath $packagesDir -Force -Recurse -ErrorAction Ignore
 New-Item -ItemType Directory -Force -Path $packagesDir
