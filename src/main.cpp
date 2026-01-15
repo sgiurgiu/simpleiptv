@@ -4,13 +4,12 @@
 #endif
 #include <Windows.h>
 #endif
-
-#include <GL/glew.h>
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <boost/asio/io_context.hpp>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
+#include <imgui_impl_vulkan.h>
 #include <iostream>
 #include <spdlog/spdlog.h>
 #include <thread>
@@ -49,31 +48,6 @@ static void glfw_error_callback(int error, const char* description)
     spdlog::error("GLFW Error {}:{}", error, description);
 }
 
-static void GLAPIENTRY GLMessageCallback(GLenum source,
-                                         GLenum type,
-                                         GLuint id,
-                                         GLenum severity,
-                                         GLsizei length,
-                                         const GLchar* message,
-                                         const void* userParam)
-{
-    (void)source;
-    (void)id;
-    (void)length;
-    (void)userParam;
-    switch (type)
-    {
-    case GL_DEBUG_TYPE_ERROR:
-        spdlog::error("GL CALLBACK: type:{}, severity:{}, message:{}", type,
-                      severity, message);
-        break;
-    default:
-        spdlog::info("GL CALLBACK: type:{}, severity:{}, message:{}", type,
-                     severity, message);
-        break;
-    }
-}
-
 #if defined(WIN32_WINMAIN)
 int WINAPI WinMain(_In_ HINSTANCE hInstance,
                    _In_ HINSTANCE hPrevInstance,
@@ -100,7 +74,7 @@ int main(int /*argc*/, char** /*argv*/)
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
@@ -147,19 +121,12 @@ void startGraphicalInterface()
     glfwMakeContextCurrent(window);
     glfwSwapInterval(0); // Disable vsync
 
-    glewInit();
-
     ImGui::StyleColorsDark();
     // ImGui::StyleColorsLight();
     /*ImGui::GetStyle().Colors[ImGuiCol_WindowBg] =
         ImVec4(0.56f, 0.56f, 0.56f, 0.94f);*/
     // Setup Platform/Renderer backends
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init(nullptr);
-
-    // glEnable(GL_DEBUG_OUTPUT);
-    // glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback(GLMessageCallback, nullptr);
+    // ImGui_ImplGlfw_InitForOpenGL(window, true);
 
     runMainLoop(window, workersProvider, uiContext);
 
@@ -170,7 +137,7 @@ void startGraphicalInterface()
     settingsRepository->SetWindowHeight(height);
 
     // Cleanup
-    ImGui_ImplOpenGL3_Shutdown();
+
     ImGui_ImplGlfw_Shutdown();
 
     glfwDestroyWindow(window);
@@ -198,7 +165,6 @@ void runMainLoop(GLFWwindow* window,
         });
 
     //    glfwSetWindowSize(window, 1280, 720);
-    glClearColor(0.3f, 0.3f, 0.3f, 1.f);
 
     // Main loop
     bool done = false;
@@ -221,10 +187,8 @@ void runMainLoop(GLFWwindow* window,
             iptv.setSize(width, height);
         }
 
-        glClear(GL_COLOR_BUFFER_BIT);
-
         // Start the Dear ImGui frame
-        ImGui_ImplOpenGL3_NewFrame();
+
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
@@ -246,26 +210,11 @@ void runMainLoop(GLFWwindow* window,
 
         ImGui::Render();
 
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-        // on wayland with EGL, eglSwapBuffers blocks when the window is
-        // minimized when glfwSwapInterval(1) (vsync enabled).
-        // Now, that would be fine, but if we're playing video
-        // mpv complains loudly if we're not calling mpv_render_context_render
-        // The worst thing is, in wayland, I have no way to know if the window
-        // is minimized. Way to go wayland.
-        // Disabling vsync, we're not blocking here anymore
-        // but then we have to do the wait ourselves
-        // Ideally, we would try to match the monitor's (which one's?) refresh
-        // rate but ... that would be a bit more complicated, so for now just
-        // set it at 16ms (60Hz).
-        glfwSwapBuffers(window);
-
-        auto end = std::chrono::steady_clock::now();
-        auto durationSpentDrawing = end - start;
-        std::this_thread::sleep_for(std::chrono::milliseconds{ 16 } -
-                                    durationSpentDrawing);
-        start = std::chrono::steady_clock::now();
+        // auto end = std::chrono::steady_clock::now();
+        // auto durationSpentDrawing = end - start;
+        // std::this_thread::sleep_for(std::chrono::milliseconds{ 16 } -
+        //                             durationSpentDrawing);
+        // start = std::chrono::steady_clock::now();
     }
     work.reset();
     glfwSetWindowUserPointer(window, nullptr);

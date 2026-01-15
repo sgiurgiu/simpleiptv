@@ -1,7 +1,5 @@
 #include "display_channel.h"
 
-#include <GL/glew.h>
-
 #include <algorithm>
 #include <boost/asio/post.hpp>
 
@@ -146,11 +144,11 @@ void DisplayChannel::downloadLogoImage(WorkersProvider* workersProvider,
 }
 DisplayChannel::~DisplayChannel()
 {
-    if (channelLogoTexture)
+    /*if (channelLogoTexture)
     {
         glDeleteTextures(1, &channelLogoTexture);
         channelLogoTexture = 0;
-    }
+    }*/
     if (logoData)
     {
         stbi_image_free(logoData);
@@ -258,7 +256,7 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
         activate();
     }
     ImGui::SameLine();
-    loadLogoTexture();
+    /*loadLogoTexture();
     if (channelLogoTexture)
     {
         ImVec2 size = displayLogoSize;
@@ -270,13 +268,13 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
         ImTextureID texture = static_cast<ImTextureID>(channelLogoTexture);
         ImGui::Image(texture, displayLogoSize);
         ImGui::SameLine(0.f, dummySize.x);
-    }
+    }*/
     ImGui::Text("%s", channel->GetName().c_str());
     scrollY = ImGui::GetScrollY();
 }
 void DisplayChannel::loadLogoTexture()
 {
-    if (logoData && !channelLogoTexture)
+    /*if (logoData && !channelLogoTexture)
     {
         glGenTextures(1, &channelLogoTexture);
         glBindTexture(GL_TEXTURE_2D, channelLogoTexture);
@@ -305,7 +303,7 @@ void DisplayChannel::loadLogoTexture()
         {
             parent->maxLogoWidth = size.x;
         }
-    }
+    }*/
 }
 
 void DisplayChannel::showPopup(std::unordered_set<DisplayNode*>& selectedNodes)

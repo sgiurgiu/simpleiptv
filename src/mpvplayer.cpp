@@ -5,14 +5,12 @@
 #include <Windows.h>
 #endif
 
-#include <GL/glew.h>
-
 #include "mpvplayer.h"
 
 #include <GLFW/glfw3.h>
 #include <boost/asio/post.hpp>
 #include <mpv/client.h>
-#include <mpv/render_gl.h>
+#include <mpv/render_placebo.h>
 #include <stdexcept>
 
 #ifdef STV_UNIX
@@ -28,11 +26,6 @@
 
 namespace
 {
-
-static void *get_proc_address(void *, const char *name)
-{
-    return (void *)glfwGetProcAddress(name);
-}
 
 const std::string frameVertexShaderText = R"*(
 #version 330
@@ -72,7 +65,7 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
         throw std::runtime_error("could not create mpv context");
 
     mpv_set_property_string(mpv, "terminal", "yes");
-    mpv_set_property_string(mpv, "msg-level", "all=v");
+    mpv_set_property_string(mpv, "msg-level", "all=info");
     mpv_set_property_string(mpv, "sub-create-cc-track", "yes");
     mpv_set_property_string(mpv, "input-default-bindings", "no");
     mpv_set_property_string(mpv, "config", "no");
@@ -84,7 +77,7 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
 #else
     // mpv_set_property_string(mpv, "ao", "auto");
 #endif
-    mpv_set_property_string(mpv, "hwdec", "auto");
+    mpv_set_property_string(mpv, "hwdec", "no");
     mpv_observe_property(mpv, 0, "height", MPV_FORMAT_DOUBLE);
     mpv_observe_property(mpv, 0, "width", MPV_FORMAT_DOUBLE);
     mpv_observe_property(mpv, 0, "pause", MPV_FORMAT_FLAG);
@@ -98,7 +91,7 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
         proxySettingsCb, ui_executor);
     this->workersProvider->GetProxyRepository()->AddUpdatedProxySignalListener(
         proxySettingsCb);
-    mpv_set_option_string(mpv, "hwdec", "auto");
+
     mpv_set_option_string(mpv, "ytdl", "no");
     // mpv_set_option_string(mpv, "gpu-debug", "true");
 
@@ -147,192 +140,35 @@ MpvPlayer::~MpvPlayer()
         mpv_terminate_destroy(mpv);
         mpv = nullptr;
     }
-    destroyFrameBuffers();
-    glDeleteProgram(frameShaderProgram);
-    glDeleteBuffers(2, buffs);
-    glDeleteVertexArrays(1, &VAO);
     workersProvider->GetSleepService()->enableComputerSleep();
 }
 
 void MpvPlayer::InitializeMpvGL()
 {
-#ifdef STV_UNIX
-    int platform = glfwGetPlatform();
-    mpv_render_param display{ MPV_RENDER_PARAM_INVALID, nullptr };
-    if (platform == GLFW_PLATFORM_X11)
-    {
-        display.type = MPV_RENDER_PARAM_X11_DISPLAY;
-        display.data = glfwGetX11Display();
-    }
-    else if (platform == GLFW_PLATFORM_WAYLAND)
-    {
-        display.type = MPV_RENDER_PARAM_WL_DISPLAY;
-        display.data = glfwGetWaylandDisplay();
-    }
-#endif
-    mpv_opengl_init_params gl_params = { get_proc_address, nullptr };
-    int mpv_advanced_control = 0;
-    mpv_render_param params[] = {
+    bool swapchain_swap_buffers = true;
+    int mpv_advanced_control = 1;
+    void *log = nullptr;
+    void *swapchain = nullptr;
+    mpv_render_param libplacebo_params[] = {
         { MPV_RENDER_PARAM_API_TYPE,
-          const_cast<char *>(MPV_RENDER_API_TYPE_OPENGL) },
-        { MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &gl_params },
+          const_cast<char *>(MPV_RENDER_API_TYPE_LIBPLACEBO) },
+        { (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_PL_LOG,
+          (void *)log },
+        { (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_SWAPCHAIN,
+          (void *)swapchain },
         { MPV_RENDER_PARAM_ADVANCED_CONTROL, &mpv_advanced_control },
-#ifdef STV_UNIX
-        { display },
-#endif
+        { (enum mpv_render_param_type)
+              MPV_RENDER_PARAM_LIBPLACEBO_EXTERNAL_SWAPCHAIN_SWAP_BUFFERS,
+          &swapchain_swap_buffers },
         { MPV_RENDER_PARAM_INVALID, 0 }
     };
-    mpv_render_context_create(&mpvRenderContext, mpv, params);
+
+    mpv_render_context_create(&mpvRenderContext, mpv, libplacebo_params);
 
     mpv_render_context_set_update_callback(mpvRenderContext,
                                            &MpvPlayer::mpvRenderUpdate, this);
-    compileShaders();
-    createFrameBuffers();
-    initializeVAO();
 }
 
-void MpvPlayer::compileShaders()
-{
-    GLuint vertexShader;
-    GLuint fragmentShader;
-    int success = 0;
-    char infoLog[1024];
-    const char *frameVertexShaderTextCStr = frameVertexShaderText.c_str();
-    const char *frameFragmentShaderTextCStr = frameFragmentShaderText.c_str();
-
-    vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &frameVertexShaderTextCStr, NULL);
-    glCompileShader(vertexShader);
-    // print compile errors if any
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if (!success)
-    {
-        glGetShaderInfoLog(vertexShader, sizeof(infoLog), NULL, infoLog);
-        throw std::runtime_error(fmt::format(
-            "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n{}", infoLog));
-    };
-
-    fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &frameFragmentShaderTextCStr, NULL);
-    glCompileShader(fragmentShader);
-    // print compile errors if any
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if (!success)
-    {
-        glGetShaderInfoLog(fragmentShader, sizeof(infoLog), NULL, infoLog);
-        throw std::runtime_error(fmt::format(
-            "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n{}", infoLog));
-    };
-
-    frameShaderProgram = glCreateProgram();
-    glAttachShader(frameShaderProgram, vertexShader);
-    glAttachShader(frameShaderProgram, fragmentShader);
-    glLinkProgram(frameShaderProgram);
-
-    // print linking errors if any
-    glGetProgramiv(frameShaderProgram, GL_LINK_STATUS, &success);
-    if (!success)
-    {
-        glGetProgramInfoLog(frameShaderProgram, sizeof(infoLog), NULL, infoLog);
-        throw std::runtime_error(
-            fmt::format("ERROR::SHADER::PROGRAM::LINKING_FAILED\\n{}", infoLog));
-    }
-
-    // delete the shaders as they're linked into our program now and no longer
-    // necessary
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-    videoFrameUniformLocation =
-        glGetUniformLocation(frameShaderProgram, "videoFrame");
-    shaderPositionAttribLocation =
-        glGetAttribLocation(frameShaderProgram, "position");
-    shaderTextCoordinateLocation =
-        glGetAttribLocation(frameShaderProgram, "inputTextureCoordinate");
-}
-
-void MpvPlayer::createFrameBuffers()
-{
-    destroyFrameBuffers();
-
-    glGenFramebuffers(1, &mediaFramebufferObject);
-    glBindFramebuffer(GL_FRAMEBUFFER, mediaFramebufferObject);
-
-    glGenTextures(1, &mediaFrameTexture);
-    glBindTexture(GL_TEXTURE_2D, mediaFrameTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-#if defined(GL_UNPACK_ROW_LENGTH) && !defined(__EMSCRIPTEN__)
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-#endif
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (int)frameWidth, (int)frameHeight,
-                 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                           mediaFrameTexture, 0);
-
-    /*glGenRenderbuffers(1, &mediaFrameRenderBufferObject);
-    glBindRenderbuffer(GL_RENDERBUFFER, mediaFrameRenderBufferObject);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
-                              GL_RENDERBUFFER, mediaFrameRenderBufferObject);*/
-
-    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    // glBindRenderbuffer(GL_RENDERBUFFER, 0);
-}
-void MpvPlayer::destroyFrameBuffers()
-{
-    if (mediaFrameTexture > 0)
-    {
-        glDeleteTextures(1, &mediaFrameTexture);
-        mediaFrameTexture = 0;
-    }
-    /*if (mediaFrameRenderBufferObject > 0)
-    {
-        glDeleteRenderbuffers(1, &mediaFrameRenderBufferObject);
-        mediaFrameRenderBufferObject = 0;
-    }*/
-
-    if (mediaFramebufferObject > 0)
-    {
-        glDeleteFramebuffers(1, &mediaFramebufferObject);
-        mediaFramebufferObject = 0;
-    }
-}
-void MpvPlayer::rescaleFrameBuffers()
-{
-    // destroyFrameBuffers();
-    // createFrameBuffers();
-    if (!mediaFramebufferObject || !mediaFrameTexture)
-    {
-        // createFrameBuffers();
-        return;
-    }
-
-    glDeleteTextures(1, &mediaFrameTexture);
-    glGenTextures(1, &mediaFrameTexture);
-    glBindTexture(GL_TEXTURE_2D, mediaFrameTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-#if defined(GL_UNPACK_ROW_LENGTH) && !defined(__EMSCRIPTEN__)
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-#endif
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (int)frameWidth, (int)frameHeight,
-                 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, mediaFramebufferObject);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                           mediaFrameTexture, 0);
-
-    /*glBindRenderbuffer(GL_RENDERBUFFER, mediaFrameRenderBufferObject);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
-                              GL_RENDERBUFFER, mediaFrameRenderBufferObject);*/
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-}
 void MpvPlayer::onMpvEvents(void *ctx)
 {
     auto self = reinterpret_cast<MpvPlayer *>(ctx);
@@ -466,62 +302,22 @@ void MpvPlayer::mpvRenderFrame()
     {
         return;
     }
-
-    mpv_opengl_fbo mpfbo{ (int)mediaFramebufferObject, frameWidth, frameHeight,
-                          GL_RGBA };
+    int block = 0;
+    mpv_render_param render_params[] = {
+        { MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, &block },
+        //{ (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_OPTIONS,
+        //(void *)rs->pars },
+        { MPV_RENDER_PARAM_INVALID, 0 }
+    };
     int flip_y = 0;
 
-    mpv_render_param params[] = { { MPV_RENDER_PARAM_OPENGL_FBO, &mpfbo },
-                                  { MPV_RENDER_PARAM_FLIP_Y, &flip_y },
-                                  { MPV_RENDER_PARAM_SKIP_RENDERING,
-                                    &skipRendering },
-                                  { MPV_RENDER_PARAM_INVALID, 0 } };
-    mpv_render_context_render(mpvRenderContext, params);
+    if (flags & MPV_RENDER_UPDATE_FRAME)
+    {
+        // mpv_render_context_render(rs->mpv_ctx, render_params);
+        // pl_swapchain_swap_buffers(rs->swapchain);
+    }
 }
-void MpvPlayer::initializeVAO()
-{
-    // clang-format off
-        static const GLfloat squareVertices[] = {
-            -1.0f, -1.0f, 
-            1.0f, -1.0f, 
-            -1.0f, 1.0f, 
-            1.0f, 1.0f,
-        };
 
-        static const GLfloat textureVertices[] = {
-            0.0f, 1.0f, 
-            1.0f, 1.0f, 
-            0.0f, 0.0f, 
-            1.0f, 0.0f,
-        };
-    // clang-format on
-
-    glGenBuffers(2, buffs);
-    glBindBuffer(GL_ARRAY_BUFFER, buffs[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(squareVertices), squareVertices,
-                 GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, buffs[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(textureVertices), textureVertices,
-                 GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, buffs[0]);
-    glEnableVertexAttribArray(shaderPositionAttribLocation);
-    glVertexAttribPointer(shaderPositionAttribLocation, 2, GL_FLOAT, 0, 0, 0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, buffs[1]);
-    glEnableVertexAttribArray(shaderTextCoordinateLocation);
-    glVertexAttribPointer(shaderTextCoordinateLocation, 2, GL_FLOAT, 0, 0, 0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glBindVertexArray(0);
-}
 void MpvPlayer::Render(const ImVec2 &windowsSize)
 {
     if (lastWindowSize.x != windowsSize.x || lastWindowSize.y != windowsSize.y)
@@ -529,36 +325,39 @@ void MpvPlayer::Render(const ImVec2 &windowsSize)
         lastWindowSize = windowsSize;
         frameWidth = width - lastWindowSize.x;
         frameHeight = height - lastWindowSize.y;
-        rescaleFrameBuffers();
         mpvRenderFrame();
     }
-    glViewport(lastWindowSize.x, lastWindowSize.y, frameWidth, frameHeight);
+    // glViewport(lastWindowSize.x, lastWindowSize.y, frameWidth, frameHeight);
 
-    glUseProgram(frameShaderProgram);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, mediaFrameTexture);
+    // glUseProgram(frameShaderProgram);
+    // glActiveTexture(GL_TEXTURE0);
+    // glBindTexture(GL_TEXTURE_2D, mediaFrameTexture);
 
-    glUniform1i(videoFrameUniformLocation, 0);
+    // glUniform1i(videoFrameUniformLocation, 0);
 
-    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, shaderPositionAttribLocation,
-                     buffs[0]);
-    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, shaderTextCoordinateLocation,
-                     buffs[1]);
+    // glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
+    // shaderPositionAttribLocation,
+    //                  buffs[0]);
+    // glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
+    // shaderTextCoordinateLocation,
+    //                  buffs[1]);
 
-    glBindVertexArray(VAO);
+    // glBindVertexArray(VAO);
 
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    // glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-    glBindVertexArray(0);
+    // glBindVertexArray(0);
 
-    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, shaderPositionAttribLocation,
-                     0);
-    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, shaderTextCoordinateLocation,
-                     0);
+    // glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
+    // shaderPositionAttribLocation,
+    //                  0);
+    // glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
+    // shaderTextCoordinateLocation,
+    //                  0);
 
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glUseProgram(0);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // glBindTexture(GL_TEXTURE_2D, 0);
+    // glUseProgram(0);
+    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 void MpvPlayer::SetSize(int width, int height)
 {
@@ -568,8 +367,6 @@ void MpvPlayer::SetSize(int width, int height)
     this->height = height;
     frameWidth = width - lastWindowSize.x;
     frameHeight = height - lastWindowSize.y;
-
-    rescaleFrameBuffers();
 }
 void MpvPlayer::Play()
 {
@@ -581,7 +378,6 @@ void MpvPlayer::Stop()
 {
     const char *cmdStop[] = { "stop", nullptr };
     mpv_command(mpv, cmdStop);
-    rescaleFrameBuffers();
     playerState = PlayerState::STOPPED;
     // playerStateSignal(playerState);
 }
@@ -601,7 +397,7 @@ void MpvPlayer::Play(ChannelPtr channel)
         return;
     const char *cmdStop[] = { "stop", nullptr };
     mpv_command(mpv, cmdStop);
-    rescaleFrameBuffers();
+
     this->currentlyPlayingChannel = channel;
     skipRendering = 1;
     const char *cmd[] = { "loadfile", currentlyPlayingChannel->GetUri().c_str(),

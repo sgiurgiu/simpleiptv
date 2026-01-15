@@ -12,12 +12,15 @@
     "boost-program-options",
     "boost-signals2",
     "boost-url",
-    "glew",
     "fmt",
     "spdlog",
     "sqlite3",
     "freetype",
-    "opengl",
+    "vulkan-headers",
+    
+    "vulkan-extensionlayer",
+    "vulkan-memory-allocator",
+    "glslang",
     "openssl",
     "zlib",
     "stb",
@@ -36,7 +39,7 @@
       "name": "imgui",
       "default-features": false,
       "features": [
-        "opengl3-binding",
+        "vulkan-binding",
         "glfw-binding",
         "freetype"
       ]
@@ -54,7 +57,33 @@
         "tool"
       ],
       "platform": "linux"
-    }
+    },
+    {
+      "name":"ffmpeg",
+      "default-features": false,
+      "features": [
+        "nonfree",
+        "dav1d",
+        "avresample",
+        "avformat",
+        "avcodec",
+        "avfilter",
+        "swresample",
+        "swscale",
+        "vpx",
+        "x264",
+        "x265",
+        "mp3lame",
+        "aom"
+      ]
+    },
+    "libebur128",
+    "libass",
+    {
+      "name": "pipewire",
+      "platform": "linux"
+    },
+    "libmpv"
   ],
   "features": {
     "app": {

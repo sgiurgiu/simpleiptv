@@ -1,6 +1,5 @@
 #pragma once
 
-#include <GL/glew.h>
 #include <imgui.h>
 
 #include "../channels/channel.h"
@@ -56,7 +55,7 @@ struct DisplayChannel : public DisplayNode
     WorkersProvider* workersProvider;
     boost::asio::any_io_executor ui_executor;
     bool isActivated = false;
-    GLuint channelLogoTexture = 0;
+    // GLuint channelLogoTexture = 0;
     std::atomic_int logoWidth = 0;
     std::atomic_int logoHeight = 0;
     std::atomic_int logoChannels = 0;

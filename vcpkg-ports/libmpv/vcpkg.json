@@ -1,0 +1,19 @@
+{
+  "name": "libmpv",
+  "version": "0.41.0",
+  "port-version": 4,
+  "description": "LibMPV port",
+  "homepage": "https://github.com/sgiurgiu/mpv",
+  "license": "MIT",
+  "dependencies": [
+    { "name": "vcpkg-tool-meson", "host": true },
+    { "name": "vcpkg-cmake-config", "host": true },
+    "libass",
+    "ffmpeg",
+    "libarchive",
+    "libiconv",
+    "libpng",
+    "libjpeg-turbo",
+    "libwebp"
+  ]
+}

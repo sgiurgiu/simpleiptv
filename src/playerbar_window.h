@@ -1,11 +1,8 @@
 #pragma once
 
-#include <GL/gl.h>
-#include <atomic>
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/signals2.hpp>
 #include <chrono>
-#include <cstdint>
 #include <imgui.h>
 #include <memory>
 #include <vector>
@@ -129,7 +126,7 @@ private:
     std::chrono::steady_clock::time_point lastVolumeHoveredTime;
     bool channelListPressed = true;
     bool epgListingPressed = false;
-    GLuint channelLogoTexture = 0;
+    // GLuint channelLogoTexture = 0;
     ImVec2 channelLogoSize = { 0, 0 };
     std::string fileLoadingError;
     using VolumeSignal = boost::signals2::signal<void(double)>;

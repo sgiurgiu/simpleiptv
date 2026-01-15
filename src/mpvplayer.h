@@ -61,13 +61,8 @@ private:
     void handleMpvEvent(mpv_event* event);
     void handleMpvEvents();
     void mpvRenderFrame();
-    void createFrameBuffers();
-    void destroyFrameBuffers();
-    void rescaleFrameBuffers();
     static void mpvRenderUpdate(void* ctx);
     static void onMpvEvents(void* ctx);
-    void compileShaders();
-    void initializeVAO();
 
     void updateDisplay();
     void removeVolumeOsd(const boost::system::error_code& ec);
@@ -89,22 +84,22 @@ private:
         bool paused = true;
     };
     MediaState mediaState;
-    GLuint mediaFramebufferObject = 0;
-    GLuint mediaFrameTexture = 0;
-    // GLuint mediaFrameRenderBufferObject = 0;
+    // GLuint mediaFramebufferObject = 0;
+    // GLuint mediaFrameTexture = 0;
+    //  GLuint mediaFrameRenderBufferObject = 0;
     int width = 100;
     int height = 100;
     int frameWidth = width;
     int frameHeight = width;
     ImVec2 lastWindowSize = { 0, 0 };
-    GLuint frameShaderProgram;
-    GLint videoFrameUniformLocation;
+    //  GLuint frameShaderProgram;
+    //  GLint videoFrameUniformLocation;
 
-    GLint shaderPositionAttribLocation;
-    GLint shaderTextCoordinateLocation;
+    //  GLint shaderPositionAttribLocation;
+    //  GLint shaderTextCoordinateLocation;
 
-    GLuint VAO;
-    GLuint buffs[2];
+    //  GLuint VAO;
+    //  GLuint buffs[2];
 
     PlayerState playerState = PlayerState::STOPPED;
     ChannelPtr currentlyPlayingChannel;
