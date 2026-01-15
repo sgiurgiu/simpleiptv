@@ -16,11 +16,12 @@
     "spdlog",
     "sqlite3",
     "freetype",
-    "vulkan-headers",
-    
-    "vulkan-extensionlayer",
     "vulkan-memory-allocator",
+    "vulkan-validationlayers",
+    "volk",
     "glslang",
+    "spirv-cross",
+    "spirv-headers",
     "openssl",
     "zlib",
     "stb",
@@ -33,15 +34,6 @@
           "name": "wayland",
           "platform": "linux"
         }
-      ]
-    },
-    {
-      "name": "imgui",
-      "default-features": false,
-      "features": [
-        "vulkan-binding",
-        "glfw-binding",
-        "freetype"
       ]
     },
     {
@@ -79,10 +71,6 @@
     },
     "libebur128",
     "libass",
-    {
-      "name": "pipewire",
-      "platform": "linux"
-    },
     "libmpv"
   ],
   "features": {

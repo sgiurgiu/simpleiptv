@@ -1,13 +1,14 @@
 {
   "name": "libmpv",
   "version": "0.41.0",
-  "port-version": 4,
+  "port-version": 5,
   "description": "LibMPV port",
   "homepage": "https://github.com/sgiurgiu/mpv",
   "license": "MIT",
   "dependencies": [
     { "name": "vcpkg-tool-meson", "host": true },
     { "name": "vcpkg-cmake-config", "host": true },
+    "libplacebo",
     "libass",
     "ffmpeg",
     "libarchive",

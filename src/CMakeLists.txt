@@ -10,8 +10,7 @@ set(STV_LIBARIES  Threads::Threads)
 set(STV_INCLUDES)
 
 set(Boost_USE_STATIC_LIBS    ON)
-# Boost doesn't provide a pkgconfig file, so we just have to have it installed
-# and discoverable by cmake
+
 find_package(Boost 1.81 REQUIRED system filesystem program_options asio signals2 url)
 list(APPEND STV_LIBARIES Boost::boost Boost::system Boost::filesystem Boost::url)
 
@@ -27,13 +26,14 @@ if(VCPKG_TOOLCHAIN)
     find_package(freetype CONFIG REQUIRED)
     find_package(unofficial-sqlite3 CONFIG REQUIRED)
     find_package(SOCI CONFIG REQUIRED)
-    find_package(imgui CONFIG REQUIRED)
     find_package(Stb REQUIRED)
     find_package(nlohmann_json CONFIG REQUIRED)
     find_package(date CONFIG REQUIRED)
     find_package(glslang CONFIG REQUIRED)
+    find_package(SPIRV-Headers CONFIG REQUIRED)
     find_package(FFMPEG REQUIRED)
-    
+    find_package(volk CONFIG REQUIRED)
+
     if(UNIX)
 		find_package(sdbus-c++ CONFIG REQUIRED)
 		list(APPEND STV_LIBARIES SDBusCpp::sdbus-c++)
@@ -43,6 +43,10 @@ if(VCPKG_TOOLCHAIN)
         list(APPEND STV_LIBARIES PkgConfig::LibMPV)
         pkg_check_modules(Libebur128 REQUIRED IMPORTED_TARGET libebur128)
         list(APPEND STV_LIBARIES PkgConfig::Libass PkgConfig::Libebur128)
+        pkg_check_modules(SpirvCrossC REQUIRED IMPORTED_TARGET spirv-cross-c)
+        list(APPEND STV_LIBARIES PkgConfig::SpirvCrossC)
+        pkg_check_modules(Libplacebo REQUIRED IMPORTED_TARGET libplacebo)
+        list(APPEND STV_LIBARIES PkgConfig::Libplacebo)
     endif()
 
     if(UNIX AND NOT APPLE) # freebsd ... sorry
@@ -51,14 +55,17 @@ if(VCPKG_TOOLCHAIN)
         list(APPEND STV_LIBARIES PkgConfig::Systemd)
     endif()
 
-    list(APPEND STV_LIBARIES glfw freetype imgui::imgui)
+    list(APPEND STV_LIBARIES glfw freetype)
     list(APPEND STV_LIBARIES OpenSSL::SSL)
     list(APPEND STV_LIBARIES spdlog::spdlog_header_only fmt::fmt-header-only)
     list(APPEND STV_LIBARIES unofficial::sqlite3::sqlite3 SOCI::soci_sqlite3_static)
     list(APPEND STV_LIBARIES nlohmann_json::nlohmann_json)
-    list(APPEND STV_LIBARIES  date::date date::date-tz)
-    list(APPEND STV_LIBARIES glslang::glslang glslang::glslang-default-resource-limits glslang::SPIRV glslang::SPVRemapper)
+    list(APPEND STV_LIBARIES date::date date::date-tz)
+    list(APPEND STV_LIBARIES glslang::glslang glslang::glslang-default-resource-limits glslang::SPIRV )
     list(APPEND STV_LIBARIES Vulkan::Headers GPUOpen::VulkanMemoryAllocator)
+    list(APPEND STV_LIBARIES volk::volk_headers)
+    
+    list(APPEND STV_LIBARIES SPIRV-Headers::SPIRV-Headers)
     list(APPEND STV_LIBARIES ${FFMPEG_LIBRARIES})
     list(APPEND STV_INCLUDES ${Stb_INCLUDE_DIR})
     list(APPEND STV_INCLUDES ${FFMPEG_INCLUDE_DIRS})
@@ -137,9 +144,25 @@ set(STV_SRCS main.cpp
     display_tree_nodes/display_root_channel_group.cpp
     )
 
+SET(IMGUI_SRCS
+    imgui/imgui.cpp
+    imgui/imgui_demo.cpp
+    imgui/imgui_draw.cpp
+    imgui/imgui_impl_glfw.cpp
+    imgui/imgui_impl_vulkan.cpp
+    imgui/imgui_widgets.cpp
+    imgui/imgui_stdlib.cpp
+    imgui/imgui_tables.cpp
+    imgui/misc/freetype/imgui_freetype.cpp
+)
+
+list(APPEND STV_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/imgui)
+
 if(UNIX)
 list(APPEND STV_SRCS dbus_mpris_service.cpp)
 endif()
+
+
 
 if(MSVC)
     list(APPEND STV_SRCS win/AppIcon.rc)
@@ -148,6 +171,7 @@ endif()
 set(EXECUTABLE_SOURCES
     ${WIN32_APP_OPTIONS}
     ${STV_SRCS}
+    ${IMGUI_SRCS}
 )
 
 add_executable(${EXECUTABLE_NAME} ${EXECUTABLE_SOURCES})
@@ -159,10 +183,11 @@ target_include_directories(${EXECUTABLE_NAME} PRIVATE ${STV_INCLUDES})
 
 
 target_compile_definitions(${EXECUTABLE_NAME} PRIVATE SPDLOG_FMT_EXTERNAL_HO SPDLOG_FMT_EXTERNAL)
-target_compile_definitions(${EXECUTABLE_NAME} PRIVATE GL_GLEXT_PROTOTYPES BOOST_ASIO_NO_DEPRECATED)
-target_compile_definitions(${EXECUTABLE_NAME} PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
+target_compile_definitions(${EXECUTABLE_NAME} PRIVATE BOOST_ASIO_NO_DEPRECATED)
+target_compile_definitions(${EXECUTABLE_NAME} PRIVATE IMGUI_DEFINE_MATH_OPERATORS  IMGUI_IMPL_VULKAN_USE_VOLK VK_NO_PROTOTYPES)
 target_compile_definitions(${EXECUTABLE_NAME} PRIVATE "$<$<CONFIG:Debug>:STV_DEBUG>")
 target_compile_definitions(${EXECUTABLE_NAME} PRIVATE "$<$<CONFIG:Debug>:DEBUG>")
+target_compile_definitions(${EXECUTABLE_NAME} PRIVATE "$<$<CONFIG:Release>:NDEBUG>" "$<$<CONFIG:Release>:IMGUI_DISABLE_DEBUG_TOOLS>")
 if(ASAN_ENABLE)
     target_compile_options(${EXECUTABLE_NAME} PUBLIC $<$<AND:$<CONFIG:Debug>,$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>>:-Wall -pedantic -Wextra -fsanitize=undefined,address -fno-omit-frame-pointer>)
     target_link_options(${EXECUTABLE_NAME} PUBLIC $<$<AND:$<CONFIG:Debug>,$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>>:-fsanitize=undefined,address>)

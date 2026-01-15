@@ -7,12 +7,13 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <boost/asio/io_context.hpp>
-#include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_vulkan.h>
 #include <iostream>
 #include <spdlog/spdlog.h>
 #include <thread>
+
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_vulkan.h"
 
 #include "dbconnection_pool.h"
 #include "simpleiptv.h"
@@ -138,7 +139,7 @@ void startGraphicalInterface()
 
     // Cleanup
 
-    ImGui_ImplGlfw_Shutdown();
+    // ImGui_ImplGlfw_Shutdown();
 
     glfwDestroyWindow(window);
 }
@@ -189,7 +190,8 @@ void runMainLoop(GLFWwindow* window,
 
         // Start the Dear ImGui frame
 
-        ImGui_ImplGlfw_NewFrame();
+        // ImGui_ImplGlfw_NewFrame();
+        // ImGui_ImplVulkan_NewFrame();
         ImGui::NewFrame();
 
         // execute one unit of work in the UI thread
@@ -201,8 +203,8 @@ void runMainLoop(GLFWwindow* window,
         // ImGui::ShowDemoWindow()! You can browse its code to learn more about
 
         // Dear ImGui!).
-        if (show_demo_window)
-            ImGui::ShowDemoWindow(&show_demo_window);
+        // if (show_demo_window)
+        //    ImGui::ShowDemoWindow(&show_demo_window);
 #endif
 
         // rendering stuff

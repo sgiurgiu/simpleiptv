@@ -1,0 +1,34 @@
+{
+    "name": "libplacebo",
+    "version": "7.349.0",
+    "homepage": "https://libplacebo.org/",
+    "description": "libplacebo is, in a nutshell, the core rendering algorithms and ideas of mpv rewritten as an independent library.",
+    "license": "LGPL-2.1-only",
+    "dependencies": [
+      {
+        "name" : "vcpkg-tool-meson",
+        "host" : true
+      },
+      "glslang"
+    ],
+    "features":{
+        "opengl": {
+            "description": "OpenGL support",
+            "dependencies": [
+                "opengl"
+            ]
+        },
+        "vulkan": {
+            "description": "Vulkan support",
+            "dependencies": [
+                "spirv-cross",
+                "spirv-tools",
+                "vulkan-headers",
+                "vulkan-loader",
+               
+                "vulkan-validationlayers"
+                
+            ]
+        }
+    }
+  }
