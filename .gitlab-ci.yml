@@ -102,6 +102,8 @@ publish-fedora-repo:
   stage: publish
   tags:
     - linux
+  only:
+    - master
   needs:
     - job: build-linux
       artifacts: true
