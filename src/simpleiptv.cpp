@@ -18,16 +18,19 @@ static constexpr std::chrono::milliseconds resizeDebounceDelay{ 16 };
 } // namespace
 
 SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
-                       WorkersProvider* workersProvider)
+                       WorkersProvider* workersProvider,
+                       SimpleIPTVVulkan* vulkanInstance)
 : ui_executor{ uiContext.get_executor() }
 , workersProvider{ workersProvider }
+, vulkanInstance{ vulkanInstance }
 , channelsWindow{ ChannelsWindow::Create(ui_executor, this->workersProvider) }
 , playerBarWindow{ PlayerBarWindow::Create(ui_executor, this->workersProvider) }
 , epgListingWindow{ EpgListingWindow::Create(ui_executor, this->workersProvider) }
 , player{ ui_executor, this->workersProvider }
 , channelsShowingTimer{ ui_executor }
 {
-    player.InitializeMpvGL();
+    player.InitializeMpv(vulkanInstance->GetPlSwapchain(),
+                         vulkanInstance->GetPlLog());
     using namespace std::placeholders;
     channelsWindow->AddChannelActivatedListener(
         std::bind(&SimpleIPTV::channelActivated, this, _1));
@@ -98,7 +101,7 @@ void SimpleIPTV::setSize(int width, int height)
     {
         this->width = width;
         this->height = height;
-
+        vulkanInstance->ResizeSwapchain(width, height);
         player.SetSize(width, height);
         lastResizeTime = now;
     }
@@ -117,7 +120,7 @@ void SimpleIPTV::rearmChannelsShowingTimer()
         });
 }
 
-void SimpleIPTV::showDesktop()
+ImVec2 SimpleIPTV::showDesktop()
 {
     if (ImGui::IsKeyPressed(ImGuiKey_Q) && ImGui::GetIO().KeyCtrl)
     {
@@ -152,7 +155,7 @@ void SimpleIPTV::showDesktop()
 
     if (player.GetPlayerState() == PlayerState::PLAYING)
     {
-        player.Render(windowsSize);
+        // TODO: player.Render(windowsSize);
     }
 
     if (!ImGui::IsAnyItemHovered() &&
@@ -172,7 +175,14 @@ void SimpleIPTV::showDesktop()
             player.VolumeDecrease();
         }
     }
+    return windowsSize;
 }
+
+void SimpleIPTV::Render(const ImVec2& windowSize)
+{
+    vulkanInstance->Draw(windowSize, &player);
+}
+
 void SimpleIPTV::channelActivated(ChannelPtr channel)
 {
     spdlog::debug("{} activated", channel->GetName());

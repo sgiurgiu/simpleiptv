@@ -10,6 +10,7 @@
 #include <iostream>
 #include <spdlog/spdlog.h>
 #include <thread>
+#include <vulkan/vulkan.h>
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
@@ -17,6 +18,7 @@
 
 #include "dbconnection_pool.h"
 #include "simpleiptv.h"
+#include "simpleiptv_vulkan.h"
 #include "stv_utils.h"
 #include "workers_provider.h"
 
@@ -41,7 +43,7 @@ static PreloadOpensslCrypto _dummy;
 
 void runMainLoop(GLFWwindow* window,
                  WorkersProvider& workersProvider,
-                 boost::asio::io_context& uiContext);
+                 SimpleIPTVVulkan* vulkanInstance);
 void startGraphicalInterface();
 
 static void glfw_error_callback(int error, const char* description)
@@ -89,9 +91,7 @@ int main(int /*argc*/, char** /*argv*/)
 
     Utils::LoadFonts();
 
-    std::thread uiThread([]() { startGraphicalInterface(); });
-
-    uiThread.join();
+    startGraphicalInterface();
 
     ImGui::DestroyContext();
     glfwTerminate();
@@ -101,7 +101,6 @@ int main(int /*argc*/, char** /*argv*/)
 
 void startGraphicalInterface()
 {
-    boost::asio::io_context uiContext;
     WorkersProvider workersProvider;
     auto settingsRepository = workersProvider.GetSettingsRepository();
     // Create window with graphics context
@@ -119,17 +118,38 @@ void startGraphicalInterface()
         spdlog::error("Cannot create Window");
         return;
     }
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(0); // Disable vsync
+    // Check for Vulkan support
+    if (!glfwVulkanSupported())
+    {
+        spdlog::critical("Vulkan not supported");
+        glfwDestroyWindow(window);
+        return;
+    }
+
+    auto vulkanInstance = std::make_unique<SimpleIPTVVulkan>();
+    {
+        std::set<std::string> extensions;
+        uint32_t extensions_count = 0;
+        const char** glfwExtensions =
+            glfwGetRequiredInstanceExtensions(&extensions_count);
+        for (uint32_t i = 0; i < extensions_count; i++)
+            extensions.insert(glfwExtensions[i]);
+
+        vulkanInstance->Initialize(std::move(extensions), window);
+    }
+    ImGui_ImplVulkan_LoadFunctions(VK_API_VERSION_1_3, nullptr, nullptr);
 
     ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForVulkan(window, true);
     // ImGui::StyleColorsLight();
     /*ImGui::GetStyle().Colors[ImGuiCol_WindowBg] =
         ImVec4(0.56f, 0.56f, 0.56f, 0.94f);*/
     // Setup Platform/Renderer backends
     // ImGui_ImplGlfw_InitForOpenGL(window, true);
+    std::thread uiThread([window, &workersProvider, vk = vulkanInstance.get()]()
+                         { runMainLoop(window, workersProvider, vk); });
 
-    runMainLoop(window, workersProvider, uiContext);
+    uiThread.join();
 
     int width;
     int height;
@@ -139,20 +159,21 @@ void startGraphicalInterface()
 
     // Cleanup
 
-    // ImGui_ImplGlfw_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
 
     glfwDestroyWindow(window);
 }
 
 void runMainLoop(GLFWwindow* window,
                  WorkersProvider& workersProvider,
-                 boost::asio::io_context& uiContext)
+                 SimpleIPTVVulkan* vulkanInstance)
 {
 #ifdef STV_DEBUG
     bool show_demo_window = true;
 #endif
+    boost::asio::io_context uiContext;
     auto work = boost::asio::make_work_guard(uiContext);
-    SimpleIPTV iptv{ uiContext, &workersProvider };
+    SimpleIPTV iptv{ uiContext, &workersProvider, vulkanInstance };
 
     glfwSetWindowUserPointer(window, &iptv);
 
@@ -181,17 +202,8 @@ void runMainLoop(GLFWwindow* window,
         {
             glfwSetWindowShouldClose(window, true);
         }
-        {
-            int width;
-            int height;
-            glfwGetFramebufferSize(window, &width, &height);
-            iptv.setSize(width, height);
-        }
 
-        // Start the Dear ImGui frame
-
-        // ImGui_ImplGlfw_NewFrame();
-        // ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
         // execute one unit of work in the UI thread
@@ -199,19 +211,16 @@ void runMainLoop(GLFWwindow* window,
         uiContext.poll_one();
 
 #ifdef STV_DEBUG
-        // 1. Show the big demo window (Most of the sample code is in
-        // ImGui::ShowDemoWindow()! You can browse its code to learn more about
-
-        // Dear ImGui!).
-        // if (show_demo_window)
-        //    ImGui::ShowDemoWindow(&show_demo_window);
+        if (show_demo_window)
+            ImGui::ShowDemoWindow(&show_demo_window);
 #endif
 
         // rendering stuff
-        iptv.showDesktop();
+        auto windowBottomLeftPoint = iptv.showDesktop();
 
         ImGui::Render();
 
+        iptv.Render(windowBottomLeftPoint);
         // auto end = std::chrono::steady_clock::now();
         // auto durationSpentDrawing = end - start;
         // std::this_thread::sleep_for(std::chrono::milliseconds{ 16 } -

@@ -7,16 +7,18 @@
 #include "epg_listings_window.h"
 #include "mpvplayer.h"
 #include "playerbar_window.h"
+#include "simpleiptv_vulkan.h"
 #include "workers_provider.h"
 
 class SimpleIPTV
 {
 public:
     SimpleIPTV(boost::asio::io_context& uiContext,
-               WorkersProvider* workersProvider);
+               WorkersProvider* workersProvider,
+               SimpleIPTVVulkan* vulkanInstance);
     void setSize(int width, int height);
-    void showDesktop();
-
+    ImVec2 showDesktop();
+    void Render(const ImVec2& windowSize);
     bool shouldQuit() const
     {
         return channelsWindow->ShouldQuit() || quit;
@@ -29,6 +31,7 @@ private:
 private:
     boost::asio::any_io_executor ui_executor;
     WorkersProvider* workersProvider;
+    SimpleIPTVVulkan* vulkanInstance;
     std::shared_ptr<ChannelsWindow> channelsWindow;
     std::shared_ptr<PlayerBarWindow> playerBarWindow;
     std::shared_ptr<EpgListingWindow> epgListingWindow;

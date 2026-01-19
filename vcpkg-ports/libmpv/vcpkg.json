@@ -1,7 +1,7 @@
 {
   "name": "libmpv",
   "version": "0.41.0",
-  "port-version": 5,
+  "port-version": 6,
   "description": "LibMPV port",
   "homepage": "https://github.com/sgiurgiu/mpv",
   "license": "MIT",

@@ -1,3 +1,4 @@
+#include <libplacebo/renderer.h>
 #if defined(_MSC_VER)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -11,6 +12,7 @@
 #include <boost/asio/post.hpp>
 #include <mpv/client.h>
 #include <mpv/render_placebo.h>
+
 #include <stdexcept>
 
 #ifdef STV_UNIX
@@ -141,14 +143,20 @@ MpvPlayer::~MpvPlayer()
         mpv = nullptr;
     }
     workersProvider->GetSleepService()->enableComputerSleep();
+    if (placeboOptions)
+    {
+        pl_options_free(&placeboOptions);
+        placeboOptions = nullptr;
+    }
 }
 
-void MpvPlayer::InitializeMpvGL()
+void MpvPlayer::InitializeMpv(pl_swapchain swapchain, pl_log log)
 {
-    bool swapchain_swap_buffers = true;
+    placeboOptions = pl_options_alloc(log);
+    placeboOptions->params = pl_render_high_quality_params;
+
     int mpv_advanced_control = 1;
-    void *log = nullptr;
-    void *swapchain = nullptr;
+
     mpv_render_param libplacebo_params[] = {
         { MPV_RENDER_PARAM_API_TYPE,
           const_cast<char *>(MPV_RENDER_API_TYPE_LIBPLACEBO) },
@@ -157,9 +165,6 @@ void MpvPlayer::InitializeMpvGL()
         { (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_SWAPCHAIN,
           (void *)swapchain },
         { MPV_RENDER_PARAM_ADVANCED_CONTROL, &mpv_advanced_control },
-        { (enum mpv_render_param_type)
-              MPV_RENDER_PARAM_LIBPLACEBO_EXTERNAL_SWAPCHAIN_SWAP_BUFFERS,
-          &swapchain_swap_buffers },
         { MPV_RENDER_PARAM_INVALID, 0 }
     };
 
@@ -286,78 +291,42 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
 void MpvPlayer::mpvRenderUpdate(void *ctx)
 {
     auto self = reinterpret_cast<MpvPlayer *>(ctx);
-    boost::asio::post(self->ui_executor,
-                      std::bind(&MpvPlayer::updateDisplay, self));
+    self->shouldRender = true;
+    // boost::asio::post(self->ui_executor,
+    //                   std::bind(&MpvPlayer::updateDisplay, self));
 }
 
 void MpvPlayer::updateDisplay()
 {
-    mpvRenderFrame();
+    // mpvRenderFrame();
 }
 
-void MpvPlayer::mpvRenderFrame()
+void MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame)
 {
-    uint64_t flags = mpv_render_context_update(mpvRenderContext);
-    if (!(flags & MPV_RENDER_UPDATE_FRAME))
-    {
+    if (!shouldRender)
         return;
-    }
+    shouldRender = false;
     int block = 0;
     mpv_render_param render_params[] = {
         { MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, &block },
-        //{ (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_OPTIONS,
-        //(void *)rs->pars },
+        { (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_OPTIONS,
+          (void *)placeboOptions },
+        { (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_FRAME,
+          (void *)frame },
         { MPV_RENDER_PARAM_INVALID, 0 }
     };
     int flip_y = 0;
+    uint64_t flags = mpv_render_context_update(mpvRenderContext);
 
     if (flags & MPV_RENDER_UPDATE_FRAME)
     {
-        // mpv_render_context_render(rs->mpv_ctx, render_params);
-        // pl_swapchain_swap_buffers(rs->swapchain);
+        mpv_render_context_render(mpvRenderContext, render_params);
     }
 }
 
-void MpvPlayer::Render(const ImVec2 &windowsSize)
+void MpvPlayer::Render(pl_swapchain_frame *frame, const ImVec2 &windowsSize)
 {
-    if (lastWindowSize.x != windowsSize.x || lastWindowSize.y != windowsSize.y)
-    {
-        lastWindowSize = windowsSize;
-        frameWidth = width - lastWindowSize.x;
-        frameHeight = height - lastWindowSize.y;
-        mpvRenderFrame();
-    }
-    // glViewport(lastWindowSize.x, lastWindowSize.y, frameWidth, frameHeight);
-
-    // glUseProgram(frameShaderProgram);
-    // glActiveTexture(GL_TEXTURE0);
-    // glBindTexture(GL_TEXTURE_2D, mediaFrameTexture);
-
-    // glUniform1i(videoFrameUniformLocation, 0);
-
-    // glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
-    // shaderPositionAttribLocation,
-    //                  buffs[0]);
-    // glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
-    // shaderTextCoordinateLocation,
-    //                  buffs[1]);
-
-    // glBindVertexArray(VAO);
-
-    // glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-    // glBindVertexArray(0);
-
-    // glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
-    // shaderPositionAttribLocation,
-    //                  0);
-    // glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER,
-    // shaderTextCoordinateLocation,
-    //                  0);
-
-    // glBindTexture(GL_TEXTURE_2D, 0);
-    // glUseProgram(0);
-    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    mpvRenderFrame(frame);
 }
 void MpvPlayer::SetSize(int width, int height)
 {
