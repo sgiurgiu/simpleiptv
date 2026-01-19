@@ -21,10 +21,11 @@ DisplayNode::DisplayNode(DisplayNodeKey,
 }
 
 DisplayNode* DisplayNode::getNextNode(WorkersProvider* workersProvider,
+                                      SimpleIPTVVulkan* vulkanInstance,
                                       const boost::asio::any_io_executor& ui_executor)
 {
     DisplayNode* curr_node = this;
-    curr_node->loadChildren(workersProvider, ui_executor);
+    curr_node->loadChildren(workersProvider, vulkanInstance, ui_executor);
     if (!curr_node->children.empty())
     {
         isOpen = true;
@@ -32,7 +33,8 @@ DisplayNode* DisplayNode::getNextNode(WorkersProvider* workersProvider,
     }
     while (curr_node->parent != nullptr)
     {
-        curr_node->parent->loadChildren(workersProvider, ui_executor);
+        curr_node->parent->loadChildren(workersProvider, vulkanInstance,
+                                        ui_executor);
         if (curr_node->indexInParent + 1 < (int)curr_node->parent->children.size())
         {
             auto node =
@@ -54,18 +56,20 @@ DisplayNode* DisplayNode::getNextNode(WorkersProvider* workersProvider,
 
 DisplayNode*
 DisplayNode::getPreviousNode(WorkersProvider* workersProvider,
+                             SimpleIPTVVulkan* vulkanInstance,
                              const boost::asio::any_io_executor& ui_executor)
 {
     DisplayNode* curr_node = this;
 
     while (curr_node->parent != nullptr)
     {
-        curr_node->parent->loadChildren(workersProvider, ui_executor);
+        curr_node->parent->loadChildren(workersProvider, vulkanInstance,
+                                        ui_executor);
         if (curr_node->indexInParent > 0)
         {
             auto node =
                 curr_node->parent->children.at(curr_node->indexInParent - 1).get();
-            node->loadChildren(workersProvider, ui_executor);
+            node->loadChildren(workersProvider, vulkanInstance, ui_executor);
             node->isOpen = true;
             if (!node->children.empty())
             {

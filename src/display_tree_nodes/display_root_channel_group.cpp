@@ -15,6 +15,7 @@ void DisplayRootChannelsGroup::renderGroup(
 
 void DisplayRootChannelsGroup::setRoot(RootChannelsGroupPtr root,
                                        WorkersProvider* workersProvider,
+                                       SimpleIPTVVulkan* vulkanInstance,
                                        const boost::asio::any_io_executor& ui_executor)
 {
     children.clear();
@@ -23,21 +24,23 @@ void DisplayRootChannelsGroup::setRoot(RootChannelsGroupPtr root,
     favouritesGroup = DisplayFavouritesChannelsGroup::Create(workersProvider,
                                                              ui_executor, this);
     root->IterateFavouriteChannels(
-        [this, workersProvider, ui_executor](ChannelPtr channel)
+        [this, workersProvider, vulkanInstance, ui_executor](ChannelPtr channel)
         {
-            auto dchannel = DisplayChannel::Create(
-                channel, workersProvider, ui_executor, favouritesGroup.get());
+            auto dchannel =
+                DisplayChannel::Create(channel, workersProvider, vulkanInstance,
+                                       ui_executor, favouritesGroup.get());
             dchannel->indexInParent = favouritesGroup->children.size();
             dchannel->loadLogo();
             favouritesGroup->children.push_back(std::move(dchannel));
         });
     favouritesGroup->indexInParent = 0;
     children.push_back(favouritesGroup);
-    loadChildren(workersProvider, ui_executor);
+    loadChildren(workersProvider, vulkanInstance, ui_executor);
 }
 
 void DisplayRootChannelsGroup::loadChildren(
     WorkersProvider* workersProvider,
+    SimpleIPTVVulkan* vulkanInstance,
     const boost::asio::any_io_executor& ui_executor)
 {
     if (!root || !root->AreGroupsLoaded())
@@ -48,12 +51,14 @@ void DisplayRootChannelsGroup::loadChildren(
     if (children.size() < 2 && root->AreGroupsLoaded())
     {
         root->IterateGroups(
-            [this, workersProvider, ui_executor](ChannelsGroupPtr group)
+            [this, workersProvider, vulkanInstance,
+             ui_executor](ChannelsGroupPtr group)
             {
                 children.emplace_back(DisplayChannelsGroup::Create(
                     group, workersProvider, ui_executor, this));
                 children.back().get()->indexInParent = children.size() - 1;
-                children.back().get()->loadChildren(workersProvider, ui_executor);
+                children.back().get()->loadChildren(workersProvider,
+                                                    vulkanInstance, ui_executor);
             });
     }
 }

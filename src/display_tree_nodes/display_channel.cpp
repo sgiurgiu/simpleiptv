@@ -31,6 +31,7 @@ void clearSelectedNodes(std::unordered_set<DisplayNode*>& selectedNodes)
 DisplayChannel::DisplayChannel(DisplayNodeKey key,
                                ChannelPtr channel,
                                WorkersProvider* workersProvider,
+                               SimpleIPTVVulkan* vulkanInstance,
                                const boost::asio::any_io_executor& ui_executor,
                                DisplayChannelsGroup* parent)
 : DisplayNode{ key, channel->GetName(), parent }
@@ -41,6 +42,7 @@ DisplayChannel::DisplayChannel(DisplayNodeKey key,
                                ImGui::GetStyle().FramePadding.x * 2.f,
                            (ImGui::GetFontSize() * 2.f / 3.f) +
                                ImGui::GetStyle().FramePadding.y * 2.f } }
+, vulkanInstance{ vulkanInstance }
 {
 }
 void DisplayChannel::loadLogo()
@@ -144,11 +146,12 @@ void DisplayChannel::downloadLogoImage(WorkersProvider* workersProvider,
 }
 DisplayChannel::~DisplayChannel()
 {
-    /*if (channelLogoTexture)
+    if (logo.tex)
     {
-        glDeleteTextures(1, &channelLogoTexture);
-        channelLogoTexture = 0;
-    }*/
+        vulkanInstance->WaitForIdle();
+        vulkanInstance->DestroyImageData(logo);
+        logo.tex = nullptr;
+    }
     if (logoData)
     {
         stbi_image_free(logoData);
@@ -256,8 +259,8 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
         activate();
     }
     ImGui::SameLine();
-    /*loadLogoTexture();
-    if (channelLogoTexture)
+    loadLogoTexture();
+    if (logo.tex)
     {
         ImVec2 size = displayLogoSize;
         ImVec2 dummySize{ ImGui::GetStyle().ItemSpacing.x, size.y };
@@ -265,45 +268,25 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
         {
             dummySize.x += parent->maxLogoWidth - size.x;
         }
-        ImTextureID texture = static_cast<ImTextureID>(channelLogoTexture);
+        ImTextureID texture = reinterpret_cast<ImTextureID>(logo.tex);
         ImGui::Image(texture, displayLogoSize);
         ImGui::SameLine(0.f, dummySize.x);
-    }*/
+    }
     ImGui::Text("%s", channel->GetName().c_str());
     scrollY = ImGui::GetScrollY();
 }
 void DisplayChannel::loadLogoTexture()
 {
-    /*if (logoData && !channelLogoTexture)
+    if (logoData && !logo.tex && vulkanInstance)
     {
-        glGenTextures(1, &channelLogoTexture);
-        glBindTexture(GL_TEXTURE_2D, channelLogoTexture);
-
-        // Setup filtering parameters for display
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
-                        GL_CLAMP_TO_EDGE); // This is required on WebGL
-                                           // for non power-of-two textures
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
-                        GL_CLAMP_TO_EDGE); // Same
-        if (logoChannels == 3)
-        {
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, logoWidth, logoHeight, 0,
-                         GL_RGB, GL_UNSIGNED_BYTE, logoData);
-        }
-        else if (logoChannels == 4)
-        {
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, logoWidth, logoHeight, 0,
-                         GL_RGBA, GL_UNSIGNED_BYTE, logoData);
-        }
-        glBindTexture(GL_TEXTURE_2D, 0);
         ImVec2 size = displayLogoSize;
         if (parent->maxLogoWidth < size.x)
         {
             parent->maxLogoWidth = size.x;
         }
-    }*/
+        logo = vulkanInstance->CreateImageData(logoWidth, logoHeight,
+                                               logoChannels, logoData);
+    }
 }
 
 void DisplayChannel::showPopup(std::unordered_set<DisplayNode*>& selectedNodes)
@@ -328,7 +311,7 @@ void DisplayChannel::showPopup(std::unordered_set<DisplayNode*>& selectedNodes)
             assert(p != nullptr && p->getType() == DisplayNodeType::ROOT);
             DisplayRootChannelsGroup* root =
                 static_cast<DisplayRootChannelsGroup*>(p);
-            root->favouritesGroup->addChannel(channel);
+            root->favouritesGroup->addChannel(channel, vulkanInstance);
         }
         if (favourite && ImGui::Selectable("Remove Favourite"))
         {

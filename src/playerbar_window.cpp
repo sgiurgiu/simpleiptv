@@ -14,25 +14,30 @@
 
 PlayerBarWindow::PlayerBarWindow(Key,
                                  const boost::asio::any_io_executor& ui_executor,
-                                 WorkersProvider* workersProvider)
+                                 WorkersProvider* workersProvider,
+                                 SimpleIPTVVulkan* vulkanInstance)
 : ui_executor{ ui_executor }
 , workersProvider{ workersProvider }
+, vulkanInstance{ vulkanInstance }
 , volumeIcon{ reinterpret_cast<const char*>(ICON_FA_VOLUME_UP) }
 {
 }
 std::shared_ptr<PlayerBarWindow>
 PlayerBarWindow::Create(const boost::asio::any_io_executor& executor,
-                        WorkersProvider* workersProvider)
+                        WorkersProvider* workersProvider,
+                        SimpleIPTVVulkan* vulkanInstance)
 {
-    return std::make_shared<PlayerBarWindow>(Key{}, executor, workersProvider);
+    return std::make_shared<PlayerBarWindow>(Key{}, executor, workersProvider,
+                                             vulkanInstance);
 }
 PlayerBarWindow::~PlayerBarWindow()
 {
-    /*if (channelLogoTexture)
+    if (logo.tex)
     {
-        glDeleteTextures(1, &channelLogoTexture);
-        channelLogoTexture = 0;
-    }*/
+        vulkanInstance->WaitForIdle();
+        vulkanInstance->DestroyImageData(logo);
+        logo.tex = nullptr;
+    }
 }
 ImVec2 PlayerBarWindow::ShowWindow()
 {
@@ -147,12 +152,12 @@ ImVec2 PlayerBarWindow::ShowWindow()
         ImGui::EndDisabled();
 
         ImGui::SameLine();
-        /*if (channelLogoTexture)
+        if (logo.tex)
         {
-            ImTextureID texture = static_cast<ImTextureID>(channelLogoTexture);
+            ImTextureID texture = reinterpret_cast<ImTextureID>(logo.tex);
             ImGui::Image(texture, channelLogoSize);
             ImGui::SameLine();
-        }*/
+        }
         ImGui::Text("%s", currentChannel->GetName().c_str());
         if (!epgListings.empty())
         {
@@ -268,44 +273,14 @@ void PlayerBarWindow::loadChannelLogoData()
         imageData, width, height, width * channels, nullptr, size.x, size.y,
         size.x * channels, (stbir_pixel_layout)channels);
 
-    /*if (channelLogoTexture)
+    if (logo.tex)
     {
-        glDeleteTextures(1, &channelLogoTexture);
-        channelLogoTexture = 0;
+        vulkanInstance->WaitForIdle();
+        vulkanInstance->DestroyPlayerBarImageData(logo);
     }
 
-    {
-        auto [bg_r, bg_g, bg_b, _] = Utils::GetContrastColor(
-            resizedImageData, (int)size.x, (int)size.y, channels);
-        float s = 1.0f / 255.0f;
-        windowBackground.x = bg_r * s;
-        windowBackground.y = bg_g * s;
-        windowBackground.z = bg_b * s;
-    }
-
-    glGenTextures(1, &channelLogoTexture);
-    glBindTexture(GL_TEXTURE_2D, channelLogoTexture);
-
-    // Setup filtering parameters for display
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
-                    GL_CLAMP_TO_EDGE); // This is required on WebGL
-                                       // for non power-of-two textures
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
-                    GL_CLAMP_TO_EDGE); // Same
-    if (channels == 3)
-    {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, size.x, size.y, 0, GL_RGB,
-                     GL_UNSIGNED_BYTE, resizedImageData);
-    }
-    else if (channels == 4)
-    {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.x, size.y, 0, GL_RGBA,
-                     GL_UNSIGNED_BYTE, resizedImageData);
-    }
-    glBindTexture(GL_TEXTURE_2D, 0);
-    */
+    logo = vulkanInstance->CreatePlayerBarImageData((int)size.x, (int)size.y,
+                                                    channels, resizedImageData);
     stbi_image_free(imageData);
     stbi_image_free(resizedImageData);
 }

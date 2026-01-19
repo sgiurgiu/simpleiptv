@@ -23,8 +23,10 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
 : ui_executor{ uiContext.get_executor() }
 , workersProvider{ workersProvider }
 , vulkanInstance{ vulkanInstance }
-, channelsWindow{ ChannelsWindow::Create(ui_executor, this->workersProvider) }
-, playerBarWindow{ PlayerBarWindow::Create(ui_executor, this->workersProvider) }
+, channelsWindow{ ChannelsWindow::Create(
+      ui_executor, this->workersProvider, this->vulkanInstance) }
+, playerBarWindow{ PlayerBarWindow::Create(
+      ui_executor, this->workersProvider, this->vulkanInstance) }
 , epgListingWindow{ EpgListingWindow::Create(ui_executor, this->workersProvider) }
 , player{ ui_executor, this->workersProvider }
 , channelsShowingTimer{ ui_executor }

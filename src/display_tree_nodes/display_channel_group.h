@@ -3,6 +3,7 @@
 #include "display_node.h"
 
 #include "../channels/channels_group.h"
+#include "../simpleiptv_vulkan.h"
 
 struct DisplayChannelsGroup : public DisplayNode
 {
@@ -55,6 +56,7 @@ struct DisplayChannelsGroup : public DisplayNode
     virtual void renderGroup(std::unordered_set<DisplayNode*>& selectedNodes,
                              const std::string& filter);
     void loadChildren(WorkersProvider* workersProvider,
+                      SimpleIPTVVulkan* vulkanInstance,
                       const boost::asio::any_io_executor& ui_executor) override;
     bool shouldRender(const std::string& filter) const override;
     virtual int getUnderlyingID() const override
@@ -66,7 +68,7 @@ struct DisplayChannelsGroup : public DisplayNode
         return DisplayNodeType::GROUP;
     }
     void removeChannel(std::shared_ptr<DisplayChannel> channel);
-    void addChannel(ChannelPtr channel);
+    void addChannel(ChannelPtr channel, SimpleIPTVVulkan* vulkanInstance);
     ChannelsGroupPtr group;
     WorkersProvider* workersProvider;
     boost::asio::any_io_executor ui_executor;

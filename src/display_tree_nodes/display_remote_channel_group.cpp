@@ -120,9 +120,9 @@ void DisplayRemoteChannelsGroup::loadRemoteChildren()
                     -1, name, channelUrl.buffer(), icon, "", epgUrl.buffer(),
                     epgStreamId, server_id, false, -1);
 
-                auto displayChannel =
-                    DisplayChannel::Create(channel, self->workersProvider,
-                                           self->ui_executor, self.get());
+                auto displayChannel = DisplayChannel::Create(
+                    channel, self->workersProvider, nullptr, self->ui_executor,
+                    self.get());
                 displayChannel->reloadLocalChannelsSignal.connect(
                     std::ref(self->reloadLocalChannelsSignal));
                 self->children.push_back(std::move(displayChannel));

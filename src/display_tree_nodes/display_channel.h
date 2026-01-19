@@ -3,6 +3,7 @@
 #include <imgui.h>
 
 #include "../channels/channel.h"
+#include "../simpleiptv_vulkan.h"
 #include "display_node.h"
 
 struct DisplayChannel : public DisplayNode
@@ -10,16 +11,19 @@ struct DisplayChannel : public DisplayNode
     DisplayChannel(DisplayNodeKey,
                    ChannelPtr channel,
                    WorkersProvider* workersProvider,
+                   SimpleIPTVVulkan* vulkanInstance,
                    const boost::asio::any_io_executor& ui_executor,
                    DisplayChannelsGroup* parent);
     static std::shared_ptr<DisplayChannel>
     Create(ChannelPtr channel,
            WorkersProvider* workersProvider,
+           SimpleIPTVVulkan* vulkanInstance,
            const boost::asio::any_io_executor& ui_executor,
            DisplayChannelsGroup* parent)
     {
-        return std::make_shared<DisplayChannel>(
-            DisplayNodeKey{}, channel, workersProvider, ui_executor, parent);
+        return std::make_shared<DisplayChannel>(DisplayNodeKey{}, channel,
+                                                workersProvider, vulkanInstance,
+                                                ui_executor, parent);
     }
     void render(std::unordered_set<DisplayNode*>& selectedNodes,
                 const std::string& filter) override
@@ -30,7 +34,9 @@ struct DisplayChannel : public DisplayNode
     void loadLogo();
     void renderChannel(std::unordered_set<DisplayNode*>& selectedNodes,
                        const std::string& filter);
-    void loadChildren(WorkersProvider*, const boost::asio::any_io_executor&) override
+    void loadChildren(WorkersProvider*,
+                      SimpleIPTVVulkan*,
+                      const boost::asio::any_io_executor&) override
     {
     }
 
@@ -55,7 +61,7 @@ struct DisplayChannel : public DisplayNode
     WorkersProvider* workersProvider;
     boost::asio::any_io_executor ui_executor;
     bool isActivated = false;
-    // GLuint channelLogoTexture = 0;
+
     std::atomic_int logoWidth = 0;
     std::atomic_int logoHeight = 0;
     std::atomic_int logoChannels = 0;
@@ -63,4 +69,6 @@ struct DisplayChannel : public DisplayNode
     std::atomic<unsigned char*> logoData = nullptr;
     bool shouldScrollToChannel = false;
     float scrollY = 0.0;
+    ImageData logo = {};
+    SimpleIPTVVulkan* vulkanInstance = nullptr;
 };

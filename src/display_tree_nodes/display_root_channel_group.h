@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../channels/root_channel_group.h"
+#include "../simpleiptv_vulkan.h"
 #include "display_channel_group.h"
 
 struct DisplayRootChannelsGroup : public DisplayChannelsGroup
@@ -22,8 +23,10 @@ struct DisplayRootChannelsGroup : public DisplayChannelsGroup
                      const std::string& filter) override;
     void setRoot(RootChannelsGroupPtr root,
                  WorkersProvider* workersProvider,
+                 SimpleIPTVVulkan* vulkanInstance,
                  const boost::asio::any_io_executor& ui_executor);
     void loadChildren(WorkersProvider* workersProvider,
+                      SimpleIPTVVulkan* vulkanInstance,
                       const boost::asio::any_io_executor& ui_executor) override;
     void ActivateChannelOfGroup(ChannelsGroupPtr group, ChannelPtr channel);
     virtual int getUnderlyingID() const override

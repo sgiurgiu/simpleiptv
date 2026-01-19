@@ -5,15 +5,16 @@
 #include <imgui.h>
 
 void DisplayChannelsGroup::loadChildren(WorkersProvider* workersProvider,
+                                        SimpleIPTVVulkan* vulkanInstance,
                                         const boost::asio::any_io_executor& ui_executor)
 {
     if (children.empty() && group)
     {
         group->IterateChannels(
-            [this, workersProvider, ui_executor](auto& channel)
+            [this, workersProvider, vulkanInstance, ui_executor](auto& channel)
             {
-                auto dchannel = DisplayChannel::Create(channel, workersProvider,
-                                                       ui_executor, this);
+                auto dchannel = DisplayChannel::Create(
+                    channel, workersProvider, vulkanInstance, ui_executor, this);
                 children.emplace_back(dchannel);
                 dchannel->loadLogo();
                 dchannel->indexInParent = children.size() - 1;
@@ -84,15 +85,16 @@ void DisplayChannelsGroup::removeChannel(std::shared_ptr<DisplayChannel> channel
     }
     std::erase(children, channel);
 }
-void DisplayChannelsGroup::addChannel(ChannelPtr channel)
+void DisplayChannelsGroup::addChannel(ChannelPtr channel,
+                                      SimpleIPTVVulkan* vulkanInstance)
 {
     if (group)
     {
         group->AddChannel(channel);
     }
 
-    auto dchannel =
-        DisplayChannel::Create(channel, workersProvider, ui_executor, this);
+    auto dchannel = DisplayChannel::Create(channel, workersProvider,
+                                           vulkanInstance, ui_executor, this);
     children.emplace_back(dchannel);
     dchannel->loadLogo();
     dchannel->indexInParent = children.size() - 1;

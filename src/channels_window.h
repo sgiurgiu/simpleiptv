@@ -24,10 +24,12 @@ private:
 public:
     ChannelsWindow(Key,
                    const boost::asio::any_io_executor& ui_executor,
-                   WorkersProvider* workersProvider);
+                   WorkersProvider* workersProvider,
+                   SimpleIPTVVulkan* vulkanInstance);
     static std::shared_ptr<ChannelsWindow>
     Create(const boost::asio::any_io_executor& executor,
-           WorkersProvider* workersProvider);
+           WorkersProvider* workersProvider,
+           SimpleIPTVVulkan* vulkanInstance);
 
     ImVec2 ShowWindow(float playerBarHeight);
     bool ShouldQuit() const
@@ -58,6 +60,7 @@ private:
 private:
     boost::asio::any_io_executor ui_executor;
     WorkersProvider* workersProvider;
+    SimpleIPTVVulkan* vulkanInstance;
     float bgAlpha = 0.f;
     bool quit = false;
     std::shared_ptr<DisplayRootChannelsGroup> rootNode;

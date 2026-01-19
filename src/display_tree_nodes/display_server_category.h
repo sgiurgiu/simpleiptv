@@ -38,6 +38,7 @@ struct DisplayServerCategory : public DisplayChannelsGroup
     virtual void render(std::unordered_set<DisplayNode*>& selectedNodes,
                         const std::string& filter) override;
     virtual void loadChildren(WorkersProvider*,
+                              SimpleIPTVVulkan*,
                               const boost::asio::any_io_executor&) override
     {
     }

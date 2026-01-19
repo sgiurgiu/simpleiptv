@@ -6,6 +6,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include "../simpleiptv_vulkan.h"
+
 enum class DisplayNodeType
 {
     ROOT,
@@ -43,11 +45,14 @@ public:
     virtual void render(std::unordered_set<DisplayNode*>& selectedNodes,
                         const std::string& filter) = 0;
     virtual void loadChildren(WorkersProvider* workersProvider,
+                              SimpleIPTVVulkan* vulkanInstance,
                               const boost::asio::any_io_executor& ui_executor) = 0;
     virtual bool shouldRender(const std::string& filter) const = 0;
     DisplayNode* getNextNode(WorkersProvider* workersProvider,
+                             SimpleIPTVVulkan* vulkanInstance,
                              const boost::asio::any_io_executor& ui_executor);
     DisplayNode* getPreviousNode(WorkersProvider* workersProvider,
+                                 SimpleIPTVVulkan* vulkanInstance,
                                  const boost::asio::any_io_executor& ui_executor);
 
     template <typename Derived>

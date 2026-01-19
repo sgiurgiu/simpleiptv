@@ -10,6 +10,7 @@
 #include "channels/channel.h"
 #include "epg_listing.h"
 #include "mpvplayer_state.h"
+#include "simpleiptv_vulkan.h"
 #include "workers_provider.h"
 
 class PlayerBarWindow : public std::enable_shared_from_this<PlayerBarWindow>
@@ -23,10 +24,12 @@ private:
 public:
     PlayerBarWindow(Key,
                     const boost::asio::any_io_executor& ui_executor,
-                    WorkersProvider* workersProvider);
+                    WorkersProvider* workersProvider,
+                    SimpleIPTVVulkan* vulkanInstance);
     static std::shared_ptr<PlayerBarWindow>
     Create(const boost::asio::any_io_executor& executor,
-           WorkersProvider* workersProvider);
+           WorkersProvider* workersProvider,
+           SimpleIPTVVulkan* vulkanInstance);
     ~PlayerBarWindow();
     ImVec2 ShowWindow();
     bool IsPinned() const
@@ -110,6 +113,7 @@ private:
 private:
     boost::asio::any_io_executor ui_executor;
     WorkersProvider* workersProvider;
+    SimpleIPTVVulkan* vulkanInstance;
     float bgAlpha = 0.6f;
     ChannelPtr currentChannel;
     std::string channelsFilter;
@@ -126,7 +130,7 @@ private:
     std::chrono::steady_clock::time_point lastVolumeHoveredTime;
     bool channelListPressed = true;
     bool epgListingPressed = false;
-    // GLuint channelLogoTexture = 0;
+
     ImVec2 channelLogoSize = { 0, 0 };
     std::string fileLoadingError;
     using VolumeSignal = boost::signals2::signal<void(double)>;
@@ -144,4 +148,5 @@ private:
 
     ImVec4 windowBackground = { 0.0f, 0.0f, 0.0f, 0.6f };
     ImVec4 noChannelWindowBackground = windowBackground;
+    ImageData logo;
 };
