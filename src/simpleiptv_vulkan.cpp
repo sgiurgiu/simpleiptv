@@ -251,12 +251,12 @@ void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame)
     }
 }
 
-void SimpleIPTVVulkan::Draw(const ImRect& desktopRect, MpvPlayer* player)
+bool SimpleIPTVVulkan::Draw(const ImRect& desktopRect, MpvPlayer* player)
 {
     pl_swapchain_frame frame = {};
     if (!pl_swapchain_start_frame(swapchain, &frame) ) {
         spdlog::error("[render] failed to get swapchain frame!");
-        return;
+        return false;
     }
 
     if (player && player->GetPlayerState() == PlayerState::PLAYING)
@@ -274,11 +274,12 @@ void SimpleIPTVVulkan::Draw(const ImRect& desktopRect, MpvPlayer* player)
     pl_gpu_flush(vulkan->gpu);
     pl_swapchain_submit_frame(swapchain);
     pl_swapchain_swap_buffers(swapchain);
+    return true;
 }
 
 void SimpleIPTVVulkan::ResizeSwapchain(int width, int height)
 {
-    WaitForIdle(); // Not sure if this is needed ???
+    //    WaitForIdle(); // Not sure if this is needed ???
 
     pl_swapchain_resize(swapchain, &width, &height);
 }
@@ -530,7 +531,7 @@ void SimpleIPTVVulkan::initSwapchain()
     sw_params.surface = surface;
     sw_params.swapchain_depth = 3;
     sw_params.allow_suboptimal = true;
-    sw_params.disable_10bit_sdr = true;
+    // sw_params.disable_10bit_sdr = true;
 
     swapchain = pl_vulkan_create_swapchain(vulkan, &sw_params);
 

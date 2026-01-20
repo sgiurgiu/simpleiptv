@@ -42,8 +42,7 @@ private:
     bool quit = false;
     boost::asio::steady_timer channelsShowingTimer;
     bool showChannels = true;
-    std::chrono::steady_clock::time_point lastResizeTime;
-    std::chrono::steady_clock::time_point lastActivityTime;
+    bool needsResize = false;
 #ifdef STV_UNIX
     std::shared_ptr<MprisService> mprisService;
 #endif

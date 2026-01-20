@@ -89,9 +89,6 @@ private:
     MediaState mediaState;
     int width = 100;
     int height = 100;
-    int frameWidth = width;
-    int frameHeight = width;
-    ImVec2 lastWindowSize = { 0, 0 };
 
     PlayerState playerState = PlayerState::STOPPED;
     ChannelPtr currentlyPlayingChannel;

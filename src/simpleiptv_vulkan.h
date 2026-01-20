@@ -94,7 +94,7 @@ public:
 
     void WaitForIdle();
     static void CheckError(VkResult err);
-    void Draw(const ImRect& desktopRect, MpvPlayer* player);
+    bool Draw(const ImRect& desktopRect, MpvPlayer* player);
     void ResizeSwapchain(int width, int height);
     void DestroyImageData(ImageData& image);
     ImageData CreateImageData(int width, int height, int channels, uint8_t* data);

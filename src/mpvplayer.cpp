@@ -313,8 +313,8 @@ void MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame,
         .x1 = (int)desktopRect.Max.x,
         .y1 = (int)desktopRect.Max.y,
     };
-    spdlog::debug("mpvRenderFrame: {}x{} - {}x{}", rect.x0, rect.y0, rect.x1,
-                  rect.y1);
+    // spdlog::debug("mpvRenderFrame: {}x{} - {}x{}", rect.x0, rect.y0, rect.x1,
+    //               rect.y1);
 
     int block = 0;
     mpv_render_param render_params[] = {
@@ -346,8 +346,6 @@ void MpvPlayer::SetSize(int width, int height)
         return;
     this->width = width;
     this->height = height;
-    frameWidth = width - lastWindowSize.x;
-    frameHeight = height - lastWindowSize.y;
 }
 void MpvPlayer::Play()
 {

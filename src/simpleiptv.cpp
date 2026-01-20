@@ -93,22 +93,6 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
 #endif
 }
 
-void SimpleIPTV::setSize(int width, int height)
-{
-    if (width == this->width && height == this->height)
-        return;
-
-    auto now = std::chrono::steady_clock::now();
-    if (now - lastResizeTime > resizeDebounceDelay)
-    {
-        this->width = width;
-        this->height = height;
-        vulkanInstance->ResizeSwapchain(width, height);
-        player.SetSize(width, height);
-        lastResizeTime = now;
-    }
-}
-
 void SimpleIPTV::rearmChannelsShowingTimer()
 {
     channelsShowingTimer.expires_after(ChannelsWindowTimerExpiry);
@@ -182,8 +166,44 @@ ImRect SimpleIPTV::showDesktop()
     return desktopRect;
 }
 
+/*Solution 3: Recreate swapchain asynchronously (Advanced)
+This is more complex but gives the smoothest experience:
+cvoid SimpleIPTV::setSize(int width, int height)
+{
+    this->width = width;
+    this->height = height;
+
+    // Post resize work to background thread
+    resizeWorkQueue.post([this, width, height]() {
+        // Create new swapchain on background thread
+        auto newSwapchain = createSwapchain(width, height);
+
+        // Swap on main thread
+        uiContext.post([this, newSwapchain]() {
+            destroyOldSwapchain();
+            this->swapchain = newSwapchain;
+        });
+    });
+}*/
+
+void SimpleIPTV::setSize(int width, int height)
+{
+    if (width == this->width && height == this->height)
+        return;
+
+    needsResize = true;
+    this->width = width;
+    this->height = height;
+}
+
 void SimpleIPTV::Render(const ImRect& desktopRect)
 {
+    if (needsResize)
+    {
+        vulkanInstance->ResizeSwapchain(width, height);
+        player.SetSize(width, height);
+        needsResize = false;
+    }
     vulkanInstance->Draw(desktopRect, &player);
 }
 

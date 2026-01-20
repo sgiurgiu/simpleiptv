@@ -184,13 +184,12 @@ void runMainLoop(GLFWwindow* window,
             SimpleIPTV* desktop =
                 reinterpret_cast<SimpleIPTV*>(glfwGetWindowUserPointer(window));
             desktop->setSize(width, height);
+            //  glfwPostEmptyEvent(); // Wake up event loop
         });
-
-    //    glfwSetWindowSize(window, 1280, 720);
 
     // Main loop
     bool done = false;
-    auto start = std::chrono::steady_clock::now();
+
     while (!done)
     {
         done = glfwWindowShouldClose(window);
@@ -221,8 +220,6 @@ void runMainLoop(GLFWwindow* window,
         ImGui::Render();
 
         iptv.Render(windowBottomLeftPoint);
-        // auto end = std::chrono::steady_clock::now();
-        // auto durationSpentDrawing = end - start;
         // std::this_thread::sleep_for(std::chrono::milliseconds{ 16 } -
         //                             durationSpentDrawing);
         // start = std::chrono::steady_clock::now();
