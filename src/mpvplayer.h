@@ -1,16 +1,14 @@
 #pragma once
 
-#include <atomic>
-#include <boost/asio/any_io_executor.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <boost/signals2.hpp>
-#include <imgui.h>
-
 #include "channels/channel.h"
 #include "mpvplayer_state.h"
 #include "proxy_repository.h"
 #include "workers_provider.h"
-
+#include <atomic>
+#include <boost/asio/any_io_executor.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/signals2.hpp>
+#include <imgui_internal.h>
 #include <libplacebo/log.h>
 #include <libplacebo/options.h>
 #include <libplacebo/swapchain.h>
@@ -26,7 +24,7 @@ public:
               WorkersProvider* workersProvider);
     ~MpvPlayer();
     void InitializeMpv(pl_swapchain swapchain, pl_log logger);
-    void Render(pl_swapchain_frame* frame, const ImVec2& windowsSize);
+    void Render(pl_swapchain_frame* frame, const ImRect& desktopRect);
     void SetSize(int width, int height);
     void Play(ChannelPtr channel);
     void Play();
@@ -64,7 +62,7 @@ public:
 private:
     void handleMpvEvent(mpv_event* event);
     void handleMpvEvents();
-    void mpvRenderFrame(pl_swapchain_frame* frame);
+    void mpvRenderFrame(pl_swapchain_frame* frame, const ImRect& desktopRect);
     static void mpvRenderUpdate(void* ctx);
     static void onMpvEvents(void* ctx);
 

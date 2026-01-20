@@ -1,8 +1,7 @@
 #include "simpleiptv_vulkan.h"
 
-#include <libplacebo/common.h>
-
 #include <libplacebo/colorspace.h>
+#include <libplacebo/common.h>
 #include <libplacebo/renderer.h>
 #include <libplacebo/swapchain.h>
 
@@ -252,7 +251,7 @@ void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame)
     }
 }
 
-void SimpleIPTVVulkan::Draw(const ImVec2& windowSize, MpvPlayer* player)
+void SimpleIPTVVulkan::Draw(const ImRect& desktopRect, MpvPlayer* player)
 {
     pl_swapchain_frame frame = {};
     if (!pl_swapchain_start_frame(swapchain, &frame) ) {
@@ -262,11 +261,12 @@ void SimpleIPTVVulkan::Draw(const ImVec2& windowSize, MpvPlayer* player)
 
     if (player && player->GetPlayerState() == PlayerState::PLAYING)
     {
-        player->Render(&frame, windowSize);
+        player->Render(&frame, desktopRect);
     }
     else
     {
-        pl_tex_clear(vulkan->gpu, frame.fbo, (float[4]){0.5f, 0.5f, 0.5f, 1.0f});
+        const float color[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
+        pl_tex_clear(vulkan->gpu, frame.fbo, color);
     }
     updateImguiDrawBuffers();
     drawImgui(&frame);

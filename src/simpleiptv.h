@@ -9,6 +9,7 @@
 #include "playerbar_window.h"
 #include "simpleiptv_vulkan.h"
 #include "workers_provider.h"
+#include <imgui_internal.h>
 
 class SimpleIPTV
 {
@@ -17,8 +18,8 @@ public:
                WorkersProvider* workersProvider,
                SimpleIPTVVulkan* vulkanInstance);
     void setSize(int width, int height);
-    ImVec2 showDesktop();
-    void Render(const ImVec2& windowSize);
+    ImRect showDesktop();
+    void Render(const ImRect& desktopRect);
     bool shouldQuit() const
     {
         return channelsWindow->ShouldQuit() || quit;

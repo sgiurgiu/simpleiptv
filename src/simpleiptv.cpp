@@ -122,7 +122,7 @@ void SimpleIPTV::rearmChannelsShowingTimer()
         });
 }
 
-ImVec2 SimpleIPTV::showDesktop()
+ImRect SimpleIPTV::showDesktop()
 {
     if (ImGui::IsKeyPressed(ImGuiKey_Q) && ImGui::GetIO().KeyCtrl)
     {
@@ -136,15 +136,22 @@ ImVec2 SimpleIPTV::showDesktop()
         playerBarWindow->SetChannelListPressed(
             !playerBarWindow->IsChannelListPressed());
     }
+    auto mainViewport = ImGui::GetMainViewport();
 
-    ImVec2 windowsSize = playerBarWindow->ShowWindow();
+    ImRect desktopRect;
+    ImVec2 playerBarSize = playerBarWindow->ShowWindow();
     if (playerBarWindow->IsChannelListPressed())
     {
-        windowsSize.x = channelsWindow->ShowWindow(windowsSize.y).x;
+        desktopRect.Min.x = channelsWindow->ShowWindow(playerBarSize.y).x;
+        desktopRect.Min.y = 0;
+        desktopRect.Max.x = playerBarSize.x;
+        desktopRect.Max.y = mainViewport->WorkSize.y - playerBarSize.y;
     }
     else
     {
-        windowsSize.x = 0.f;
+        desktopRect.Min = { 0.f, 0.f };
+        desktopRect.Max = { playerBarSize.x,
+                            mainViewport->WorkSize.y - playerBarSize.y };
     }
     if (!epgListingWindow->IsClosed())
     {
@@ -153,11 +160,6 @@ ImVec2 SimpleIPTV::showDesktop()
     else
     {
         playerBarWindow->SetEpgListingPressed(false);
-    }
-
-    if (player.GetPlayerState() == PlayerState::PLAYING)
-    {
-        // TODO: player.Render(windowsSize);
     }
 
     if (!ImGui::IsAnyItemHovered() &&
@@ -177,12 +179,12 @@ ImVec2 SimpleIPTV::showDesktop()
             player.VolumeDecrease();
         }
     }
-    return windowsSize;
+    return desktopRect;
 }
 
-void SimpleIPTV::Render(const ImVec2& windowSize)
+void SimpleIPTV::Render(const ImRect& desktopRect)
 {
-    vulkanInstance->Draw(windowSize, &player);
+    vulkanInstance->Draw(desktopRect, &player);
 }
 
 void SimpleIPTV::channelActivated(ChannelPtr channel)

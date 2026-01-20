@@ -1,13 +1,13 @@
 #pragma once
 
 #include <filesystem>
-#include <functional>
 #include <set>
 #include <string>
 #include <unordered_set>
 #include <vector>
 
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <libplacebo/log.h>
 #include <libplacebo/renderer.h>
 #include <libplacebo/shaders.h>
@@ -15,8 +15,8 @@
 #include <libplacebo/vulkan.h>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
-#include <GLFW/glfw3.h>
 
+#include <GLFW/glfw3.h>
 
 struct ImageData
 {
@@ -94,7 +94,7 @@ public:
 
     void WaitForIdle();
     static void CheckError(VkResult err);
-    void Draw(const ImVec2& windowSize, MpvPlayer* player);
+    void Draw(const ImRect& desktopRect, MpvPlayer* player);
     void ResizeSwapchain(int width, int height);
     void DestroyImageData(ImageData& image);
     ImageData CreateImageData(int width, int height, int channels, uint8_t* data);

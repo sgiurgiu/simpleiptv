@@ -301,11 +301,21 @@ void MpvPlayer::updateDisplay()
     // mpvRenderFrame();
 }
 
-void MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame)
+void MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame,
+                               const ImRect &desktopRect)
 {
     if (!shouldRender)
         return;
     shouldRender = false;
+    struct mpv_render_rect_t rect = {
+        .x0 = (int)desktopRect.Min.x,
+        .y0 = (int)desktopRect.Min.y,
+        .x1 = (int)desktopRect.Max.x,
+        .y1 = (int)desktopRect.Max.y,
+    };
+    spdlog::debug("mpvRenderFrame: {}x{} - {}x{}", rect.x0, rect.y0, rect.x1,
+                  rect.y1);
+
     int block = 0;
     mpv_render_param render_params[] = {
         { MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, &block },
@@ -313,6 +323,8 @@ void MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame)
           (void *)placeboOptions },
         { (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_FRAME,
           (void *)frame },
+        { (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_VIEWPORT,
+          &rect },
         { MPV_RENDER_PARAM_INVALID, 0 }
     };
     int flip_y = 0;
@@ -324,9 +336,9 @@ void MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame)
     }
 }
 
-void MpvPlayer::Render(pl_swapchain_frame *frame, const ImVec2 &windowsSize)
+void MpvPlayer::Render(pl_swapchain_frame *frame, const ImRect &desktopRect)
 {
-    mpvRenderFrame(frame);
+    mpvRenderFrame(frame, desktopRect);
 }
 void MpvPlayer::SetSize(int width, int height)
 {
