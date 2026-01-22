@@ -103,7 +103,8 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
     double volMax = 150.0;
     mpv_set_property(mpv, "volume-max", MPV_FORMAT_DOUBLE, &volMax);
 
-    mpv_set_wakeup_callback(mpv, MpvPlayer::onMpvEvents, this);
+    // mpv_set_wakeup_callback(mpv, MpvPlayer::onMpvEvents, this);
+    mpvEventsThread = std::thread([this]() { handleMpvEvents(); });
 
     if (mpv_initialize(mpv) < 0)
         throw std::runtime_error("could not initialize mpv context");
@@ -138,6 +139,7 @@ MpvPlayer::~MpvPlayer()
         const char *cmd[] = { "quit", nullptr };
         mpv_command(mpv, cmd);
     }
+    mpvEventsThread.join();
     if (mpvRenderContext)
     {
         mpv_render_context_free(mpvRenderContext);
@@ -145,7 +147,7 @@ MpvPlayer::~MpvPlayer()
     }
     if (mpv)
     {
-        mpv_set_wakeup_callback(mpv, nullptr, nullptr);
+        // mpv_set_wakeup_callback(mpv, nullptr, nullptr);
         mpv_terminate_destroy(mpv);
         mpv = nullptr;
     }
@@ -200,11 +202,16 @@ void MpvPlayer::handleMpvEvents()
 {
     while (mpv)
     {
-        mpv_event *event = mpv_wait_event(mpv, 0);
+        mpv_event *event = mpv_wait_event(mpv, -1);
         if (event->event_id == MPV_EVENT_NONE)
+        {
+            continue;
+        }
+        if (event->event_id == MPV_EVENT_SHUTDOWN)
         {
             break;
         }
+
         handleMpvEvent(event);
     }
 }
@@ -358,7 +365,6 @@ void MpvPlayer::mpvRenderThread()
                 vulkanInstance->DrawBackgroundFrame(&frame);
             }
             {
-                std::lock_guard<std::mutex> lock(*imguiRenderMutex);
                 vulkanInstance->DrawUI(&frame);
             }
             pl_swapchain_submit_frame(vulkanInstance->GetPlSwapchain());

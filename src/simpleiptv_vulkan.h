@@ -1,7 +1,7 @@
 #pragma once
 
 #include <filesystem>
-#include <set>
+#include <mutex>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -39,46 +39,10 @@ class SimpleIPTVVulkan
 public:
     SimpleIPTVVulkan();
     ~SimpleIPTVVulkan();
-    void Initialize(std::set<std::string> extensions, GLFWwindow* window);
-    VkInstance GetVKInstance() const
-    {
-        return instance;
-    }
-    VkPhysicalDevice GetPhysicalDevice() const
-    {
-        return physicalDevice;
-    }
-    VkDevice GetDevice() const
-    {
-        return device;
-    }
-    VkDescriptorPool GetImguiPool() const
-    {
-        return imguiPool;
-    }
+    void Initialize(const char** extensions,
+                    int extensions_count,
+                    GLFWwindow* window);
 
-    uint32_t GetQueueFamily() const
-    {
-        return graphicsQueueFamily;
-    }
-    VkQueue GetQueue() const
-    {
-        return graphicsQueue;
-    }
-
-    const VkFormat* GetSwapchainImageFormat() const
-    {
-        return &swapchainImageFormat;
-    }
-
-    VkRenderPass GetRenderPass() const
-    {
-        return renderPass;
-    }
-    pl_renderer GetPlRenderer() const
-    {
-        return renderer;
-    }
     pl_gpu GetPlGpu() const
     {
         return vulkan->gpu;
@@ -108,12 +72,14 @@ public:
     void UpdateImguiDrawBuffers();
 
 private:
-    void drawImgui(pl_swapchain_frame* frame);
-    void createVulkanInstance(std::set<std::string> extensions,
-        GLFWwindow* window);
+    void drawImgui(pl_swapchain_frame* frame,
+                   const std::vector<ImDrawVert>& vertexes,
+                   const std::vector<ImDrawIdx>& indexes,
+                   const std::vector<ImGuiDrawCommand>& commands);
+    void createVulkanInstance(const char** extensions,
+                              int extensions_count,
+                              GLFWwindow* window);
     void cleanupVulkan();
-    void initSwapchain();
-    void initImgui();
     void initImguiFont();
     void resizeSwapchain();
 
@@ -124,28 +90,18 @@ private:
         VkDebugUtilsMessageTypeFlagsEXT messageType,
         const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
         void* pUserData);
-private:
-    VkInstance instance = VK_NULL_HANDLE;
-    VmaAllocator allocator;
-    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-    VkDevice device = VK_NULL_HANDLE;
-    VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
-    VkSurfaceKHR surface = nullptr;
-    VkQueue graphicsQueue = nullptr;
-    uint32_t graphicsQueueFamily = 0;
-    VkFormat swapchainImageFormat;
-    VkRenderPass renderPass = nullptr;
 
+private:
+    pl_vk_inst vk_instance = nullptr;
     pl_log logger = nullptr;
     pl_vulkan vulkan = nullptr;
-    pl_renderer renderer = nullptr;
     pl_swapchain swapchain = nullptr;
     pl_dispatch dispatch = nullptr;
     pl_cache placeboCache = nullptr;
     uint64_t placeboCacheSig = 0;
     std::filesystem::path cacheFile;
 
-    VkDescriptorPool imguiPool;
+    VkSurfaceKHR surface = nullptr;
 
     GLFWwindow* window = nullptr;
     pl_vertex_attrib attribs_pl[3];
@@ -159,4 +115,5 @@ private:
     std::vector<ImGuiDrawCommand> imguiDrawCommands;
 
     int channelsLogoHeight = 0;
+    std::mutex imguiRenderMutex;
 };

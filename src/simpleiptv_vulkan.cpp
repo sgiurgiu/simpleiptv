@@ -1,5 +1,6 @@
 #include "simpleiptv_vulkan.h"
 
+#include <GLFW/glfw3.h>
 #include <libplacebo/colorspace.h>
 #include <libplacebo/common.h>
 #include <libplacebo/gpu.h>
@@ -80,8 +81,9 @@ SimpleIPTVVulkan::~SimpleIPTVVulkan()
     cleanupVulkan();
     destroyPlCache();
 }
-void SimpleIPTVVulkan::Initialize(std::set<std::string> extensions,
-    GLFWwindow* window)
+void SimpleIPTVVulkan::Initialize(const char** extensions,
+                                  int extensions_count,
+                                  GLFWwindow* window)
 {
     pl_log_params logParams = { .log_cb = pllog_callback,
                                 .log_priv = nullptr,
@@ -93,9 +95,7 @@ void SimpleIPTVVulkan::Initialize(std::set<std::string> extensions,
     };
     logger = pl_log_create(PL_API_VER, &logParams);
 
-    createVulkanInstance(std::move(extensions), window);
-    initSwapchain();
-    // initImgui();
+    createVulkanInstance(extensions, extensions_count, window);
     initImguiFont();
     initPlCache();
     dispatch = pl_dispatch_create(logger, vulkan->gpu);
@@ -149,6 +149,7 @@ void SimpleIPTVVulkan::createCustomShader(pl_shader sh, pl_tex texture)
 
 void SimpleIPTVVulkan::UpdateImguiDrawBuffers()
 {
+    std::lock_guard<std::mutex> lock(imguiRenderMutex);
     auto drawData = ImGui::GetDrawData();
     if (!drawData)
     {
@@ -189,9 +190,12 @@ void SimpleIPTVVulkan::UpdateImguiDrawBuffers()
     }
 }
 
-void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame)
+void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame,
+                                 const std::vector<ImDrawVert>& vertexes,
+                                 const std::vector<ImDrawIdx>& indexes,
+                                 const std::vector<ImGuiDrawCommand>& commands)
 {
-    for (const auto& cmd : imguiDrawCommands)
+    for (const auto& cmd : commands)
     {
         ImTextureID textureId = cmd.textureId;
 
@@ -245,10 +249,10 @@ void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame)
         dispatchParams.vertex_type = PL_PRIM_TRIANGLE_LIST;
         dispatchParams.vertex_count = (int)pcmd->ElemCount;
         dispatchParams.vertex_data =
-            imguiDrawVertexes.data() + cmd.vertexOffset + pcmd->VtxOffset;
+            vertexes.data() + cmd.vertexOffset + pcmd->VtxOffset;
 
         dispatchParams.index_data =
-            imguiDrawIndexes.data() + cmd.indexOffset + pcmd->IdxOffset;
+            indexes.data() + cmd.indexOffset + pcmd->IdxOffset;
         dispatchParams.index_fmt = PL_INDEX_UINT16;
         dispatchParams.index_offset = 0;
 
@@ -258,9 +262,18 @@ void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame)
 
 bool SimpleIPTVVulkan::DrawUI(pl_swapchain_frame* frame)
 {
-    drawImgui(frame);
+    std::vector<ImDrawVert> vertexes;
+    std::vector<ImDrawIdx> indexes;
+    std::vector<ImGuiDrawCommand> commands;
+    {
+        std::lock_guard<std::mutex> lock(imguiRenderMutex);
+        vertexes = imguiDrawVertexes;
+        indexes = imguiDrawIndexes;
+        commands = imguiDrawCommands;
+    }
+    drawImgui(frame, vertexes, indexes, commands);
 
-    pl_gpu_flush(vulkan->gpu);
+    // pl_gpu_flush(vulkan->gpu);
     return true;
 }
 
@@ -277,257 +290,33 @@ void SimpleIPTVVulkan::ResizeSwapchain(int width, int height)
     pl_swapchain_resize(swapchain, &width, &height);
 }
 
-void SimpleIPTVVulkan::createVulkanInstance(std::set<std::string> extensions,
-    GLFWwindow* window)
+void SimpleIPTVVulkan::createVulkanInstance(const char** extensions,
+                                            int extensions_count,
+                                            GLFWwindow* window)
 {
     this->window = window;
     volkInitialize();
+    pl_vk_inst_params vk_inst_params = {};
+    vk_inst_params.get_proc_addr = glfwGetInstanceProcAddress;
+    vk_inst_params.debug = false;
+    vk_inst_params.extensions = extensions;
+    vk_inst_params.num_extensions = extensions_count;
+    vk_instance = pl_vk_inst_create(logger, &vk_inst_params);
+    auto err = glfwCreateWindowSurface(vk_instance->instance, window, nullptr,
+                                       &surface);
+    CheckError(err);
+    pl_vulkan_params vk_params = {};
+    vk_params.instance = vk_instance->instance;
+    vk_params.get_proc_addr = vk_instance->get_proc_addr;
+    vk_params.surface = surface;
+    vk_params.allow_software = true;
+    vulkan = pl_vulkan_create(logger, &vk_params);
 
-
-    std::vector<const char*> requiredExtensions;
-#ifdef STV_DEBUG
-    requiredExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-#endif
-    for (const auto& ext : extensions)
-    {
-        requiredExtensions.push_back(ext.c_str());
-    }
-
-    VkApplicationInfo appInfo{
-        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pNext = nullptr,
-        .pApplicationName = "Simple IPTV",
-        .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-        .pEngineName = "Simple IPTV",
-        .engineVersion = VK_MAKE_VERSION(1, 0, 0),
-        .apiVersion = VK_API_VERSION_1_3,
-    };
-    
-    {
-        uint32_t layerCount = 0;
-        vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-        std::vector<VkLayerProperties> availableLayers(layerCount);
-        vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-    }
-    std::vector<const char*> layers = {
-#ifdef STV_DEBUG
-        "VK_LAYER_KHRONOS_validation",
-#endif
-    };
-    VkInstanceCreateInfo ici{
-        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .pApplicationInfo = &appInfo,
-        .enabledLayerCount = uint32_t(layers.size()),
-        .ppEnabledLayerNames = layers.data(),
-        .enabledExtensionCount = uint32_t(requiredExtensions.size()),
-        .ppEnabledExtensionNames = requiredExtensions.data()
-    };
-    CheckError(vkCreateInstance(&ici, nullptr, &instance));
-
-    volkLoadInstance(instance);
-
-#ifdef STV_DEBUG
-    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-    debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-    debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-    debugCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-    debugCreateInfo.pfnUserCallback = (PFN_vkDebugUtilsMessengerCallbackEXT)SimpleIPTVVulkan::debugCallback;
-    debugCreateInfo.pUserData = nullptr;
-    CheckError(vkCreateDebugUtilsMessengerEXT(instance, &debugCreateInfo, nullptr, &debugMessenger));
-#endif
-
-    glfwCreateWindowSurface(instance, window, nullptr, &surface);
-    {
-        uint32_t count = 0;
-        vkEnumeratePhysicalDevices(instance, &count, nullptr);
-        std::vector<VkPhysicalDevice> devices(count);
-        vkEnumeratePhysicalDevices(instance, &count, devices.data());
-        
-        for (auto dev : devices) {
-            // Check queue families + surface support
-            VkPhysicalDeviceProperties properties;
-            vkGetPhysicalDeviceProperties(dev, &properties);
-            if(properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && properties.apiVersion >= VK_API_VERSION_1_2) {
-                physicalDevice = dev;
-                break;
-            }
-        }
-    }
-    if(physicalDevice == VK_NULL_HANDLE) {
-        spdlog::error("No suitable physical device found");
-        return;
-    }
-
-    VkPhysicalDeviceVulkan13Features supported13{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
-        .pNext = nullptr,
-    };
-    
-    VkPhysicalDeviceVulkan12Features supported12{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-        .pNext = nullptr
-    };
-    
-    VkPhysicalDeviceFeatures2 supported{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-        .pNext = nullptr
-    };
-    {
-        void* tail = nullptr;
-        VkPhysicalDeviceProperties properties;
-        vkGetPhysicalDeviceProperties(physicalDevice, &properties);
-        uint32_t apiVersion = properties.apiVersion;
-        if (apiVersion >= VK_API_VERSION_1_2) {
-            supported12.pNext = tail;
-            tail = &supported12;
-        }
-
-        if (apiVersion >= VK_API_VERSION_1_3) {
-            supported13.pNext = tail;
-            tail = &supported13;
-        }
-
-        supported.pNext = tail;
-    }
-    
-    vkGetPhysicalDeviceFeatures2(physicalDevice, &supported);
-    
-    VkPhysicalDeviceVulkan13Features enabled13{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
-        .pNext = nullptr,
-    };
-    
-    VkPhysicalDeviceVulkan12Features enabled12{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-        .pNext = &enabled13
-    };
-    
-    VkPhysicalDeviceFeatures2 enabled{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-        .pNext = &enabled12
-    };    
-    enabled12.timelineSemaphore =    supported12.timelineSemaphore;
-    enabled12.bufferDeviceAddress =        supported12.bufferDeviceAddress;
-    enabled12.descriptorIndexing =        supported12.descriptorIndexing;
-    enabled12.hostQueryReset =        supported12.hostQueryReset;
-    enabled13.synchronization2 =        supported13.synchronization2;
-    
-    if (!enabled12.timelineSemaphore) {
-        throw std::runtime_error("Timeline semaphores not supported");
-    }
-    
-
-    {
-        graphicsQueueFamily = UINT32_MAX;
-        uint32_t qCount = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &qCount, nullptr);
-        std::vector<VkQueueFamilyProperties> qProps(qCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &qCount, qProps.data());
-
-        for (uint32_t i = 0; i < qCount; i++) {
-            if (qProps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                VkBool32 presentSupported = VK_FALSE;
-                vkGetPhysicalDeviceSurfaceSupportKHR(
-                    physicalDevice, i, surface, &presentSupported);
-                if (presentSupported) {
-                    graphicsQueueFamily = i;
-                    break;
-                }
-            }
-        }
-    }
-
-    if (graphicsQueueFamily == UINT32_MAX)
-    {
-        spdlog::error("No graphics queue family found");
-        return;
-    }
-
-    float priority = 1.0f;
-    VkDeviceQueueCreateInfo qci{
-        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .queueFamilyIndex = graphicsQueueFamily,
-        .queueCount = 1,
-        .pQueuePriorities = &priority
-    };
-
-    std::vector<const char*> deviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-        //VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME   
-    };
-
-    VkDeviceCreateInfo dci{
-        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = &enabled,              
-        .queueCreateInfoCount = 1,
-        .pQueueCreateInfos = &qci,
-        .enabledExtensionCount = uint32_t(deviceExtensions.size()),
-        .ppEnabledExtensionNames = deviceExtensions.data(),
-        .pEnabledFeatures = nullptr     
-    };
-    CheckError(vkCreateDevice(physicalDevice, &dci, nullptr, &device));
-    vkGetDeviceQueue(device, graphicsQueueFamily, 0, &graphicsQueue);
-    volkLoadDevice(device);
-
-    // initialize the memory allocator
-    VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.physicalDevice = this->physicalDevice;
-    allocatorInfo.device = device;
-    allocatorInfo.instance = instance;
-    VmaVulkanFunctions functions = {};
-    functions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
-    functions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
-    allocatorInfo.pVulkanFunctions = &functions;
-    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-    vmaCreateAllocator(&allocatorInfo, &allocator);
-
-    uint32_t propCount = 0;
-    vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &propCount,
-                                         nullptr);
-    VkExtensionProperties* properties = new VkExtensionProperties[propCount];
-    vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &propCount,
-                                         properties);
-    char** pl_extensions = new char*[propCount];
-    for (uint32_t i = 0; i < propCount; i++)
-    {
-        pl_extensions[i] = properties[i].extensionName;
-    }
-
-    pl_vulkan_import_params import_params = {};
-    import_params.instance = instance;
-    import_params.phys_device = physicalDevice;
-    import_params.device = device;
-    import_params.queue_graphics.index = graphicsQueueFamily;
-    import_params.queue_graphics.count = 1;
-    import_params.features = &enabled;
-    import_params.get_proc_addr = vkGetInstanceProcAddr;
-    import_params.num_extensions = (int)propCount;
-    import_params.extensions = pl_extensions;
-
-    vulkan = pl_vulkan_import(logger, &import_params);
-
-    delete[] properties;
-    delete[] pl_extensions;
-
-    renderer = pl_renderer_create(logger, vulkan->gpu);
-}
-
-void SimpleIPTVVulkan::initSwapchain()
-{
-    pl_vulkan_swapchain_params sw_params = {};
-    sw_params.present_mode = VK_PRESENT_MODE_FIFO_KHR;
-    sw_params.surface = surface;
-    sw_params.swapchain_depth = 3;
-    // sw_params.allow_suboptimal = true;
-    //  sw_params.disable_10bit_sdr = true;
-
-    swapchain = pl_vulkan_create_swapchain(vulkan, &sw_params);
-
+    pl_vulkan_swapchain_params swapchain_params = {};
+    swapchain_params.surface = surface;
+    swapchain_params.present_mode = VK_PRESENT_MODE_FIFO_KHR;
+    swapchain_params.swapchain_depth = 2;
+    swapchain = pl_vulkan_create_swapchain(vulkan, &swapchain_params);
     int w, h;
     glfwGetWindowSize(window, &w, &h);
 
@@ -537,77 +326,6 @@ void SimpleIPTVVulkan::initSwapchain()
     {
         spdlog::error("libplacebo: Failed initializing swapchain");
     }
-    VkFormat vk_format = VK_FORMAT_UNDEFINED;
-    {
-        struct pl_tex_params tex_params = {};
-        tex_params.w = w;
-        tex_params.h = h;
-        tex_params.format = pl_find_named_fmt(vulkan->gpu, "rgba8");
-        tex_params.sampleable = true;
-        tex_params.renderable = true;
-        pl_tex imguiImage = nullptr;
-        pl_tex_recreate(vulkan->gpu, &imguiImage, &tex_params);
-
-        pl_vulkan_unwrap(vulkan->gpu, imguiImage, &vk_format, nullptr);
-        swapchainImageFormat = vk_format;
-        pl_tex_destroy(vulkan->gpu, &imguiImage);
-    }
-
-    /*{
-        VkAttachmentDescription attachment = {};
-        attachment.format = vk_format;
-        attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-        attachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-        VkAttachmentReference color_attachment = {};
-        color_attachment.attachment = 0;
-        color_attachment.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        VkSubpassDescription subpass = {};
-        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        subpass.colorAttachmentCount = 1;
-        subpass.pColorAttachments = &color_attachment;
-        VkSubpassDependency dependency = {};
-        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-        dependency.dstSubpass = 0;
-        dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependency.srcAccessMask = 0;
-        dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        VkRenderPassCreateInfo info = {};
-        info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        info.attachmentCount = 1;
-        info.pAttachments = &attachment;
-        info.subpassCount = 1;
-        info.pSubpasses = &subpass;
-        info.dependencyCount = 1;
-        info.pDependencies = &dependency;
-        auto err = vkCreateRenderPass(
-            device, &info, allocator->GetAllocationCallbacks(), &renderPass);
-        SimpleIPTVVulkan::CheckError(err);
-    }*/
-}
-
-void SimpleIPTVVulkan::initImgui()
-{
-    VkDescriptorPoolSize pool_sizes[] = {
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, IMAGE_POOL_SIZE },
-    };
-    VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.maxSets = 0;
-    for (VkDescriptorPoolSize& pool_size : pool_sizes)
-        pool_info.maxSets += pool_size.descriptorCount;
-
-    pool_info.poolSizeCount = 1;
-    pool_info.pPoolSizes = pool_sizes;
-
-    auto err = vkCreateDescriptorPool(device, &pool_info, nullptr, &imguiPool);
-    CheckError(err);
 }
 
 void SimpleIPTVVulkan::initImguiFont()
@@ -645,31 +363,19 @@ void SimpleIPTVVulkan::CheckError(VkResult err)
 
 void SimpleIPTVVulkan::cleanupVulkan()
 {
-    vkDeviceWaitIdle(device);
-    //  vkDestroyDescriptorPool(device, imguiPool, nullptr);
-    //    vkDestroyRenderPass(device, renderPass, nullptr);
 
     pl_tex_destroy(vulkan->gpu, &imguiFontTex);
     pl_dispatch_destroy(&dispatch);
     pl_swapchain_destroy(&swapchain);
 
-    pl_renderer_destroy(&renderer);
     pl_vulkan_destroy(&vulkan);
-    vmaDestroyAllocator(allocator);
-    vkDestroyDevice(device, nullptr);
-
-    vkDestroySurfaceKHR(instance, surface, nullptr);
-#ifdef STV_DEBUG
-    vkDestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
-#endif
-    vkDestroyInstance(instance, nullptr);
+    pl_vk_inst_destroy(&vk_instance);
 
     volkFinalize();
 }
 void SimpleIPTVVulkan::WaitForIdle()
 {
-    auto err = vkDeviceWaitIdle(device);
-    CheckError(err);
+    pl_gpu_finish(vulkan->gpu);
 }
 
 ImageData SimpleIPTVVulkan::CreateImageData(int width,

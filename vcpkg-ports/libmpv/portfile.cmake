@@ -3,8 +3,8 @@ vcpkg_check_linkage(ONLY_STATIC_LIBRARY)
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO sgiurgiu/mpv
-    REF  6a4b10da5fbff4391ba537ce1acbc253ecc3258e
-    SHA512 d8a5b3145ffc8d306be237a0d5d421636a07daaec944c6e72601f8c15d9a2d45cd67330724eabf1e39f0ea5a5d83c9dc25d9bea1a1b55fdeeb818d6ee5119cc3
+    REF  aa53c15d06ade14e22a65bba03bb3a7feaa65cfd
+    SHA512 969434c2898b2e2fca5fcd324749eb0bebd35a9693a0d9fb82dfa781f1ce68e7ccd187ca082d887cd46522b6cad6da008d636b83650976a06c65c32176dbff74
     HEAD_REF libmpv_placebo
 )
 
@@ -40,6 +40,8 @@ vcpkg_configure_meson(
         -Djpeg=disabled
         -Dwayland=disabled
     OPTIONS
+        -Ddebug=false       # Enable debug symbols
+        -Doptimization=0   # Reduce optimization to keep symbols clearer
         -Ddefault_library=static
         -Dprefer_static=true
 	    -Dtests=false

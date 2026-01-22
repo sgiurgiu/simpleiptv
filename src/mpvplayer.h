@@ -123,4 +123,5 @@ private:
     std::mutex* imguiRenderMutex = nullptr;
 
     std::thread renderThread;
+    std::thread mpvEventsThread;
 };

@@ -128,14 +128,11 @@ void startGraphicalInterface()
 
     auto vulkanInstance = std::make_unique<SimpleIPTVVulkan>();
     {
-        std::set<std::string> extensions;
         uint32_t extensions_count = 0;
         const char** glfwExtensions =
             glfwGetRequiredInstanceExtensions(&extensions_count);
-        for (uint32_t i = 0; i < extensions_count; i++)
-            extensions.insert(glfwExtensions[i]);
 
-        vulkanInstance->Initialize(std::move(extensions), window);
+        vulkanInstance->Initialize(glfwExtensions, extensions_count, window);
     }
     ImGui_ImplVulkan_LoadFunctions(VK_API_VERSION_1_3, nullptr, nullptr);
 
@@ -210,7 +207,7 @@ void runMainLoop(GLFWwindow* window,
         }
 
         {
-            std::lock_guard<std::mutex> lock(imguiRenderMutex);
+            // std::lock_guard<std::mutex> lock(imguiRenderMutex);
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
 
