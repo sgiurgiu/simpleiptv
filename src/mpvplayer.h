@@ -3,6 +3,7 @@
 #include "channels/channel.h"
 #include "mpvplayer_state.h"
 #include "proxy_repository.h"
+#include "simpleiptv_vulkan.h"
 #include "workers_provider.h"
 #include <atomic>
 #include <boost/asio/any_io_executor.hpp>
@@ -13,6 +14,10 @@
 #include <libplacebo/options.h>
 #include <libplacebo/swapchain.h>
 
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+
 struct mpv_handle;
 struct mpv_render_context;
 struct mpv_event;
@@ -21,10 +26,12 @@ class MpvPlayer
 {
 public:
     MpvPlayer(const boost::asio::any_io_executor& ui_executor,
-              WorkersProvider* workersProvider);
+              WorkersProvider* workersProvider,
+              std::mutex* imguiRenderMutex);
     ~MpvPlayer();
-    void InitializeMpv(pl_swapchain swapchain, pl_log logger);
-    void Render(pl_swapchain_frame* frame, const ImRect& desktopRect);
+    void InitializeMpv(SimpleIPTVVulkan* vulkanInstance);
+    void Render(const ImRect& desktopRect);
+    void ReportSwap();
     void SetSize(int width, int height);
     void Play(ChannelPtr channel);
     void Play();
@@ -62,7 +69,7 @@ public:
 private:
     void handleMpvEvent(mpv_event* event);
     void handleMpvEvents();
-    void mpvRenderFrame(pl_swapchain_frame* frame, const ImRect& desktopRect);
+    bool mpvRenderFrame(pl_swapchain_frame* frame, const ImRect& desktopRect);
     static void mpvRenderUpdate(void* ctx);
     static void onMpvEvents(void* ctx);
 
@@ -70,6 +77,8 @@ private:
     void removeVolumeOsd(const boost::system::error_code& ec);
 
     void proxySettings(HttpProxy proxy);
+
+    void mpvRenderThread();
 
 private:
     const boost::asio::any_io_executor& ui_executor;
@@ -104,4 +113,14 @@ private:
         boost::signals2::signal<void(std::vector<std::string>)>;
     SubsAvailableSignal subsAvailableSignal;
     std::atomic_bool shouldRender = false;
+
+    ImRect latestDesktopRect;
+    std::mutex renderWakeupMutex;
+    std::condition_variable renderWakeupCondition;
+    std::atomic_bool renderThreadQuit = false;
+
+    SimpleIPTVVulkan* vulkanInstance = nullptr;
+    std::mutex* imguiRenderMutex = nullptr;
+
+    std::thread renderThread;
 };

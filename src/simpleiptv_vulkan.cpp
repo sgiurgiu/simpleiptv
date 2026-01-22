@@ -2,6 +2,7 @@
 
 #include <libplacebo/colorspace.h>
 #include <libplacebo/common.h>
+#include <libplacebo/gpu.h>
 #include <libplacebo/renderer.h>
 #include <libplacebo/swapchain.h>
 
@@ -146,9 +147,13 @@ void SimpleIPTVVulkan::createCustomShader(pl_shader sh, pl_tex texture)
     pl_shader_custom(sh, &custom_shader);
 }
 
-void SimpleIPTVVulkan::updateImguiDrawBuffers()
+void SimpleIPTVVulkan::UpdateImguiDrawBuffers()
 {
     auto drawData = ImGui::GetDrawData();
+    if (!drawData)
+    {
+        return;
+    }
     if (imguiDrawVertexes.size() != (size_t)drawData->TotalVtxCount)
     {
         imguiDrawVertexes.resize((size_t)drawData->TotalVtxCount);
@@ -175,9 +180,9 @@ void SimpleIPTVVulkan::updateImguiDrawBuffers()
 
         for (int32_t j = 0; j < cmd_list->CmdBuffer.Size; j++)
         {
-            const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[j];
-            imguiDrawCommands.push_back(
-                { pcmd->GetTexID(), pcmd, vertexOffset, indexOffset });
+            ImDrawCmd pcmd = cmd_list->CmdBuffer[j];
+            imguiDrawCommands.push_back({ pcmd.GetTexID(), std::move(pcmd),
+                                          vertexOffset, indexOffset });
         }
         vertexOffset += cmd_list->VtxBuffer.Size;
         indexOffset += cmd_list->IdxBuffer.Size;
@@ -207,7 +212,7 @@ void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame)
         {
         }
 
-        const ImDrawCmd* pcmd = cmd.pcmd;
+        const ImDrawCmd* pcmd = &cmd.pcmd;
         pl_shader sh = pl_dispatch_begin(dispatch);
         createCustomShader(sh, currentTexture);
 
@@ -251,30 +256,18 @@ void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame)
     }
 }
 
-bool SimpleIPTVVulkan::Draw(const ImRect& desktopRect, MpvPlayer* player)
+bool SimpleIPTVVulkan::DrawUI(pl_swapchain_frame* frame)
 {
-    pl_swapchain_frame frame = {};
-    if (!pl_swapchain_start_frame(swapchain, &frame) ) {
-        spdlog::error("[render] failed to get swapchain frame!");
-        return false;
-    }
-
-    if (player && player->GetPlayerState() == PlayerState::PLAYING)
-    {
-        player->Render(&frame, desktopRect);
-    }
-    else
-    {
-        const float color[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
-        pl_tex_clear(vulkan->gpu, frame.fbo, color);
-    }
-    updateImguiDrawBuffers();
-    drawImgui(&frame);
+    drawImgui(frame);
 
     pl_gpu_flush(vulkan->gpu);
-    pl_swapchain_submit_frame(swapchain);
-    pl_swapchain_swap_buffers(swapchain);
     return true;
+}
+
+void SimpleIPTVVulkan::DrawBackgroundFrame(pl_swapchain_frame* frame)
+{
+    const float color[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
+    pl_tex_clear(vulkan->gpu, frame->fbo, color);
 }
 
 void SimpleIPTVVulkan::ResizeSwapchain(int width, int height)
@@ -530,8 +523,8 @@ void SimpleIPTVVulkan::initSwapchain()
     sw_params.present_mode = VK_PRESENT_MODE_FIFO_KHR;
     sw_params.surface = surface;
     sw_params.swapchain_depth = 3;
-    sw_params.allow_suboptimal = true;
-    // sw_params.disable_10bit_sdr = true;
+    // sw_params.allow_suboptimal = true;
+    //  sw_params.disable_10bit_sdr = true;
 
     swapchain = pl_vulkan_create_swapchain(vulkan, &sw_params);
 

@@ -27,7 +27,7 @@ struct ImageData
 struct ImGuiDrawCommand
 {
     ImTextureID textureId;
-    const ImDrawCmd* pcmd = nullptr;
+    ImDrawCmd pcmd;
     int vertexOffset = 0;
     int indexOffset = 0;
 };
@@ -94,7 +94,8 @@ public:
 
     void WaitForIdle();
     static void CheckError(VkResult err);
-    bool Draw(const ImRect& desktopRect, MpvPlayer* player);
+    bool DrawUI(pl_swapchain_frame* frame);
+    void DrawBackgroundFrame(pl_swapchain_frame* frame);
     void ResizeSwapchain(int width, int height);
     void DestroyImageData(ImageData& image);
     ImageData CreateImageData(int width, int height, int channels, uint8_t* data);
@@ -104,6 +105,7 @@ public:
                                        int channels,
                                        uint8_t* data);
     void DestroyPlayerBarImageData(ImageData& imageData);
+    void UpdateImguiDrawBuffers();
 
 private:
     void drawImgui(pl_swapchain_frame* frame);
@@ -114,7 +116,7 @@ private:
     void initImgui();
     void initImguiFont();
     void resizeSwapchain();
-    void updateImguiDrawBuffers();
+
     void createCustomShader(pl_shader sh, pl_tex texture);
     void initPlCache();
     void destroyPlCache();

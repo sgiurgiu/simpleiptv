@@ -63,7 +63,7 @@ int main(int /*argc*/, char** /*argv*/)
 #ifdef STV_DEBUG
     spdlog::default_logger()->set_level(spdlog::level::trace);
 #else
-    spdlog::default_logger()->set_level(spdlog::level::err);
+    spdlog::default_logger()->set_level(spdlog::level::trace);
 #endif
 
     DatabaseConnections::Initialize();
@@ -171,9 +171,12 @@ void runMainLoop(GLFWwindow* window,
 #ifdef STV_DEBUG
     bool show_demo_window = true;
 #endif
+    vulkanInstance->WaitForIdle();
     boost::asio::io_context uiContext;
     auto work = boost::asio::make_work_guard(uiContext);
-    SimpleIPTV iptv{ uiContext, &workersProvider, vulkanInstance };
+    std::mutex imguiRenderMutex;
+    SimpleIPTV iptv{ uiContext, &workersProvider, vulkanInstance,
+                     &imguiRenderMutex };
 
     glfwSetWindowUserPointer(window, &iptv);
 
@@ -202,27 +205,27 @@ void runMainLoop(GLFWwindow* window,
             glfwSetWindowShouldClose(window, true);
         }
 
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
+        while (uiContext.poll_one())
+        {
+        }
 
-        // execute one unit of work in the UI thread
-        // this includes the mpv render part
-        uiContext.poll_one();
+        {
+            std::lock_guard<std::mutex> lock(imguiRenderMutex);
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
 
 #ifdef STV_DEBUG
-        if (show_demo_window)
-            ImGui::ShowDemoWindow(&show_demo_window);
+            if (show_demo_window)
+                ImGui::ShowDemoWindow(&show_demo_window);
 #endif
 
-        // rendering stuff
-        auto windowBottomLeftPoint = iptv.showDesktop();
+            // rendering stuff
+            auto windowBottomLeftPoint = iptv.showDesktop();
 
-        ImGui::Render();
+            ImGui::Render();
 
-        iptv.Render(windowBottomLeftPoint);
-        // std::this_thread::sleep_for(std::chrono::milliseconds{ 16 } -
-        //                             durationSpentDrawing);
-        // start = std::chrono::steady_clock::now();
+            iptv.Render(windowBottomLeftPoint);
+        }
     }
     work.reset();
     glfwSetWindowUserPointer(window, nullptr);

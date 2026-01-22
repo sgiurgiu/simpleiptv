@@ -19,7 +19,8 @@ static constexpr std::chrono::milliseconds resizeDebounceDelay{ 16 };
 
 SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
                        WorkersProvider* workersProvider,
-                       SimpleIPTVVulkan* vulkanInstance)
+                       SimpleIPTVVulkan* vulkanInstance,
+                       std::mutex* imguiRenderMutex)
 : ui_executor{ uiContext.get_executor() }
 , workersProvider{ workersProvider }
 , vulkanInstance{ vulkanInstance }
@@ -28,11 +29,10 @@ SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
 , playerBarWindow{ PlayerBarWindow::Create(
       ui_executor, this->workersProvider, this->vulkanInstance) }
 , epgListingWindow{ EpgListingWindow::Create(ui_executor, this->workersProvider) }
-, player{ ui_executor, this->workersProvider }
+, player{ ui_executor, this->workersProvider, imguiRenderMutex }
 , channelsShowingTimer{ ui_executor }
 {
-    player.InitializeMpv(vulkanInstance->GetPlSwapchain(),
-                         vulkanInstance->GetPlLog());
+    player.InitializeMpv(vulkanInstance);
     using namespace std::placeholders;
     channelsWindow->AddChannelActivatedListener(
         std::bind(&SimpleIPTV::channelActivated, this, _1));
@@ -204,7 +204,8 @@ void SimpleIPTV::Render(const ImRect& desktopRect)
         player.SetSize(width, height);
         needsResize = false;
     }
-    vulkanInstance->Draw(desktopRect, &player);
+    vulkanInstance->UpdateImguiDrawBuffers();
+    player.Render(desktopRect);
 }
 
 void SimpleIPTV::channelActivated(ChannelPtr channel)

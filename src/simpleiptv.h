@@ -1,7 +1,7 @@
 #pragma once
 
 #include <boost/asio/steady_timer.hpp>
-#include <chrono>
+#include <mutex>
 
 #include "channels_window.h"
 #include "epg_listings_window.h"
@@ -16,7 +16,8 @@ class SimpleIPTV
 public:
     SimpleIPTV(boost::asio::io_context& uiContext,
                WorkersProvider* workersProvider,
-               SimpleIPTVVulkan* vulkanInstance);
+               SimpleIPTVVulkan* vulkanInstance,
+               std::mutex* imguiRenderMutex);
     void setSize(int width, int height);
     ImRect showDesktop();
     void Render(const ImRect& desktopRect);

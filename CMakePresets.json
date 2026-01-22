@@ -39,7 +39,7 @@
             "binaryDir": "${sourceDir}/build-release",
             "description": "Release build using Ninja generator",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
                 "ENABLE_TESTS": "OFF",
                 "CMAKE_INSTALL_PREFIX": "/usr"
             },
@@ -74,13 +74,13 @@
         {
             "name": "default",
             "configurePreset": "default",
-            "jobs": 8
+            "jobs": 16
         },
         {
             "name": "release",
             "configurePreset": "release",
             "cleanFirst": true,
-            "jobs": 8
+            "jobs": 16
         },
         {
             "name": "release-windows",
