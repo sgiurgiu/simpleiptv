@@ -73,7 +73,11 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
         throw std::runtime_error("could not create mpv context");
 
     mpv_set_property_string(mpv, "terminal", "yes");
+#ifdef STV_DEBUG
     mpv_set_property_string(mpv, "msg-level", "all=trace");
+#else
+    mpv_set_property_string(mpv, "msg-level", "all=error");
+#endif
     mpv_set_property_string(mpv, "sub-create-cc-track", "yes");
     mpv_set_property_string(mpv, "input-default-bindings", "no");
     mpv_set_property_string(mpv, "config", "no");
@@ -268,15 +272,26 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
         switch (end_file->reason)
         {
         case mpv_end_file_reason::MPV_END_FILE_REASON_ERROR:
-            playerState = PlayerState::LOADING_ERROR;
-            playerStateSignal(playerState);
-            fileLoadingErrorSignal(mpv_error_string(end_file->error));
+        {
+            std::string error = mpv_error_string(end_file->error);
+            boost::asio::post(ui_executor,
+                              [this, error]()
+                              {
+                                  playerState = PlayerState::LOADING_ERROR;
+                                  playerStateSignal(playerState);
+                                  fileLoadingErrorSignal(error);
+                              });
+        }
             break;
         case mpv_end_file_reason::MPV_END_FILE_REASON_EOF:
             [[fallthrough]];
         case mpv_end_file_reason::MPV_END_FILE_REASON_STOP:
-            playerState = PlayerState::STOPPED;
-            playerStateSignal(playerState);
+            boost::asio::post(ui_executor,
+                              [this]()
+                              {
+                                  playerState = PlayerState::STOPPED;
+                                  playerStateSignal(playerState);
+                              });
             break;
         default:
             break;
@@ -286,25 +301,31 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
     break;
     case MPV_EVENT_FILE_LOADED:
     {
-        playerState = PlayerState::PLAYING;
-        workersProvider->GetSleepService()->disableComputerSleep();
-        skipRendering = 0;
-        playerStateSignal(playerState);
-        /*int tracksCount = 0;
-        mpv_get_property(mpv, "track-list/count", MPV_FORMAT_INT64, &tracksCount);
-        std::vector<std::string> subIds;
-        for (int i = 0; i < tracksCount; i++)
-        {
-            char *type = mpv_get_property_string(
-                mpv, fmt::format("track-list/{}/type", i).c_str());
-            if (type == std::string("sub"))
+        boost::asio::post(
+            ui_executor,
+            [this]()
             {
-                char *id = mpv_get_property_string(
-                    mpv, fmt::format("track-list/{}/id", i).c_str());
-                subIds.emplace_back(id);
-            }
-        }
-        subsAvailableSignal(std::move(subIds));*/
+                playerState = PlayerState::PLAYING;
+                workersProvider->GetSleepService()->disableComputerSleep();
+                skipRendering = 0;
+                playerStateSignal(playerState);
+                int tracksCount = 0;
+                mpv_get_property(mpv, "track-list/count", MPV_FORMAT_INT64,
+                                 &tracksCount);
+                std::vector<std::string> subIds;
+                for (int i = 0; i < tracksCount; i++)
+                {
+                    char *type = mpv_get_property_string(
+                        mpv, fmt::format("track-list/{}/type", i).c_str());
+                    if (type == std::string("sub"))
+                    {
+                        char *id = mpv_get_property_string(
+                            mpv, fmt::format("track-list/{}/id", i).c_str());
+                        subIds.emplace_back(id);
+                    }
+                }
+                subsAvailableSignal(std::move(subIds));
+            });
     }
     break;
     case MPV_EVENT_COMMAND_REPLY:
