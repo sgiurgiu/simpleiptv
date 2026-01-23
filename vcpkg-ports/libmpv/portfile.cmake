@@ -12,8 +12,8 @@ vcpkg_configure_meson(
     SOURCE_PATH "${SOURCE_PATH}"
     OPTIONS_RELEASE
         -Dbuildtype=release # Explicitly setting build type
-        -Ddebug=true       # Enable debug symbols
-        -Doptimization=0   # Reduce optimization to keep symbols clearer
+        -Ddebug=false       # Enable debug symbols
+        -Doptimization=3
         -Ddefault_library=static
         -Dprefer_static=true
 	    -Dtests=false
@@ -40,7 +40,7 @@ vcpkg_configure_meson(
         -Djpeg=disabled
         -Dwayland=disabled
     OPTIONS
-        -Ddebug=false       # Enable debug symbols
+        -Ddebug=true       # Enable debug symbols
         -Doptimization=0   # Reduce optimization to keep symbols clearer
         -Ddefault_library=static
         -Dprefer_static=true

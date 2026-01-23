@@ -64,7 +64,7 @@ int main(int /*argc*/, char** /*argv*/)
 #ifdef STV_DEBUG
     spdlog::default_logger()->set_level(spdlog::level::trace);
 #else
-    spdlog::default_logger()->set_level(spdlog::level::info);
+    spdlog::default_logger()->set_level(spdlog::level::err);
 #endif
 
     DatabaseConnections::Initialize();
