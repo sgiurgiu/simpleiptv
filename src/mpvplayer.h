@@ -5,6 +5,7 @@
 #include "proxy_repository.h"
 #include "simpleiptv_vulkan.h"
 #include "workers_provider.h"
+
 #include <atomic>
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -22,15 +23,17 @@ struct mpv_handle;
 struct mpv_render_context;
 struct mpv_event;
 
+class SimpleIPTV;
+
 class MpvPlayer
 {
 public:
     MpvPlayer(const boost::asio::any_io_executor& ui_executor,
               WorkersProvider* workersProvider,
-              std::mutex* imguiRenderMutex);
+              SimpleIPTVVulkan* vulkanInstance);
     ~MpvPlayer();
-    void InitializeMpv(SimpleIPTVVulkan* vulkanInstance);
-    void Render(const ImRect& desktopRect);
+    void InitializeMpv(SimpleIPTV* iptv);
+    void Render();
     void ReportSwap();
     void SetSize(int width, int height);
     void Play(ChannelPtr channel);
@@ -88,14 +91,7 @@ private:
     mpv_render_context* mpvRenderContext = nullptr;
     pl_options placeboOptions = nullptr;
     double volume = 100.0;
-    struct MediaState
-    {
-        double width = 0.0;
-        double height = 0.0;
-        double volume = 0.0;
-        bool paused = true;
-    };
-    MediaState mediaState;
+
     int width = 100;
     int height = 100;
 
@@ -112,16 +108,18 @@ private:
     using SubsAvailableSignal =
         boost::signals2::signal<void(std::vector<std::string>)>;
     SubsAvailableSignal subsAvailableSignal;
-    std::atomic_bool shouldRender = false;
 
-    ImRect latestDesktopRect;
+    std::atomic_bool needsResize = false;
     std::mutex renderWakeupMutex;
+
     std::condition_variable renderWakeupCondition;
     std::atomic_bool renderThreadQuit = false;
+    std::atomic_bool renderInProgress = false;
+    std::atomic_bool shouldRender = false;
 
     SimpleIPTVVulkan* vulkanInstance = nullptr;
-    std::mutex* imguiRenderMutex = nullptr;
 
     std::thread renderThread;
     std::thread mpvEventsThread;
+    SimpleIPTV* iptv = nullptr;
 };

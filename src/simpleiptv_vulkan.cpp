@@ -149,7 +149,6 @@ void SimpleIPTVVulkan::createCustomShader(pl_shader sh, pl_tex texture)
 
 void SimpleIPTVVulkan::UpdateImguiDrawBuffers()
 {
-    std::lock_guard<std::mutex> lock(imguiRenderMutex);
     auto drawData = ImGui::GetDrawData();
     if (!drawData)
     {
@@ -181,9 +180,9 @@ void SimpleIPTVVulkan::UpdateImguiDrawBuffers()
 
         for (int32_t j = 0; j < cmd_list->CmdBuffer.Size; j++)
         {
-            ImDrawCmd pcmd = cmd_list->CmdBuffer[j];
-            imguiDrawCommands.push_back({ pcmd.GetTexID(), std::move(pcmd),
-                                          vertexOffset, indexOffset });
+            const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[j];
+            imguiDrawCommands.push_back(
+                { pcmd->GetTexID(), pcmd, vertexOffset, indexOffset });
         }
         vertexOffset += cmd_list->VtxBuffer.Size;
         indexOffset += cmd_list->IdxBuffer.Size;
@@ -216,7 +215,7 @@ void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame,
         {
         }
 
-        const ImDrawCmd* pcmd = &cmd.pcmd;
+        const ImDrawCmd* pcmd = cmd.pcmd;
         pl_shader sh = pl_dispatch_begin(dispatch);
         createCustomShader(sh, currentTexture);
 
@@ -262,16 +261,7 @@ void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame,
 
 bool SimpleIPTVVulkan::DrawUI(pl_swapchain_frame* frame)
 {
-    std::vector<ImDrawVert> vertexes;
-    std::vector<ImDrawIdx> indexes;
-    std::vector<ImGuiDrawCommand> commands;
-    {
-        std::lock_guard<std::mutex> lock(imguiRenderMutex);
-        vertexes = imguiDrawVertexes;
-        indexes = imguiDrawIndexes;
-        commands = imguiDrawCommands;
-    }
-    drawImgui(frame, vertexes, indexes, commands);
+    drawImgui(frame, imguiDrawVertexes, imguiDrawIndexes, imguiDrawCommands);
 
     // pl_gpu_flush(vulkan->gpu);
     return true;

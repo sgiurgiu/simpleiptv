@@ -1,5 +1,7 @@
 #include <atomic>
+#include <imgui_impl_glfw.h>
 #include <libplacebo/renderer.h>
+#include <libplacebo/swapchain.h>
 #if defined(_MSC_VER)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -8,6 +10,7 @@
 #endif
 
 #include "mpvplayer.h"
+#include "simpleiptv.h"
 
 #include <GLFW/glfw3.h>
 #include <boost/asio/post.hpp>
@@ -59,11 +62,11 @@ constexpr std::chrono::duration OSD_DURATION = std::chrono::seconds{ 3 };
 
 MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
                      WorkersProvider *workersProvider,
-                     std::mutex *imguiRenderMutex)
+                     SimpleIPTVVulkan *vulkanInstance)
 : ui_executor{ ui_executor }
 , workersProvider{ workersProvider }
 , osdTimer{ this->workersProvider->GetNetworkExecutor() }
-, imguiRenderMutex{ imguiRenderMutex }
+, vulkanInstance{ vulkanInstance }
 {
     mpv = mpv_create();
     if (!mpv)
@@ -113,7 +116,6 @@ MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
     {
         spdlog::error("Cannot set volume: {}", mpv_error_string(errorCode));
     }
-    renderThread = std::thread([this]() { mpvRenderThread(); });
 }
 
 void MpvPlayer::proxySettings(HttpProxy proxy)
@@ -159,9 +161,9 @@ MpvPlayer::~MpvPlayer()
     }
 }
 
-void MpvPlayer::InitializeMpv(SimpleIPTVVulkan *vulkanInstance)
+void MpvPlayer::InitializeMpv(SimpleIPTV *iptv)
 {
-    this->vulkanInstance = vulkanInstance;
+    this->iptv = iptv;
     placeboOptions = pl_options_alloc(vulkanInstance->GetPlLog());
     placeboOptions->params = pl_render_high_quality_params;
 
@@ -190,6 +192,7 @@ void MpvPlayer::InitializeMpv(SimpleIPTVVulkan *vulkanInstance)
 
     mpv_render_context_set_update_callback(mpvRenderContext,
                                            &MpvPlayer::mpvRenderUpdate, this);
+    renderThread = std::thread([this]() { mpvRenderThread(); });
 }
 
 void MpvPlayer::onMpvEvents(void *ctx)
@@ -228,7 +231,6 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
             double value = *(double *)prop->data;
             if (name == "volume")
             {
-                mediaState.volume = value;
             }
         }
         else if (prop->format == MPV_FORMAT_FLAG)
@@ -236,7 +238,7 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
             int value = *(int *)prop->data;
             if (name == "paused")
             {
-                mediaState.paused = (bool)value;
+
                 playerState = PlayerState::PAUSED;
                 playerStateSignal(playerState);
             }
@@ -323,9 +325,7 @@ void MpvPlayer::mpvRenderUpdate(void *ctx)
 {
     auto self = reinterpret_cast<MpvPlayer *>(ctx);
     self->shouldRender = true;
-    self->renderWakeupCondition.notify_all();
-    //  boost::asio::post(self->ui_executor,
-    //                    std::bind(&MpvPlayer::updateDisplay, self));
+    self->renderWakeupCondition.notify_one();
 }
 
 void MpvPlayer::updateDisplay()
@@ -335,42 +335,70 @@ void MpvPlayer::updateDisplay()
 
 void MpvPlayer::mpvRenderThread()
 {
+#ifdef STV_DEBUG
+    bool show_demo_window = true;
+#endif
+
     while (!renderThreadQuit)
     {
-        {
-            spdlog::debug("mpvRenderThread: waiting for wakeup");
-            std::unique_lock<std::mutex> lock(renderWakeupMutex);
-            renderWakeupCondition.wait(
-                lock, [this]()
-                { return shouldRender.load() || renderThreadQuit.load(); });
-            spdlog::debug("mpvRenderThread: woke up");
-        }
+        std::unique_lock<std::mutex> lock(renderWakeupMutex);
+        renderWakeupCondition.wait(
+            lock, [this]()
+            { return shouldRender.load() || renderThreadQuit.load(); });
+
         if (renderThreadQuit)
             break;
-        if (shouldRender)
+
+        if (renderInProgress.exchange(true))
         {
-            spdlog::debug("mpvRenderThread: rendering");
-            shouldRender = false;
-            pl_swapchain_frame frame = {};
-            if (!pl_swapchain_start_frame(vulkanInstance->GetPlSwapchain(),
-                                          &frame))
+            shouldRender = true;
+            lock.unlock();
+            continue;
+        }
+        shouldRender = false;
+        lock.unlock();
+
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+#ifdef STV_DEBUG
+        if (show_demo_window)
+            ImGui::ShowDemoWindow(&show_demo_window);
+#endif
+        // rendering stuff
+        auto windowBottomLeftPoint = iptv->showDesktop();
+        ImGui::Render();
+        iptv->Render(windowBottomLeftPoint);
+
+        pl_swapchain_colorspace_hint(vulkanInstance->GetPlSwapchain(), nullptr);
+
+        pl_swapchain_frame frame = {};
+        if (!pl_swapchain_start_frame(vulkanInstance->GetPlSwapchain(), &frame))
+        {
+            spdlog::error("[render] failed to get swapchain frame!");
+            continue;
+        }
+
+        // Always render video if playing, regardless of what triggered the render
+        if (playerState == PlayerState::PLAYING)
+        {
+            if (!mpvRenderFrame(&frame, windowBottomLeftPoint))
             {
-                spdlog::error("[render] failed to get swapchain frame!");
-                continue;
-            }
-            ImRect desktopRect = latestDesktopRect;
-            if (!mpvRenderFrame(&frame, desktopRect) &&
-                playerState != PlayerState::PLAYING)
-            {
+                // Video failed to render but we're supposed to be playing
+                // Show background instead of black
                 vulkanInstance->DrawBackgroundFrame(&frame);
             }
-            {
-                vulkanInstance->DrawUI(&frame);
-            }
-            pl_swapchain_submit_frame(vulkanInstance->GetPlSwapchain());
-            pl_swapchain_swap_buffers(vulkanInstance->GetPlSwapchain());
-            mpv_render_context_report_swap(mpvRenderContext);
         }
+        else
+        {
+            // Not playing and UI-triggered render
+            vulkanInstance->DrawBackgroundFrame(&frame);
+        }
+        vulkanInstance->DrawUI(&frame);
+
+        pl_swapchain_submit_frame(vulkanInstance->GetPlSwapchain());
+        pl_swapchain_swap_buffers(vulkanInstance->GetPlSwapchain());
+        mpv_render_context_report_swap(mpvRenderContext);
+        renderInProgress = false;
     }
 }
 
@@ -383,8 +411,6 @@ bool MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame,
         .x1 = (int)desktopRect.Max.x,
         .y1 = (int)desktopRect.Max.y,
     };
-    spdlog::debug("mpvRenderFrame: {}x{} - {}x{}", rect.x0, rect.y0, rect.x1,
-                  rect.y1);
     int block = 0;
     mpv_render_param render_params[] = {
         { MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, &block },
@@ -397,14 +423,12 @@ bool MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame,
         { MPV_RENDER_PARAM_INVALID, 0 }
     };
     int flip_y = 0;
-    spdlog::debug("before mpv_render_context_update");
+
     uint64_t flags = mpv_render_context_update(mpvRenderContext);
-    spdlog::debug("after mpv_render_context_update");
-    if (flags & MPV_RENDER_UPDATE_FRAME)
+
+    // if (flags & MPV_RENDER_UPDATE_FRAME)
     {
-        spdlog::debug("before mpv_render_context_render");
         mpv_render_context_render(mpvRenderContext, render_params);
-        spdlog::debug("after mpv_render_context_render");
         return true;
     }
     return false;
@@ -415,11 +439,10 @@ void MpvPlayer::ReportSwap()
     // /mpv_render_context_report_swap(mpvRenderContext);
 }
 
-void MpvPlayer::Render(const ImRect &desktopRect)
+void MpvPlayer::Render()
 {
-    latestDesktopRect = desktopRect;
     shouldRender = true;
-    renderWakeupCondition.notify_all();
+    renderWakeupCondition.notify_one();
 }
 void MpvPlayer::SetSize(int width, int height)
 {

@@ -1,3 +1,4 @@
+#include <memory>
 #if defined(_MSC_VER)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -63,7 +64,7 @@ int main(int /*argc*/, char** /*argv*/)
 #ifdef STV_DEBUG
     spdlog::default_logger()->set_level(spdlog::level::trace);
 #else
-    spdlog::default_logger()->set_level(spdlog::level::trace);
+    spdlog::default_logger()->set_level(spdlog::level::info);
 #endif
 
     DatabaseConnections::Initialize();
@@ -165,16 +166,13 @@ void runMainLoop(GLFWwindow* window,
                  WorkersProvider& workersProvider,
                  SimpleIPTVVulkan* vulkanInstance)
 {
-#ifdef STV_DEBUG
-    bool show_demo_window = true;
-#endif
     vulkanInstance->WaitForIdle();
     boost::asio::io_context uiContext;
     auto work = boost::asio::make_work_guard(uiContext);
-    std::mutex imguiRenderMutex;
-    SimpleIPTV iptv{ uiContext, &workersProvider, vulkanInstance,
-                     &imguiRenderMutex };
-
+    auto player = std::make_unique<MpvPlayer>(uiContext.get_executor(),
+                                              &workersProvider, vulkanInstance);
+    SimpleIPTV iptv{ uiContext, &workersProvider, vulkanInstance, player.get() };
+    player->InitializeMpv(&iptv);
     glfwSetWindowUserPointer(window, &iptv);
 
     glfwSetFramebufferSizeCallback(
@@ -189,7 +187,9 @@ void runMainLoop(GLFWwindow* window,
 
     // Main loop
     bool done = false;
-
+    auto start = std::chrono::steady_clock::now();
+    // TODO:: make this dynamic based on the monitor refresh rate
+    constexpr std::chrono::milliseconds targetFrameTime{ 16 };
     while (!done)
     {
         done = glfwWindowShouldClose(window);
@@ -206,24 +206,18 @@ void runMainLoop(GLFWwindow* window,
         {
         }
 
+        player->Render();
+
+        auto end = std::chrono::steady_clock::now();
+        auto duration =
+            std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration < targetFrameTime)
         {
-            // std::lock_guard<std::mutex> lock(imguiRenderMutex);
-            ImGui_ImplGlfw_NewFrame();
-            ImGui::NewFrame();
-
-#ifdef STV_DEBUG
-            if (show_demo_window)
-                ImGui::ShowDemoWindow(&show_demo_window);
-#endif
-
-            // rendering stuff
-            auto windowBottomLeftPoint = iptv.showDesktop();
-
-            ImGui::Render();
-
-            iptv.Render(windowBottomLeftPoint);
+            std::this_thread::sleep_for(targetFrameTime - duration);
         }
+        start = std::chrono::steady_clock::now();
     }
+    player.reset();
     work.reset();
     glfwSetWindowUserPointer(window, nullptr);
 }

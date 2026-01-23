@@ -27,7 +27,7 @@ struct ImageData
 struct ImGuiDrawCommand
 {
     ImTextureID textureId;
-    ImDrawCmd pcmd;
+    const ImDrawCmd* pcmd;
     int vertexOffset = 0;
     int indexOffset = 0;
 };
