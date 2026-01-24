@@ -60,7 +60,7 @@ constexpr std::chrono::duration OSD_DURATION = std::chrono::seconds{ 3 };
 
 } // namespace
 
-MpvPlayer::MpvPlayer(const boost::asio::any_io_executor &ui_executor,
+MpvPlayer::MpvPlayer(boost::asio::any_io_executor ui_executor,
                      WorkersProvider *workersProvider,
                      SimpleIPTVVulkan *vulkanInstance)
 : ui_executor{ ui_executor }
@@ -388,7 +388,13 @@ void MpvPlayer::mpvRenderThread()
         // rendering stuff
         auto windowBottomLeftPoint = iptv->showDesktop();
         ImGui::Render();
-        iptv->Render(windowBottomLeftPoint);
+        if (needsResize)
+        {
+            vulkanInstance->ResizeSwapchain(width, height);
+            needsResize = false;
+        }
+
+        vulkanInstance->UpdateImguiDrawBuffers();
 
         pl_swapchain_colorspace_hint(vulkanInstance->GetPlSwapchain(), nullptr);
 
@@ -402,12 +408,7 @@ void MpvPlayer::mpvRenderThread()
         // Always render video if playing, regardless of what triggered the render
         if (playerState == PlayerState::PLAYING)
         {
-            if (!mpvRenderFrame(&frame, windowBottomLeftPoint))
-            {
-                // Video failed to render but we're supposed to be playing
-                // Show background instead of black
-                vulkanInstance->DrawBackgroundFrame(&frame);
-            }
+            mpvRenderFrame(&frame, windowBottomLeftPoint);
         }
         else
         {
@@ -443,21 +444,11 @@ bool MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame,
           &rect },
         { MPV_RENDER_PARAM_INVALID, 0 }
     };
-    int flip_y = 0;
 
-    uint64_t flags = mpv_render_context_update(mpvRenderContext);
+    mpv_render_context_update(mpvRenderContext);
+    mpv_render_context_render(mpvRenderContext, render_params);
 
-    // if (flags & MPV_RENDER_UPDATE_FRAME)
-    {
-        mpv_render_context_render(mpvRenderContext, render_params);
-        return true;
-    }
-    return false;
-}
-
-void MpvPlayer::ReportSwap()
-{
-    // /mpv_render_context_report_swap(mpvRenderContext);
+    return true;
 }
 
 void MpvPlayer::Render()
@@ -465,10 +456,12 @@ void MpvPlayer::Render()
     shouldRender = true;
     renderWakeupCondition.notify_one();
 }
+
 void MpvPlayer::SetSize(int width, int height)
 {
     if (width == this->width && height == this->height)
         return;
+    needsResize = true;
     this->width = width;
     this->height = height;
 }
@@ -501,13 +494,13 @@ void MpvPlayer::Play(ChannelPtr channel)
         return;
     // TODO: do the loadfile command when I get the event to do so.
     const char *cmdStop[] = { "stop", nullptr };
-    mpv_command_async(mpv, 0, cmdStop);
+    mpv_command(mpv, cmdStop);
 
     this->currentlyPlayingChannel = channel;
     skipRendering = 1;
     const char *cmd[] = { "loadfile", currentlyPlayingChannel->GetUri().c_str(),
                           nullptr };
-    mpv_command_async(mpv, 0, cmd);
+    mpv_command(mpv, cmd);
     mpv_set_property_string(mpv, "pause", "no");
     mpv_set_property_string(mpv, "sid", "no");
     mpv_set_property_string(mpv, "loop-playlist", "inf");

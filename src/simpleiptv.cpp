@@ -14,7 +14,6 @@
 namespace
 {
 static constexpr std::chrono::seconds ChannelsWindowTimerExpiry{ 5 };
-static constexpr std::chrono::milliseconds resizeDebounceDelay{ 16 };
 } // namespace
 
 SimpleIPTV::SimpleIPTV(boost::asio::io_context& uiContext,
@@ -187,22 +186,11 @@ cvoid SimpleIPTV::setSize(int width, int height)
 
 void SimpleIPTV::setSize(int width, int height)
 {
-    if (width == this->width && height == this->height)
-        return;
-
-    needsResize = true;
-    this->width = width;
-    this->height = height;
+    player->SetSize(width, height);
 }
 
-void SimpleIPTV::Render(const ImRect& desktopRect)
+void SimpleIPTV::Render()
 {
-    if (needsResize)
-    {
-        vulkanInstance->ResizeSwapchain(width, height);
-        needsResize = false;
-    }
-    vulkanInstance->UpdateImguiDrawBuffers();
 }
 
 void SimpleIPTV::channelActivated(ChannelPtr channel)

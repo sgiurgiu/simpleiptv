@@ -28,7 +28,7 @@ class SimpleIPTV;
 class MpvPlayer
 {
 public:
-    MpvPlayer(const boost::asio::any_io_executor& ui_executor,
+    MpvPlayer(boost::asio::any_io_executor ui_executor,
               WorkersProvider* workersProvider,
               SimpleIPTVVulkan* vulkanInstance);
     ~MpvPlayer();
@@ -84,7 +84,7 @@ private:
     void mpvRenderThread();
 
 private:
-    const boost::asio::any_io_executor& ui_executor;
+    boost::asio::any_io_executor ui_executor;
     WorkersProvider* workersProvider;
     boost::asio::steady_timer osdTimer;
     mpv_handle* mpv = nullptr;
@@ -92,8 +92,8 @@ private:
     pl_options placeboOptions = nullptr;
     double volume = 100.0;
 
-    int width = 100;
-    int height = 100;
+    std::atomic_int width = 100;
+    std::atomic_int height = 100;
 
     PlayerState playerState = PlayerState::STOPPED;
     ChannelPtr currentlyPlayingChannel;

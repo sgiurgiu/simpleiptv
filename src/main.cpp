@@ -174,6 +174,12 @@ void runMainLoop(GLFWwindow* window,
     SimpleIPTV iptv{ uiContext, &workersProvider, vulkanInstance, player.get() };
     player->InitializeMpv(&iptv);
     glfwSetWindowUserPointer(window, &iptv);
+    {
+        int width;
+        int height;
+        glfwGetWindowSize(window, &width, &height);
+        iptv.setSize(width, height);
+    }
 
     glfwSetFramebufferSizeCallback(
         window,
@@ -193,9 +199,7 @@ void runMainLoop(GLFWwindow* window,
     while (!done)
     {
         done = glfwWindowShouldClose(window);
-        // spdlog::debug("before - glfwPollEvents");
         glfwPollEvents();
-        // spdlog::debug("after glfwPollEvents");
 
         if (iptv.shouldQuit())
         {
