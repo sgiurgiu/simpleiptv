@@ -19,7 +19,6 @@ public:
                MpvPlayer* player);
     void setSize(int width, int height);
     ImRect showDesktop();
-    void Render();
     bool shouldQuit() const
     {
         return channelsWindow->ShouldQuit() || quit;

@@ -74,7 +74,7 @@ MpvPlayer::MpvPlayer(boost::asio::any_io_executor ui_executor,
 
     mpv_set_property_string(mpv, "terminal", "yes");
 #ifdef STV_DEBUG
-    mpv_set_property_string(mpv, "msg-level", "all=trace");
+    mpv_set_property_string(mpv, "msg-level", "all=v");
 #else
     mpv_set_property_string(mpv, "msg-level", "all=error");
 #endif
@@ -349,11 +349,6 @@ void MpvPlayer::mpvRenderUpdate(void *ctx)
     self->renderWakeupCondition.notify_one();
 }
 
-void MpvPlayer::updateDisplay()
-{
-    // mpvRenderFrame();
-}
-
 void MpvPlayer::mpvRenderThread()
 {
 #ifdef STV_DEBUG
@@ -370,12 +365,12 @@ void MpvPlayer::mpvRenderThread()
         if (renderThreadQuit)
             break;
 
-        if (renderInProgress.exchange(true))
+        if (renderInProgress)
         {
             shouldRender = true;
-            lock.unlock();
             continue;
         }
+        renderInProgress = true;
         shouldRender = false;
         lock.unlock();
 

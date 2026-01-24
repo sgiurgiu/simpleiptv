@@ -76,7 +76,6 @@ private:
     static void mpvRenderUpdate(void* ctx);
     static void onMpvEvents(void* ctx);
 
-    void updateDisplay();
     void removeVolumeOsd(const boost::system::error_code& ec);
 
     void proxySettings(HttpProxy proxy);
@@ -109,12 +108,11 @@ private:
         boost::signals2::signal<void(std::vector<std::string>)>;
     SubsAvailableSignal subsAvailableSignal;
 
+    bool renderInProgress = false;
     std::atomic_bool needsResize = false;
     std::mutex renderWakeupMutex;
-
     std::condition_variable renderWakeupCondition;
     std::atomic_bool renderThreadQuit = false;
-    std::atomic_bool renderInProgress = false;
     std::atomic_bool shouldRender = false;
 
     SimpleIPTVVulkan* vulkanInstance = nullptr;

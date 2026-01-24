@@ -189,10 +189,6 @@ void SimpleIPTV::setSize(int width, int height)
     player->SetSize(width, height);
 }
 
-void SimpleIPTV::Render()
-{
-}
-
 void SimpleIPTV::channelActivated(ChannelPtr channel)
 {
     spdlog::debug("{} activated", channel->GetName());
