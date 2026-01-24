@@ -18,7 +18,7 @@
 #include "imgui/imgui_impl_vulkan.h"
 
 #include "dbconnection_pool.h"
-#include "simpleiptv.h"
+#include "simpleiptv_coordinator.h"
 #include "simpleiptv_vulkan.h"
 #include "stv_utils.h"
 #include "workers_provider.h"
@@ -169,26 +169,24 @@ void runMainLoop(GLFWwindow* window,
     vulkanInstance->WaitForIdle();
     boost::asio::io_context uiContext;
     auto work = boost::asio::make_work_guard(uiContext);
-    auto player = std::make_unique<MpvPlayer>(uiContext.get_executor(),
-                                              &workersProvider, vulkanInstance);
-    SimpleIPTV iptv{ uiContext, &workersProvider, vulkanInstance, player.get() };
-    player->InitializeMpv(&iptv);
-    glfwSetWindowUserPointer(window, &iptv);
+    SimpleIPTVCoordinator coordinator{ uiContext, &workersProvider,
+                                       vulkanInstance };
+    glfwSetWindowUserPointer(window, &coordinator);
     {
         int width;
         int height;
         glfwGetWindowSize(window, &width, &height);
-        iptv.setSize(width, height);
+        coordinator.SetSize(width, height);
     }
 
     glfwSetFramebufferSizeCallback(
         window,
         [](GLFWwindow* window, int width, int height)
         {
-            SimpleIPTV* desktop =
-                reinterpret_cast<SimpleIPTV*>(glfwGetWindowUserPointer(window));
-            desktop->setSize(width, height);
-            //  glfwPostEmptyEvent(); // Wake up event loop
+            SimpleIPTVCoordinator* coordinator =
+                reinterpret_cast<SimpleIPTVCoordinator*>(
+                    glfwGetWindowUserPointer(window));
+            coordinator->SetSize(width, height);
         });
 
     // Main loop
@@ -201,7 +199,7 @@ void runMainLoop(GLFWwindow* window,
         done = glfwWindowShouldClose(window);
         glfwPollEvents();
 
-        if (iptv.shouldQuit())
+        if (coordinator.ShouldQuit())
         {
             glfwSetWindowShouldClose(window, true);
         }
@@ -210,7 +208,7 @@ void runMainLoop(GLFWwindow* window,
         {
         }
 
-        player->Render();
+        coordinator.Render();
 
         auto end = std::chrono::steady_clock::now();
         auto duration =
@@ -221,7 +219,6 @@ void runMainLoop(GLFWwindow* window,
         }
         start = std::chrono::steady_clock::now();
     }
-    player.reset();
     work.reset();
     glfwSetWindowUserPointer(window, nullptr);
 }

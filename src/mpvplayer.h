@@ -16,14 +16,13 @@
 #include <libplacebo/swapchain.h>
 
 #include <condition_variable>
+#include <functional>
 #include <mutex>
 #include <thread>
 
 struct mpv_handle;
 struct mpv_render_context;
 struct mpv_event;
-
-class SimpleIPTV;
 
 class MpvPlayer
 {
@@ -32,9 +31,9 @@ public:
               WorkersProvider* workersProvider,
               SimpleIPTVVulkan* vulkanInstance);
     ~MpvPlayer();
-    void InitializeMpv(SimpleIPTV* iptv);
+    using UIRenderCallback = std::function<ImRect()>;
+    void InitializeMpv(UIRenderCallback uiRenderCallback);
     void Render();
-    void ReportSwap();
     void SetSize(int width, int height);
     void Play(ChannelPtr channel);
     void Play();
@@ -119,5 +118,5 @@ private:
 
     std::thread renderThread;
     std::thread mpvEventsThread;
-    SimpleIPTV* iptv = nullptr;
+    UIRenderCallback uiRenderCallback;
 };

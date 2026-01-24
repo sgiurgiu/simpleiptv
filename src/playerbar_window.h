@@ -48,11 +48,6 @@ public:
         nextChannelSignal.connect(slot);
     }
     template <typename S>
-    void AddPauseChannelListener(S slot)
-    {
-        pauseChannelSignal.connect(slot);
-    }
-    template <typename S>
     void AddPlayChannelListener(S slot)
     {
         playChannelSignal.connect(slot);
@@ -121,7 +116,6 @@ private:
     using BasicOperationSignal = boost::signals2::signal<void()>;
     BasicOperationSignal previousChannelSignal;
     BasicOperationSignal nextChannelSignal;
-    BasicOperationSignal pauseChannelSignal;
     BasicOperationSignal playChannelSignal;
     BasicOperationSignal stopChannelSignal;
     bool pinned = false;

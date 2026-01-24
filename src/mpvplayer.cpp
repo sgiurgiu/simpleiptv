@@ -1,31 +1,16 @@
-#include <atomic>
-#include <imgui_impl_glfw.h>
-#include <libplacebo/renderer.h>
-#include <libplacebo/swapchain.h>
-#if defined(_MSC_VER)
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <Windows.h>
-#endif
 
 #include "mpvplayer.h"
-#include "simpleiptv.h"
+#include "mpvhelper.h"
 
-#include <GLFW/glfw3.h>
+#include <libplacebo/renderer.h>
+#include <libplacebo/swapchain.h>
+
 #include <boost/asio/post.hpp>
 #include <mpv/client.h>
 #include <mpv/render_placebo.h>
 
 #include <stdexcept>
 
-#ifdef STV_UNIX
-#define GLFW_EXPOSE_NATIVE_X11
-#define GLFW_EXPOSE_NATIVE_WAYLAND
-#include <GLFW/glfw3native.h>
-#endif
-
-#include "mpvhelper.h"
 #include <fmt/format.h>
 #include <functional>
 #include <spdlog/spdlog.h>
@@ -142,9 +127,9 @@ MpvPlayer::~MpvPlayer()
     }
 }
 
-void MpvPlayer::InitializeMpv(SimpleIPTV *iptv)
+void MpvPlayer::InitializeMpv(UIRenderCallback uiRenderCallback)
 {
-    this->iptv = iptv;
+    this->uiRenderCallback = std::move(uiRenderCallback);
     placeboOptions = pl_options_alloc(vulkanInstance->GetPlLog());
     placeboOptions->params = pl_render_high_quality_params;
 
@@ -328,10 +313,6 @@ void MpvPlayer::mpvRenderUpdate(void *ctx)
 
 void MpvPlayer::mpvRenderThread()
 {
-#ifdef STV_DEBUG
-    bool show_demo_window = true;
-#endif
-
     while (!renderThreadQuit)
     {
         std::unique_lock<std::mutex> lock(renderWakeupMutex);
@@ -351,15 +332,9 @@ void MpvPlayer::mpvRenderThread()
         shouldRender = false;
         lock.unlock();
 
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-#ifdef STV_DEBUG
-        if (show_demo_window)
-            ImGui::ShowDemoWindow(&show_demo_window);
-#endif
-        // rendering stuff
-        auto windowBottomLeftPoint = iptv->showDesktop();
-        ImGui::Render();
+        // rendering UI
+        auto windowBottomLeftPoint = uiRenderCallback();
+
         if (needsResize)
         {
             vulkanInstance->ResizeSwapchain(width, height);

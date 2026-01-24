@@ -110,7 +110,8 @@ endif()
 
 set(STV_SRCS main.cpp
     mpvplayer.cpp
-    simpleiptv.cpp
+    simpleiptv_ui.cpp
+    simpleiptv_coordinator.cpp
     simpleiptv_vulkan.cpp
     channels_window.cpp
     stv_utils.cpp
