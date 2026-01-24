@@ -33,28 +33,6 @@
 namespace
 {
 
-const std::string frameVertexShaderText = R"*(
-#version 330
-in vec4 position;
-in vec4 inputTextureCoordinate;
-out vec2 textureCoordinate;
-void main()
-{
-    gl_Position = position;
-    textureCoordinate = inputTextureCoordinate.xy;
-}
-)*";
-const std::string frameFragmentShaderText = R"*(
-#version 330
-in vec2 textureCoordinate;
-uniform sampler2D videoFrame;
-out vec4 color;
-void main()
-{
-    color = texture2D(videoFrame, textureCoordinate);
-}
-)*";
-
 constexpr int VOLUME_OSD_ID = 1;
 constexpr std::chrono::duration OSD_DURATION = std::chrono::seconds{ 3 };
 
@@ -110,7 +88,6 @@ MpvPlayer::MpvPlayer(boost::asio::any_io_executor ui_executor,
     double volMax = 150.0;
     mpv_set_property(mpv, "volume-max", MPV_FORMAT_DOUBLE, &volMax);
 
-    // mpv_set_wakeup_callback(mpv, MpvPlayer::onMpvEvents, this);
     mpvEventsThread = std::thread([this]() { handleMpvEvents(); });
 
     if (mpv_initialize(mpv) < 0)
@@ -531,6 +508,7 @@ void MpvPlayer::VolumeIncrease()
 {
     volume += 5.0;
     SetVolume(volume);
+    volumeSignal(this->volume);
 }
 void MpvPlayer::VolumeDecrease()
 {
@@ -538,6 +516,7 @@ void MpvPlayer::VolumeDecrease()
     if (volume < 0.0)
         volume = 0.0;
     SetVolume(volume);
+    volumeSignal(this->volume);
 }
 void MpvPlayer::removeVolumeOsd(const boost::system::error_code &ec)
 {
@@ -576,8 +555,8 @@ void MpvPlayer::SetVolume(double volume)
     using namespace std::placeholders;
     osdTimer.expires_after(OSD_DURATION);
     osdTimer.async_wait(std::bind(&MpvPlayer::removeVolumeOsd, this, _1));
-    volumeSignal(this->volume);
 }
+
 void MpvPlayer::ClosedCaptions(const std::string &id)
 {
     mpv_set_property_string(mpv, "sid", id.c_str());
