@@ -233,12 +233,10 @@ void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame,
         dispatchParams.shader = &sh;
         dispatchParams.target = frame->fbo;
         dispatchParams.blend_params = &pl_alpha_overlay;
-        dispatchParams.scissors = {
-            .x0 = std::max((int32_t)(pcmd->ClipRect.x), 0),
-            .y0 = std::max((int32_t)(pcmd->ClipRect.y), 0),
-            .x1 = std::max((int)(pcmd->ClipRect.z), 0),
-            .y1 = std::max((int)(pcmd->ClipRect.w), 0)
-        };
+        dispatchParams.scissors = { .x0 = std::max((int)(pcmd->ClipRect.x), 0),
+                                    .y0 = std::max((int)(pcmd->ClipRect.y), 0),
+                                    .x1 = std::max((int)(pcmd->ClipRect.z), 0),
+                                    .y1 = std::max((int)(pcmd->ClipRect.w), 0) };
         dispatchParams.vertex_attribs = attribs_pl;
         dispatchParams.num_vertex_attribs = 3;
         dispatchParams.vertex_stride = sizeof(ImDrawVert);
@@ -259,24 +257,19 @@ void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame,
     }
 }
 
-bool SimpleIPTVVulkan::DrawUI(pl_swapchain_frame* frame)
+void SimpleIPTVVulkan::DrawUI(pl_swapchain_frame* frame)
 {
     drawImgui(frame, imguiDrawVertexes, imguiDrawIndexes, imguiDrawCommands);
-
-    // pl_gpu_flush(vulkan->gpu);
-    return true;
 }
 
 void SimpleIPTVVulkan::DrawBackgroundFrame(pl_swapchain_frame* frame)
 {
-    const float color[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
+    const float color[4] = { 0.3f, 0.3f, 0.3f, 1.0f };
     pl_tex_clear(vulkan->gpu, frame->fbo, color);
 }
 
 void SimpleIPTVVulkan::ResizeSwapchain(int width, int height)
 {
-    //    WaitForIdle(); // Not sure if this is needed ???
-
     pl_swapchain_resize(swapchain, &width, &height);
 }
 

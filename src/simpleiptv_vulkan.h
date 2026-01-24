@@ -58,7 +58,7 @@ public:
 
     void WaitForIdle();
     static void CheckError(VkResult err);
-    bool DrawUI(pl_swapchain_frame* frame);
+    void DrawUI(pl_swapchain_frame* frame);
     void DrawBackgroundFrame(pl_swapchain_frame* frame);
     void ResizeSwapchain(int width, int height);
     void DestroyImageData(ImageData& image);
