@@ -21,6 +21,9 @@ namespace
 constexpr int VOLUME_OSD_ID = 1;
 constexpr std::chrono::duration OSD_DURATION = std::chrono::seconds{ 3 };
 
+constexpr int STOP_COMMAND_REPLY_USERDATA = 15;
+constexpr int LOADFILE_COMMAND_REPLY_USERDATA = 16;
+
 } // namespace
 
 MpvPlayer::MpvPlayer(boost::asio::any_io_executor ui_executor,
@@ -204,7 +207,6 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
             int value = *(int *)prop->data;
             if (name == "paused")
             {
-
                 playerState = PlayerState::PAUSED;
                 playerStateSignal(playerState);
             }
@@ -287,15 +289,32 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
                     }
                 }
                 subsAvailableSignal(std::move(subIds));
+                skipRendering = 0;
             });
     }
     break;
     case MPV_EVENT_COMMAND_REPLY:
     {
-        mpv_event_command *reply = static_cast<mpv_event_command *>(event->data);
-        if (reply->result.format == MPV_FORMAT_NONE)
+        auto reply_userdata = event->reply_userdata;
+        switch (reply_userdata)
         {
-            spdlog::error("Command reply error: command failed");
+        case STOP_COMMAND_REPLY_USERDATA:
+            playerState = PlayerState::STOPPED;
+            playerStateSignal(playerState);
+            break;
+        case LOADFILE_COMMAND_REPLY_USERDATA:
+        {
+            const char *cmd[] = { "loadfile",
+                                  currentlyPlayingChannel->GetUri().c_str(),
+                                  nullptr };
+            mpv_command(mpv, cmd);
+            mpv_set_property_string(mpv, "pause", "no");
+            mpv_set_property_string(mpv, "sid", "no");
+            mpv_set_property_string(mpv, "loop-playlist", "inf");
+        }
+        break;
+        default:
+            break;
         }
     }
     default:
@@ -353,11 +372,8 @@ void MpvPlayer::mpvRenderThread()
         }
 
         // Always render video if playing, regardless of what triggered the render
-        if (playerState == PlayerState::PLAYING)
-        {
-            mpvRenderFrame(&frame, windowBottomLeftPoint);
-        }
-        else
+        mpvRenderFrame(&frame, windowBottomLeftPoint);
+        if (playerState != PlayerState::PLAYING)
         {
             // Not playing and UI-triggered render
             vulkanInstance->DrawBackgroundFrame(&frame);
@@ -389,6 +405,7 @@ bool MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame,
           (void *)frame },
         { (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_VIEWPORT,
           &rect },
+        { MPV_RENDER_PARAM_SKIP_RENDERING, &skipRendering },
         { MPV_RENDER_PARAM_INVALID, 0 }
     };
 
@@ -421,8 +438,7 @@ void MpvPlayer::Play()
 void MpvPlayer::Stop()
 {
     const char *cmdStop[] = { "stop", nullptr };
-    mpv_command_async(mpv, 0, cmdStop);
-    playerState = PlayerState::STOPPED;
+    mpv_command_async(mpv, STOP_COMMAND_REPLY_USERDATA, cmdStop);
     // playerStateSignal(playerState);
 }
 void MpvPlayer::Pause()
@@ -439,18 +455,10 @@ void MpvPlayer::Play(ChannelPtr channel)
 {
     if (playerState == PlayerState::PLAYING && channel == currentlyPlayingChannel)
         return;
-    // TODO: do the loadfile command when I get the event to do so.
-    const char *cmdStop[] = { "stop", nullptr };
-    mpv_command(mpv, cmdStop);
 
     this->currentlyPlayingChannel = channel;
-    skipRendering = 1;
-    const char *cmd[] = { "loadfile", currentlyPlayingChannel->GetUri().c_str(),
-                          nullptr };
-    mpv_command(mpv, cmd);
-    mpv_set_property_string(mpv, "pause", "no");
-    mpv_set_property_string(mpv, "sid", "no");
-    mpv_set_property_string(mpv, "loop-playlist", "inf");
+    const char *cmdStop[] = { "stop", nullptr };
+    mpv_command_async(mpv, LOADFILE_COMMAND_REPLY_USERDATA, cmdStop);
 }
 
 PlayerState MpvPlayer::GetPlayerState() const
