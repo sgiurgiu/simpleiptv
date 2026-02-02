@@ -24,10 +24,7 @@
                 "spirv-cross",
                 "spirv-tools",
                 "vulkan-headers",
-                "vulkan-loader",
-               
                 "vulkan-validationlayers"
-                
             ]
         }
     }

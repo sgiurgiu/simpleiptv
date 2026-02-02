@@ -8,7 +8,13 @@
   "dependencies": [
     { "name": "vcpkg-tool-meson", "host": true },
     { "name": "vcpkg-cmake-config", "host": true },
-    "libplacebo",
+    {
+	"name":"libplacebo",
+	"default-features": false,
+	"features":[
+		"vulkan"
+	]
+    },
     "libass",
     "ffmpeg",
     "libarchive",
