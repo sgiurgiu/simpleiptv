@@ -3,11 +3,7 @@ set(oneValueArgs DESTINATION URL REF SOURCE)
 cmake_parse_arguments(PL "" "${oneValueArgs}" "" ${ARGN})
 
 if(EXISTS ${PL_SOURCE}/${PL_DESTINATION})
-
-vcpkg_execute_required_process(
-        COMMAND rm -rf ${PL_DESTINATION}
-        WORKING_DIRECTORY ${PL_SOURCE}
-        LOGNAME build-${TARGET_TRIPLET})
+    file(REMOVE_RECURSE "${PL_SOURCE}/${PL_DESTINATION}")
 endif()
 
 vcpkg_execute_required_process(
