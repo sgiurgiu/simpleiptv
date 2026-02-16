@@ -362,8 +362,6 @@ void MpvPlayer::mpvRenderThread()
 
         vulkanInstance->UpdateImguiDrawBuffers();
 
-        pl_swapchain_colorspace_hint(vulkanInstance->GetPlSwapchain(), nullptr);
-
         pl_swapchain_frame frame = {};
         if (!pl_swapchain_start_frame(vulkanInstance->GetPlSwapchain(), &frame))
         {
