@@ -394,7 +394,7 @@ void MpvPlayer::mpvRenderThread()
 bool MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame,
                                const ImRect &desktopRect)
 {
-    struct mpv_render_rect_t rect = {
+    mpv_render_rect_t rect = {
         .x0 = (int)desktopRect.Min.x,
         .y0 = (int)desktopRect.Min.y,
         .x1 = (int)desktopRect.Max.x,
@@ -402,7 +402,7 @@ bool MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame,
     };
 
     // Use what was negotiated in the swapchain frame
-    struct pl_color_space target = frame->color_space;
+    pl_color_space target = frame->color_space;
 
     int block = 0;
     mpv_render_param render_params[] = {
