@@ -2,6 +2,7 @@
 #include "mpvplayer.h"
 #include "mpvhelper.h"
 
+#include <libplacebo/colorspace.h>
 #include <libplacebo/renderer.h>
 #include <libplacebo/swapchain.h>
 
@@ -332,6 +333,11 @@ void MpvPlayer::mpvRenderUpdate(void *ctx)
 
 void MpvPlayer::mpvRenderThread()
 {
+    struct pl_color_space desired = { .primaries = PL_COLOR_PRIM_BT_2020,
+                                      .transfer = PL_COLOR_TRC_PQ,
+                                      .hdr = pl_hdr_metadata_empty };
+    pl_swapchain_colorspace_hint(vulkanInstance->GetPlSwapchain(), &desired);
+
     while (!renderThreadQuit)
     {
         std::unique_lock<std::mutex> lock(renderWakeupMutex);
@@ -394,6 +400,10 @@ bool MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame,
         .x1 = (int)desktopRect.Max.x,
         .y1 = (int)desktopRect.Max.y,
     };
+
+    // Use what was negotiated in the swapchain frame
+    struct pl_color_space target = frame->color_space;
+
     int block = 0;
     mpv_render_param render_params[] = {
         { MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, &block },
@@ -404,6 +414,8 @@ bool MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame,
         { (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_VIEWPORT,
           &rect },
         { MPV_RENDER_PARAM_SKIP_RENDERING, &skipRendering },
+        { (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_TARGET_COLORSPACE,
+          &target },
         { MPV_RENDER_PARAM_INVALID, 0 }
     };
 

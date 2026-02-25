@@ -3,8 +3,8 @@ vcpkg_check_linkage(ONLY_STATIC_LIBRARY)
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO sgiurgiu/mpv
-    REF  623ffa7747632d6aebef06f931d5a865d2a127b5
-    SHA512 3244a72f68e263f53347d9d32fb023a20edf50fd921efea5f991d81fbb24a25dda22ac4c10bf35147db2ee88113c034553747b1622952d1e28bda62f9fff82ee
+    REF  cd3981e00971fc136dbdc4ff499e6e2bcd5f2b22
+    SHA512 51ed923755b9e29c9a6439ea8948c902aa40def0bd62cd22a761aa24f72fe7f2a3d94b88d99bdef1e063ca55fdfa27689dd8b1cd7e5a4da2e8ef6efe76555072
     HEAD_REF libmpv_placebo
 )
 
