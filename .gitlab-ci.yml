@@ -61,7 +61,7 @@ build-windows:
   script:
     - powershell -File scripts/build_windows.ps1
   artifacts:
-    expire_in: 6 hours
+    expire_in: 30 days
     paths:
       - packages/
 
