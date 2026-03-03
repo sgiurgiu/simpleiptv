@@ -89,6 +89,16 @@ public:
     {
         volumeToggleMuteSignal.connect(slot);
     }
+    template <typename S>
+    void AddScreenshotListener(S slot)
+    {
+        screenshotSignal.connect(slot);
+    }
+    template <typename S>
+    void AddScreenshotSettingsChangedListener(S slot)
+    {
+        screenshotSettingsChangedSignal.connect(slot);
+    }
 
 private:
     void channelActivated(ChannelPtr channel);
@@ -104,6 +114,8 @@ private:
     BasicOperationSignal volumeIncreaseSignal;
     BasicOperationSignal volumeDecreaseSignal;
     BasicOperationSignal volumeToggleMuteSignal;
+    BasicOperationSignal screenshotSignal;
+    BasicOperationSignal screenshotSettingsChangedSignal;
 
     bool quit = false;
     bool showChannels = true;

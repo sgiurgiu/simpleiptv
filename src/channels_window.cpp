@@ -41,12 +41,22 @@ ChannelsWindow::ChannelsWindow(Key,
 , bgAlpha{ INITIAL_BG_ALPHA }
 , rootNode{ DisplayRootChannelsGroup::Create(workersProvider, ui_executor) }
 , httpProxyDialog{ HTTPProxyDialog::Create(ui_executor, workersProvider) }
+, screenshotDialog{ ScreenshotDialog::Create(workersProvider) }
 {
     width = workersProvider->GetSettingsRepository()->GetChannelsWindowWidth(300);
 }
 
 void ChannelsWindow::initialize()
 {
+    screenshotDialog->AddScreenshotSettingsChangedListener(
+        [weak = weak_from_this()]()
+        {
+            auto self = weak.lock();
+            if (!self)
+                return;
+            self->screenshotSettingsChangedSignal();
+        });
+
     rootNode->activatedChannelSignal.connect(
         [weak = weak_from_this()](DisplayChannel* channel)
         {
@@ -237,6 +247,7 @@ ImVec2 ChannelsWindow::ShowWindow(float playerBarHeight)
     }
 
     httpProxyDialog->ShowDialog();
+    screenshotDialog->ShowDialog();
     if (width != (int)std::floor(ImGui::GetWindowSize().x))
     {
         width = std::floor(ImGui::GetWindowSize().x);
@@ -314,6 +325,12 @@ void ChannelsWindow::showMenu()
             if (ImGui::MenuItem("Add Server"))
             {
             }
+            ImGui::SetNextItemShortcut(ImGuiKey_S, ImGuiInputFlags_RouteGlobal |
+                                                       ImGuiInputFlags_Tooltip);
+            if (ImGui::MenuItem("Take Screenshot", "S"))
+            {
+                takeScreenshotSignal();
+            }
             ImGui::Separator();
             ImGui::SetNextItemShortcut(ImGuiMod_Ctrl | ImGuiKey_Q,
                                        ImGuiInputFlags_RouteGlobal |
@@ -326,6 +343,10 @@ void ChannelsWindow::showMenu()
             if (ImGui::MenuItem("HTTP Proxy"))
             {
                 httpProxyDialog->SetShowHTTPProxyDialog(true);
+            }
+            if (ImGui::MenuItem("Screenshot"))
+            {
+                screenshotDialog->SetShowScreenshotDialog(true);
             }
             ImGui::EndMenu();
         }

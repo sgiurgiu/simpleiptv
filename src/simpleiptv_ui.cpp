@@ -31,6 +31,9 @@ SimpleIPTVUI::SimpleIPTVUI(boost::asio::any_io_executor ui_executor,
     epgListingWindow->AddChannelActivatedListener(
         [this](ChannelsGroupPtr group, ChannelPtr channel)
         { channelsWindow->ActivateChannelOfGroup(group, channel); });
+    channelsWindow->AddScreenshotSettingsChangedListener(
+        [this]() { screenshotSettingsChangedSignal(); });
+    channelsWindow->AddTakeScreenshotListener([this]() { screenshotSignal(); });
 }
 
 ImRect SimpleIPTVUI::RenderDesktop()
@@ -94,7 +97,10 @@ ImRect SimpleIPTVUI::showDesktop()
         {
             volumeToggleMuteSignal();
         }
-
+        if (ImGui::IsKeyPressed(ImGuiKey_S))
+        {
+            screenshotSignal();
+        }
         if (ImGui::GetIO().MouseWheel > 0)
         {
             volumeIncreaseSignal();

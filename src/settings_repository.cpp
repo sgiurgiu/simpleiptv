@@ -39,6 +39,61 @@ void SettingsRepository::SetChannelsWindowWidth(int value)
     SetIntValue("CHANNELS_WINDOW_WIDTH", value);
 }
 
+std::filesystem::path
+SettingsRepository::GetScreenshotPath(const std::filesystem::path& defaultValue)
+{
+    return GetStringValue("SCREENSHOT_PATH", defaultValue.string());
+}
+void SettingsRepository::SetScreenshotPath(const std::filesystem::path& path)
+{
+    SetStringValue("SCREENSHOT_PATH", path.string());
+}
+
+std::string SettingsRepository::GetScreenshotFormat(const std::string& defaultValue)
+{
+    return GetStringValue("SCREENSHOT_FORMAT", defaultValue);
+}
+void SettingsRepository::SetScreenshotFormat(const std::string& format)
+{
+    SetStringValue("SCREENSHOT_FORMAT", format);
+}
+
+std::string
+SettingsRepository::GetScreenshotFileTemplate(const std::string& defaultValue)
+{
+    return GetStringValue("SCREENSHOT_FILE_TEMPLATE", defaultValue);
+}
+void SettingsRepository::SetScreenshotFileTemplate(const std::string& fileTemplate)
+{
+    SetStringValue("SCREENSHOT_FILE_TEMPLATE", fileTemplate);
+}
+
+std::string SettingsRepository::GetStringValue(const std::string& key,
+                                               const std::string& defaultValue)
+{
+    auto session = DatabaseConnections::GetConnection();
+    std::string valueStr;
+    soci::indicator ind;
+    session << "SELECT VALUE FROM SETTINGS WHERE KEY=:KEY", soci::use(key),
+        soci::into(valueStr, ind);
+    if (ind == soci::i_ok)
+    {
+        return valueStr;
+    }
+    else
+    {
+        return defaultValue;
+    }
+}
+void SettingsRepository::SetStringValue(const std::string& key,
+                                        const std::string& value)
+{
+    auto session = DatabaseConnections::GetConnection();
+    session << "INSERT INTO SETTINGS(KEY,VALUE) VALUES(:KEY,:VAL) ON "
+               "CONFLICT(KEY) DO UPDATE SET VALUE=:VAL",
+        soci::use(key, "KEY"), soci::use(value, "VAL");
+}
+
 int SettingsRepository::GetIntValue(const std::string& key, int defaultValue)
 {
     auto session = DatabaseConnections::GetConnection();

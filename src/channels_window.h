@@ -11,6 +11,7 @@
 
 #include "serverpopup.h"
 #include "settings/http_proxy_dialog.h"
+#include "settings/screenshot_dialog.h"
 #include "workers_provider.h"
 
 class ChannelsWindow : public std::enable_shared_from_this<ChannelsWindow>
@@ -45,6 +46,16 @@ public:
     {
         channelActivatedSignal.connect(slot);
     }
+    template <typename S>
+    void AddScreenshotSettingsChangedListener(S slot)
+    {
+        screenshotSettingsChangedSignal.connect(slot);
+    }
+    template <typename S>
+    void AddTakeScreenshotListener(S slot)
+    {
+        takeScreenshotSignal.connect(slot);
+    }
     void ActivateNextChannel();
     void ActivatePreviousChannel();
     void ActivateChannelOfGroup(ChannelsGroupPtr group, ChannelPtr channel);
@@ -68,8 +79,13 @@ private:
     std::string channelsFilter;
     using ChannelActivatedSignal = boost::signals2::signal<void(ChannelPtr)>;
     ChannelActivatedSignal channelActivatedSignal;
+    using ScreenshotSettingsChangedSignal = boost::signals2::signal<void()>;
+    ScreenshotSettingsChangedSignal screenshotSettingsChangedSignal;
+    using TakeScreenshotSignal = boost::signals2::signal<void()>;
+    TakeScreenshotSignal takeScreenshotSignal;
     DisplayChannel* activatedChannel = nullptr;
     bool pinned = false;
     std::shared_ptr<HTTPProxyDialog> httpProxyDialog;
+    std::shared_ptr<ScreenshotDialog> screenshotDialog;
     std::optional<int> width;
 };

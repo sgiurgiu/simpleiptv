@@ -39,6 +39,11 @@ public:
     void Play();
     void Stop();
     void Pause();
+    void Screenshot();
+    void SetScreenshotPath(const std::filesystem::path& path);
+    void SetScreenshotFileTemplate(const std::string& fileTemplate);
+    void SetScreenshotFormat(const std::string& format);
+
     PlayerState GetPlayerState() const;
     void VolumeToggleMute();
     void VolumeIncrease();
@@ -76,7 +81,8 @@ private:
     static void onMpvEvents(void* ctx);
 
     void removeVolumeOsd(const boost::system::error_code& ec);
-
+    void removeScreenshotOsd(const boost::system::error_code& ec);
+    void showScreenshotOsd(const std::string& filename);
     void proxySettings(HttpProxy proxy);
 
     void mpvRenderThread();

@@ -63,6 +63,20 @@ SimpleIPTVCoordinator::SimpleIPTVCoordinator(boost::asio::io_context& uiContext,
     simpleiptv.AddVolumeIncreaseListener([this]() { mpvPlayer.VolumeIncrease(); });
     simpleiptv.AddVolumeDecreaseListener([this]() { mpvPlayer.VolumeDecrease(); });
     simpleiptv.AddVolumeToggleMuteListener([this]() { mpvPlayer.VolumeToggleMute(); });
+    simpleiptv.AddScreenshotListener([this]() { mpvPlayer.Screenshot(); });
+    simpleiptv.AddScreenshotSettingsChangedListener(
+        [this]()
+        {
+            mpvPlayer.SetScreenshotPath(
+                this->workersProvider->GetSettingsRepository()->GetScreenshotPath(
+                    std::filesystem::path(".")));
+            mpvPlayer.SetScreenshotFormat(
+                this->workersProvider->GetSettingsRepository()->GetScreenshotFormat(
+                    "jpg"));
+            mpvPlayer.SetScreenshotFileTemplate(
+                this->workersProvider->GetSettingsRepository()
+                    ->GetScreenshotFileTemplate("screenshot_%04n"));
+        });
 }
 
 void SimpleIPTVCoordinator::Render()

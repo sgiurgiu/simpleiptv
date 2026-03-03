@@ -20,10 +20,12 @@ namespace
 {
 
 constexpr int VOLUME_OSD_ID = 1;
+constexpr int SCREENSHOT_OSD_ID = 2;
 constexpr std::chrono::duration OSD_DURATION = std::chrono::seconds{ 3 };
 
 constexpr int STOP_COMMAND_REPLY_USERDATA = 15;
 constexpr int LOADFILE_COMMAND_REPLY_USERDATA = 16;
+constexpr int SCREENSHOT_COMMAND_REPLY_USERDATA = 17;
 
 } // namespace
 
@@ -79,6 +81,15 @@ MpvPlayer::MpvPlayer(boost::asio::any_io_executor ui_executor,
 
     mpvEventsThread = std::thread([this]() { handleMpvEvents(); });
 
+    SetScreenshotPath(
+        this->workersProvider->GetSettingsRepository()->GetScreenshotPath(
+            std::filesystem::path(".")));
+    SetScreenshotFormat(
+        this->workersProvider->GetSettingsRepository()->GetScreenshotFormat(
+            "jpg"));
+    SetScreenshotFileTemplate(
+        this->workersProvider->GetSettingsRepository()->GetScreenshotFileTemplate(
+            "screenshot_%04n"));
     if (mpv_initialize(mpv) < 0)
         throw std::runtime_error("could not initialize mpv context");
     int errorCode = mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &volume);
@@ -314,6 +325,30 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
             mpv_set_property_string(mpv, "loop-playlist", "inf");
         }
         break;
+        case SCREENSHOT_COMMAND_REPLY_USERDATA:
+        {
+            mpv_node *node = (mpv_node *)event->data;
+            if (node->format == MPV_FORMAT_NODE_MAP)
+            {
+                mpv_node_list *map = node->u.list;
+                for (int i = 0; i < map->num; i++)
+                {
+                    std::string key = map->keys[i];
+                    std::string value = map->values[i].u.string;
+                    if (key == "filename")
+                    {
+                        spdlog::debug("Screenshot command replied: {}: {}", key,
+                                      value);
+                        showScreenshotOsd(value);
+                        using namespace std::placeholders;
+                        osdTimer.expires_after(OSD_DURATION);
+                        osdTimer.async_wait(std::bind(
+                            &MpvPlayer::removeScreenshotOsd, this, _1));
+                    }
+                }
+            }
+            break;
+        }
         default:
             break;
         }
@@ -553,4 +588,46 @@ void MpvPlayer::SetVolume(double volume)
 void MpvPlayer::ClosedCaptions(const std::string &id)
 {
     mpv_set_property_string(mpv, "sid", id.c_str());
+}
+void MpvPlayer::Screenshot()
+{
+    const char *cmd[] = { "screenshot", nullptr };
+    mpv_command_async(mpv, SCREENSHOT_COMMAND_REPLY_USERDATA, cmd);
+}
+void MpvPlayer::SetScreenshotPath(const std::filesystem::path &path)
+{
+    mpv_set_option_string(mpv, "screenshot-directory", path.c_str());
+}
+void MpvPlayer::SetScreenshotFormat(const std::string &format)
+{
+    mpv_set_option_string(mpv, "screenshot-format", format.c_str());
+}
+void MpvPlayer::SetScreenshotFileTemplate(const std::string &fileTemplate)
+{
+    mpv_set_option_string(mpv, "screenshot-template", fileTemplate.c_str());
+}
+void MpvPlayer::removeScreenshotOsd(const boost::system::error_code &ec)
+{
+    if (!ec)
+    {
+        NodeVariant node = NodeVariantMap{ { "name", { "osd-overlay" } },
+                                           { "id", { SCREENSHOT_OSD_ID } },
+                                           { "format", { "none" } },
+                                           { "data", { "" } } };
+        NodeBuilder builder{ node };
+        mpv_command_node(mpv, builder.GetNode(), nullptr);
+    }
+}
+void MpvPlayer::showScreenshotOsd(const std::string &filename)
+{
+    NodeVariant node = NodeVariantMap{
+        { "name", { "osd-overlay" } },
+        { "id", { SCREENSHOT_OSD_ID } },
+        { "format", { "ass-events" } },
+        { "res_x", { width } },
+        { "res_y", { height } },
+        { "data", { fmt::format("{{\\an2\\fs36}}Saved screenshot: {}", filename) } }
+    };
+    NodeBuilder builder{ node };
+    mpv_command_node(mpv, builder.GetNode(), nullptr);
 }

@@ -135,6 +135,7 @@ set(STV_SRCS main.cpp
     servers/server.cpp
     servers/servers_repository.cpp
     settings/http_proxy_dialog.cpp
+    settings/screenshot_dialog.cpp
     display_tree_nodes/common.cpp
     display_tree_nodes/display_node.cpp
     display_tree_nodes/display_channel.cpp
