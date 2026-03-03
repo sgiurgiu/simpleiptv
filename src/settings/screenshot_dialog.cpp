@@ -24,7 +24,9 @@ ScreenshotDialog::ScreenshotDialog(Key, WorkersProvider* workersProvider)
             break;
         }
     }
-    screenshotFileTemplate = workersProvider->GetSettingsRepository()->GetScreenshotFileTemplate("screenshot_%04d.jpg");
+    screenshotFileTemplate =
+        workersProvider->GetSettingsRepository()->GetScreenshotFileTemplate(
+            "screenshot_%04n");
 }
 
 std::shared_ptr<ScreenshotDialog> ScreenshotDialog::Create(WorkersProvider* workersProvider)

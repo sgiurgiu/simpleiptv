@@ -31,7 +31,7 @@ private:
     WorkersProvider* workersProvider;
     bool showingDialog = false;
     std::string screenshotPath;
-    std::vector<const char*> screenshotFormats = { "jpg", "png", "webp", "jxl", "avif" };
+    std::vector<const char*> screenshotFormats = { "jpg", "png", "webp" };
     int screenshotFormat = 0;
     std::string screenshotFileTemplate;
     boost::signals2::signal<void()> screenshotSettingsChangedSignal;
