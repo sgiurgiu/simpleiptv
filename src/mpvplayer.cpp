@@ -512,6 +512,8 @@ PlayerState MpvPlayer::GetPlayerState() const
 }
 void MpvPlayer::VolumeToggleMute()
 {
+    removeVolumeOsd(boost::system::error_code{});
+    removeScreenshotOsd(boost::system::error_code{});
     int mute = 0;
     mpv_get_property(mpv, "mute", MPV_FORMAT_FLAG, &mute);
     mute = mute ? 0 : 1;
@@ -564,6 +566,8 @@ double MpvPlayer::GetVolume() const
 }
 void MpvPlayer::SetVolume(double volume)
 {
+    removeVolumeOsd(boost::system::error_code{});
+    removeScreenshotOsd(boost::system::error_code{});
     this->volume = volume;
     mpv_set_property_string(mpv, "mute", "no");
 
@@ -620,6 +624,8 @@ void MpvPlayer::removeScreenshotOsd(const boost::system::error_code &ec)
 }
 void MpvPlayer::showScreenshotOsd(const std::string &filename)
 {
+    removeVolumeOsd(boost::system::error_code{});
+    removeScreenshotOsd(boost::system::error_code{});
     NodeVariant node = NodeVariantMap{
         { "name", { "osd-overlay" } },
         { "id", { SCREENSHOT_OSD_ID } },
