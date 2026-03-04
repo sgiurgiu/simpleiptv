@@ -90,7 +90,8 @@ private:
 private:
     boost::asio::any_io_executor ui_executor;
     WorkersProvider* workersProvider;
-    boost::asio::steady_timer osdTimer;
+    boost::asio::steady_timer osdVolumeTimer;
+    boost::asio::steady_timer osdScreenshotTimer;
     mpv_handle* mpv = nullptr;
     mpv_render_context* mpvRenderContext = nullptr;
     pl_options placeboOptions = nullptr;

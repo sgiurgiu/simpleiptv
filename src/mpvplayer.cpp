@@ -34,7 +34,8 @@ MpvPlayer::MpvPlayer(boost::asio::any_io_executor ui_executor,
                      SimpleIPTVVulkan *vulkanInstance)
 : ui_executor{ ui_executor }
 , workersProvider{ workersProvider }
-, osdTimer{ this->workersProvider->GetNetworkExecutor() }
+, osdVolumeTimer{ this->workersProvider->GetNetworkExecutor() }
+, osdScreenshotTimer{ this->workersProvider->GetNetworkExecutor() }
 , vulkanInstance{ vulkanInstance }
 {
     mpv = mpv_create();
@@ -341,8 +342,8 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
                                       value);
                         showScreenshotOsd(value);
                         using namespace std::placeholders;
-                        osdTimer.expires_after(OSD_DURATION);
-                        osdTimer.async_wait(std::bind(
+                        osdScreenshotTimer.expires_after(OSD_DURATION);
+                        osdScreenshotTimer.async_wait(std::bind(
                             &MpvPlayer::removeScreenshotOsd, this, _1));
                     }
                 }
@@ -512,8 +513,6 @@ PlayerState MpvPlayer::GetPlayerState() const
 }
 void MpvPlayer::VolumeToggleMute()
 {
-    removeVolumeOsd(boost::system::error_code{});
-    removeScreenshotOsd(boost::system::error_code{});
     int mute = 0;
     mpv_get_property(mpv, "mute", MPV_FORMAT_FLAG, &mute);
     mute = mute ? 0 : 1;
@@ -530,8 +529,8 @@ void MpvPlayer::VolumeToggleMute()
     NodeBuilder builder{ node };
     mpv_command_node(mpv, builder.GetNode(), nullptr);
     using namespace std::placeholders;
-    osdTimer.expires_after(OSD_DURATION);
-    osdTimer.async_wait(std::bind(&MpvPlayer::removeVolumeOsd, this, _1));
+    osdVolumeTimer.expires_after(OSD_DURATION);
+    osdVolumeTimer.async_wait(std::bind(&MpvPlayer::removeVolumeOsd, this, _1));
     volumeSignal(mute ? 0.0 : volume);
 }
 void MpvPlayer::VolumeIncrease()
@@ -566,8 +565,6 @@ double MpvPlayer::GetVolume() const
 }
 void MpvPlayer::SetVolume(double volume)
 {
-    removeVolumeOsd(boost::system::error_code{});
-    removeScreenshotOsd(boost::system::error_code{});
     this->volume = volume;
     mpv_set_property_string(mpv, "mute", "no");
 
@@ -585,8 +582,8 @@ void MpvPlayer::SetVolume(double volume)
     NodeBuilder builder{ node };
     mpv_command_node(mpv, builder.GetNode(), nullptr);
     using namespace std::placeholders;
-    osdTimer.expires_after(OSD_DURATION);
-    osdTimer.async_wait(std::bind(&MpvPlayer::removeVolumeOsd, this, _1));
+    osdVolumeTimer.expires_after(OSD_DURATION);
+    osdVolumeTimer.async_wait(std::bind(&MpvPlayer::removeVolumeOsd, this, _1));
 }
 
 void MpvPlayer::ClosedCaptions(const std::string &id)
@@ -624,8 +621,6 @@ void MpvPlayer::removeScreenshotOsd(const boost::system::error_code &ec)
 }
 void MpvPlayer::showScreenshotOsd(const std::string &filename)
 {
-    removeVolumeOsd(boost::system::error_code{});
-    removeScreenshotOsd(boost::system::error_code{});
     NodeVariant node = NodeVariantMap{
         { "name", { "osd-overlay" } },
         { "id", { SCREENSHOT_OSD_ID } },

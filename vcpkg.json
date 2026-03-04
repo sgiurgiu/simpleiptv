@@ -68,7 +68,8 @@
         "mp3lame",
         "aom",
         "webp",
-        "openjpeg"
+        "openjpeg",
+        "zlib"
       ]
     },
     "libebur128",
