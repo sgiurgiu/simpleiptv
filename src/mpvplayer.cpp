@@ -328,25 +328,39 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
         break;
         case SCREENSHOT_COMMAND_REPLY_USERDATA:
         {
-            mpv_node *node = (mpv_node *)event->data;
-            if (node->format == MPV_FORMAT_NODE_MAP)
+            std::string filename;
+            if (event->error != 0)
             {
-                mpv_node_list *map = node->u.list;
-                for (int i = 0; i < map->num; i++)
+                spdlog::error("Screenshot command replied with error: {}",
+                              mpv_error_string(event->error));
+                filename = mpv_error_string(event->error);
+            }
+            else
+            {
+                mpv_node *node = (mpv_node *)event->data;
+                if (node->format == MPV_FORMAT_NODE_MAP)
                 {
-                    std::string key = map->keys[i];
-                    std::string value = map->values[i].u.string;
-                    if (key == "filename")
+                    mpv_node_list *map = node->u.list;
+                    for (int i = 0; i < map->num; i++)
                     {
-                        spdlog::debug("Screenshot command replied: {}: {}", key,
-                                      value);
-                        showScreenshotOsd(value);
-                        using namespace std::placeholders;
-                        osdScreenshotTimer.expires_after(OSD_DURATION);
-                        osdScreenshotTimer.async_wait(std::bind(
-                            &MpvPlayer::removeScreenshotOsd, this, _1));
+                        std::string key = map->keys[i];
+                        std::string value = map->values[i].u.string;
+                        if (key == "filename")
+                        {
+                            spdlog::debug("Screenshot command replied: {}: {}",
+                                          key, value);
+                            filename = value;
+                        }
                     }
                 }
+            }
+            if (!filename.empty())
+            {
+                showScreenshotOsd(filename, event->error != 0);
+                using namespace std::placeholders;
+                osdScreenshotTimer.expires_after(OSD_DURATION);
+                osdScreenshotTimer.async_wait(
+                    std::bind(&MpvPlayer::removeScreenshotOsd, this, _1));
             }
             break;
         }
@@ -619,15 +633,19 @@ void MpvPlayer::removeScreenshotOsd(const boost::system::error_code &ec)
         mpv_command_node(mpv, builder.GetNode(), nullptr);
     }
 }
-void MpvPlayer::showScreenshotOsd(const std::string &filename)
+void MpvPlayer::showScreenshotOsd(const std::string &filename, bool error)
 {
+    std::string data =
+        fmt::format("{{\\an2\\fs36}}Saved screenshot: {}", filename);
+    if (error)
+    {
+        data =
+            fmt::format("{{\\an2\\fs36\\1c&H0000FF&}}Error saving screenshot");
+    }
     NodeVariant node = NodeVariantMap{
-        { "name", { "osd-overlay" } },
-        { "id", { SCREENSHOT_OSD_ID } },
-        { "format", { "ass-events" } },
-        { "res_x", { width } },
-        { "res_y", { height } },
-        { "data", { fmt::format("{{\\an2\\fs36}}Saved screenshot: {}", filename) } }
+        { "name", { "osd-overlay" } },  { "id", { SCREENSHOT_OSD_ID } },
+        { "format", { "ass-events" } }, { "res_x", { width } },
+        { "res_y", { height } },        { "data", { data } }
     };
     NodeBuilder builder{ node };
     mpv_command_node(mpv, builder.GetNode(), nullptr);

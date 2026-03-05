@@ -82,7 +82,7 @@ private:
 
     void removeVolumeOsd(const boost::system::error_code& ec);
     void removeScreenshotOsd(const boost::system::error_code& ec);
-    void showScreenshotOsd(const std::string& filename);
+    void showScreenshotOsd(const std::string& filename, bool error = false);
     void proxySettings(HttpProxy proxy);
 
     void mpvRenderThread();
