@@ -383,10 +383,11 @@ void MpvPlayer::mpvRenderUpdate(void *ctx)
 
 void MpvPlayer::mpvRenderThread()
 {
-    // struct pl_color_space desired = { .primaries = PL_COLOR_PRIM_BT_2020,
-    //                                   .transfer = PL_COLOR_TRC_PQ,
-    //                                   .hdr = pl_hdr_metadata_empty };
-    // pl_swapchain_colorspace_hint(vulkanInstance->GetPlSwapchain(), &desired);
+    struct pl_color_space desired = { .primaries =
+                                          pl_color_primaries_guess(width, height),
+                                      .transfer = PL_COLOR_TRC_SRGB,
+                                      .hdr = pl_hdr_metadata_empty };
+    pl_swapchain_colorspace_hint(vulkanInstance->GetPlSwapchain(), &desired);
 
     while (!renderThreadQuit)
     {
