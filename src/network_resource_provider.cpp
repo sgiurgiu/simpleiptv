@@ -10,6 +10,7 @@
 #include <boost/url.hpp>
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
+#include <system_error>
 
 #include "boost_error_code_converter.h"
 #include "sanitize_url.h"
@@ -460,5 +461,9 @@ void NetworkResourceProvider::getResource(HttpProxy proxy,
     catch (const std::exception& ex)
     {
         spdlog::error("Cannot perform request {}", ex.what());
+        auto func = std::bind(
+            cb, std::string{},
+            std::make_error_code(std::errc::io_error));
+        boost::asio::post(cb_executor, func);
     }
 }

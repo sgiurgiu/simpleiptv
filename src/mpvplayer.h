@@ -100,9 +100,11 @@ private:
     std::atomic_int width = 100;
     std::atomic_int height = 100;
 
-    PlayerState playerState = PlayerState::STOPPED;
+    std::atomic<PlayerState> playerState = PlayerState::STOPPED;
+    mutable std::mutex currentlyPlayingChannelMutex;
     ChannelPtr currentlyPlayingChannel;
-    int skipRendering = 0;
+    std::atomic_uint64_t pendingLoadRequestId;
+    std::atomic_bool stopRequested = false;
     using PlayerStateSignal = boost::signals2::signal<void(PlayerState)>;
     using FileLoadingErrorSignal =
         boost::signals2::signal<void(const std::string&)>;

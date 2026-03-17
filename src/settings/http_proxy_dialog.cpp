@@ -35,6 +35,7 @@ void HTTPProxyDialog::ShowDialog()
                 self->proxy = std::move(proxy);
                 strncpy(self->proxyHostname, self->proxy.host.c_str(),
                         sizeof(self->proxyHostname));
+                self->proxyHostname[sizeof(self->proxyHostname) - 1] = '\0';
                 self->proxyPort = self->proxy.port;
                 self->useProxy = self->proxy.use;
             },

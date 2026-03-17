@@ -186,6 +186,10 @@ void runMainLoop(GLFWwindow* window,
             SimpleIPTVCoordinator* coordinator =
                 reinterpret_cast<SimpleIPTVCoordinator*>(
                     glfwGetWindowUserPointer(window));
+            if (!coordinator)
+            {
+                return;
+            }
             coordinator->SetSize(width, height);
         });
 

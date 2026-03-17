@@ -23,9 +23,9 @@ constexpr int VOLUME_OSD_ID = 1;
 constexpr int SCREENSHOT_OSD_ID = 2;
 constexpr std::chrono::duration OSD_DURATION = std::chrono::seconds{ 3 };
 
-constexpr int STOP_COMMAND_REPLY_USERDATA = 15;
-constexpr int LOADFILE_COMMAND_REPLY_USERDATA = 16;
-constexpr int SCREENSHOT_COMMAND_REPLY_USERDATA = 17;
+constexpr uint64_t STOP_COMMAND_REPLY_USERDATA = 15;
+constexpr uint64_t SCREENSHOT_COMMAND_REPLY_USERDATA = 17;
+constexpr uint64_t LOADFILE_COMMAND_REPLY_USERDATA_BASE = 1000;
 
 } // namespace
 
@@ -36,6 +36,7 @@ MpvPlayer::MpvPlayer(boost::asio::any_io_executor ui_executor,
 , workersProvider{ workersProvider }
 , osdVolumeTimer{ this->workersProvider->GetNetworkExecutor() }
 , osdScreenshotTimer{ this->workersProvider->GetNetworkExecutor() }
+, pendingLoadRequestId{ LOADFILE_COMMAND_REPLY_USERDATA_BASE }
 , vulkanInstance{ vulkanInstance }
 {
     mpv = mpv_create();
@@ -80,8 +81,6 @@ MpvPlayer::MpvPlayer(boost::asio::any_io_executor ui_executor,
     double volMax = 150.0;
     mpv_set_property(mpv, "volume-max", MPV_FORMAT_DOUBLE, &volMax);
 
-    mpvEventsThread = std::thread([this]() { handleMpvEvents(); });
-
     SetScreenshotPath(
         this->workersProvider->GetSettingsRepository()->GetScreenshotPath(
             std::filesystem::path(".")));
@@ -98,6 +97,7 @@ MpvPlayer::MpvPlayer(boost::asio::any_io_executor ui_executor,
     {
         spdlog::error("Cannot set volume: {}", mpv_error_string(errorCode));
     }
+    mpvEventsThread = std::thread([this]() { handleMpvEvents(); });
 }
 
 void MpvPlayer::proxySettings(HttpProxy proxy)
@@ -117,13 +117,21 @@ MpvPlayer::~MpvPlayer()
 {
     renderThreadQuit = true;
     renderWakeupCondition.notify_all();
-    renderThread.join();
+    if (renderThread.joinable())
+    {
+        renderThread.join();
+    }
     if (mpv)
     {
         const char *cmd[] = { "quit", nullptr };
         mpv_command(mpv, cmd);
     }
-    mpvEventsThread.join();
+    if (mpvEventsThread.joinable())
+    {
+        mpvEventsThread.join();
+    }
+    osdVolumeTimer.cancel();
+    osdScreenshotTimer.cancel();
     if (mpvRenderContext)
     {
         mpv_render_context_free(mpvRenderContext);
@@ -210,7 +218,6 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
         std::string name(prop->name);
         if (prop->format == MPV_FORMAT_DOUBLE)
         {
-            double value = *(double *)prop->data;
             if (name == "volume")
             {
             }
@@ -218,10 +225,17 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
         else if (prop->format == MPV_FORMAT_FLAG)
         {
             int value = *(int *)prop->data;
-            if (name == "paused")
+            if (name == "paused" || name == "pause")
             {
-                playerState = PlayerState::PAUSED;
-                playerStateSignal(playerState);
+                if (value)
+                {
+                    boost::asio::post(ui_executor,
+                                      [this]()
+                                      {
+                                          playerState = PlayerState::PAUSED;
+                                          playerStateSignal(playerState);
+                                      });
+                }
             }
         }
         break;
@@ -284,7 +298,6 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
             {
                 playerState = PlayerState::PLAYING;
                 workersProvider->GetSleepService()->disableComputerSleep();
-                skipRendering = 0;
                 playerStateSignal(playerState);
                 int tracksCount = 0;
                 mpv_get_property(mpv, "track-list/count", MPV_FORMAT_INT64,
@@ -299,33 +312,52 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
                         char *id = mpv_get_property_string(
                             mpv, fmt::format("track-list/{}/id", i).c_str());
                         subIds.emplace_back(id);
+                        mpv_free(id);
                     }
+                    mpv_free(type);
                 }
                 subsAvailableSignal(std::move(subIds));
-                skipRendering = 0;
             });
     }
     break;
     case MPV_EVENT_COMMAND_REPLY:
     {
         auto reply_userdata = event->reply_userdata;
-        switch (reply_userdata)
+        if (reply_userdata >= LOADFILE_COMMAND_REPLY_USERDATA_BASE)
         {
-        case STOP_COMMAND_REPLY_USERDATA:
-            playerState = PlayerState::STOPPED;
-            playerStateSignal(playerState);
-            break;
-        case LOADFILE_COMMAND_REPLY_USERDATA:
-        {
-            const char *cmd[] = { "loadfile",
-                                  currentlyPlayingChannel->GetUri().c_str(),
-                                  nullptr };
+            if (reply_userdata != pendingLoadRequestId.load() ||
+                stopRequested.load())
+            {
+                break;
+            }
+            ChannelPtr channel;
+            {
+                std::lock_guard<std::mutex> _{ currentlyPlayingChannelMutex };
+                channel = currentlyPlayingChannel;
+            }
+            if (!channel)
+            {
+                spdlog::debug(
+                    "Ignoring stale load reply with no active channel");
+                break;
+            }
+            const char *cmd[] = { "loadfile", channel->GetUri().c_str(), nullptr };
             mpv_command(mpv, cmd);
             mpv_set_property_string(mpv, "pause", "no");
             mpv_set_property_string(mpv, "sid", "no");
             mpv_set_property_string(mpv, "loop-playlist", "inf");
+            break;
         }
-        break;
+        switch (reply_userdata)
+        {
+        case STOP_COMMAND_REPLY_USERDATA:
+            boost::asio::post(ui_executor,
+                              [this]()
+                              {
+                                  playerState = PlayerState::STOPPED;
+                                  playerStateSignal(playerState);
+                              });
+            break;
         case SCREENSHOT_COMMAND_REPLY_USERDATA:
         {
             std::string filename;
@@ -377,8 +409,10 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
 void MpvPlayer::mpvRenderUpdate(void *ctx)
 {
     auto self = reinterpret_cast<MpvPlayer *>(ctx);
-    self->shouldRender = true;
-    self->renderWakeupCondition.notify_one();
+    if (!self->shouldRender.exchange(true))
+    {
+        self->renderWakeupCondition.notify_one();
+    }
 }
 
 void MpvPlayer::mpvRenderThread()
@@ -391,22 +425,23 @@ void MpvPlayer::mpvRenderThread()
 
     while (!renderThreadQuit)
     {
-        std::unique_lock<std::mutex> lock(renderWakeupMutex);
-        renderWakeupCondition.wait(
-            lock, [this]()
-            { return shouldRender.load() || renderThreadQuit.load(); });
-
-        if (renderThreadQuit)
-            break;
-
-        if (renderInProgress)
         {
-            shouldRender = true;
-            continue;
+            std::unique_lock<std::mutex> lock(renderWakeupMutex);
+            renderWakeupCondition.wait(
+                lock, [this]()
+                { return shouldRender.load() || renderThreadQuit.load(); });
+
+            if (renderThreadQuit)
+                break;
+
+            if (renderInProgress)
+            {
+                shouldRender = true;
+                continue;
+            }
+            renderInProgress = true;
+            shouldRender = false;
         }
-        renderInProgress = true;
-        shouldRender = false;
-        lock.unlock();
 
         // rendering UI
         auto windowBottomLeftPoint = uiRenderCallback();
@@ -423,6 +458,7 @@ void MpvPlayer::mpvRenderThread()
         if (!pl_swapchain_start_frame(vulkanInstance->GetPlSwapchain(), &frame))
         {
             spdlog::error("[render] failed to get swapchain frame!");
+            renderInProgress = false;
             continue;
         }
 
@@ -464,7 +500,6 @@ bool MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame,
           (void *)frame },
         { (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_VIEWPORT,
           &rect },
-        { MPV_RENDER_PARAM_SKIP_RENDERING, &skipRendering },
         { (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_TARGET_COLORSPACE,
           &target },
         { MPV_RENDER_PARAM_INVALID, 0 }
@@ -492,12 +527,18 @@ void MpvPlayer::SetSize(int width, int height)
 }
 void MpvPlayer::Play()
 {
-    if (!currentlyPlayingChannel || playerState == PlayerState::PLAYING)
+    ChannelPtr channel;
+    {
+        std::lock_guard<std::mutex> _{ currentlyPlayingChannelMutex };
+        channel = currentlyPlayingChannel;
+    }
+    if (!channel || playerState == PlayerState::PLAYING)
         return;
-    Play(currentlyPlayingChannel);
+    Play(std::move(channel));
 }
 void MpvPlayer::Stop()
 {
+    stopRequested = true;
     const char *cmdStop[] = { "stop", nullptr };
     mpv_command_async(mpv, STOP_COMMAND_REPLY_USERDATA, cmdStop);
     // playerStateSignal(playerState);
@@ -514,12 +555,24 @@ void MpvPlayer::Pause()
 
 void MpvPlayer::Play(ChannelPtr channel)
 {
-    if (playerState == PlayerState::PLAYING && channel == currentlyPlayingChannel)
+    if (!channel)
+        return;
+    ChannelPtr playing;
+    {
+        std::lock_guard<std::mutex> _{ currentlyPlayingChannelMutex };
+        playing = currentlyPlayingChannel;
+    }
+    if (playerState == PlayerState::PLAYING && channel == playing)
         return;
 
-    this->currentlyPlayingChannel = channel;
+    {
+        std::lock_guard<std::mutex> _{ currentlyPlayingChannelMutex };
+        currentlyPlayingChannel = std::move(channel);
+    }
+    stopRequested = false;
+    auto requestId = ++pendingLoadRequestId;
     const char *cmdStop[] = { "stop", nullptr };
-    mpv_command_async(mpv, LOADFILE_COMMAND_REPLY_USERDATA, cmdStop);
+    mpv_command_async(mpv, requestId, cmdStop);
 }
 
 PlayerState MpvPlayer::GetPlayerState() const

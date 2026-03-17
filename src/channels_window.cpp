@@ -77,6 +77,10 @@ void ChannelsWindow::initialize()
 
 void ChannelsWindow::ActivateNextChannel()
 {
+    if (!rootNode || rootNode->children.empty())
+    {
+        return;
+    }
     if (activatedChannel)
     {
         auto next = activatedChannel->getNextNode(workersProvider,
@@ -101,25 +105,27 @@ void ChannelsWindow::ActivateNextChannel()
         }
         else
         {
-            rootNode->children.begin()->get()->loadChildren(
+            auto* firstNode = rootNode->children.begin()->get();
+            firstNode->loadChildren(
                 workersProvider, vulkanInstance, ui_executor);
-            if (!rootNode->children.begin()->get()->children.empty())
+            if (!firstNode->children.empty())
             {
-                rootNode->children.begin()->get()->isOpen = true;
+                firstNode->isOpen = true;
                 activatedChannel = dynamic_cast<DisplayChannel*>(
-                    rootNode->children.begin()->get()->children.begin()->get());
+                    firstNode->children.begin()->get());
             }
         }
     }
     else
     {
-        rootNode->children.begin()->get()->loadChildren(
+        auto* firstNode = rootNode->children.begin()->get();
+        firstNode->loadChildren(
             workersProvider, vulkanInstance, ui_executor);
-        if (!rootNode->children.begin()->get()->children.empty())
+        if (!firstNode->children.empty())
         {
-            rootNode->children.begin()->get()->isOpen = true;
+            firstNode->isOpen = true;
             activatedChannel = dynamic_cast<DisplayChannel*>(
-                rootNode->children.begin()->get()->children.begin()->get());
+                firstNode->children.begin()->get());
         }
     }
 
@@ -131,6 +137,10 @@ void ChannelsWindow::ActivateNextChannel()
 }
 void ChannelsWindow::ActivatePreviousChannel()
 {
+    if (!rootNode || rootNode->children.empty())
+    {
+        return;
+    }
     if (activatedChannel)
     {
         auto next = activatedChannel->getPreviousNode(
@@ -155,25 +165,27 @@ void ChannelsWindow::ActivatePreviousChannel()
         }
         else
         {
-            rootNode->children.rbegin()->get()->loadChildren(
+            auto* lastNode = rootNode->children.rbegin()->get();
+            lastNode->loadChildren(
                 workersProvider, vulkanInstance, ui_executor);
-            if (!rootNode->children.rbegin()->get()->children.empty())
+            if (!lastNode->children.empty())
             {
-                rootNode->children.rbegin()->get()->isOpen = true;
+                lastNode->isOpen = true;
                 activatedChannel = dynamic_cast<DisplayChannel*>(
-                    rootNode->children.rbegin()->get()->children.rbegin()->get());
+                    lastNode->children.rbegin()->get());
             }
         }
     }
     else
     {
-        rootNode->children.rbegin()->get()->loadChildren(
+        auto* lastNode = rootNode->children.rbegin()->get();
+        lastNode->loadChildren(
             workersProvider, vulkanInstance, ui_executor);
-        if (!rootNode->children.rbegin()->get()->children.empty())
+        if (!lastNode->children.empty())
         {
-            rootNode->children.rbegin()->get()->isOpen = true;
+            lastNode->isOpen = true;
             activatedChannel = dynamic_cast<DisplayChannel*>(
-                rootNode->children.rbegin()->get()->children.rbegin()->get());
+                lastNode->children.rbegin()->get());
         }
     }
 

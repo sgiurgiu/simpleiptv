@@ -1,6 +1,8 @@
 #include "dbconnection_pool.h"
 #include <soci/connection-pool.h>
 #include <soci/sqlite3/soci-sqlite3.h>
+#include <spdlog/spdlog.h>
+#include <stdexcept>
 
 #include "stv_utils.h"
 
@@ -19,11 +21,19 @@ void DatabaseConnections::Initialize()
     auto dbFile = confFolder / "simpleiptv.db";
 #endif
 
-    for (size_t i = 0; i < poolSize; i++)
+    try
     {
-        pool.at(i).open(soci::sqlite3, dbFile.string());
+        for (size_t i = 0; i < poolSize; i++)
+        {
+            pool.at(i).open(soci::sqlite3, dbFile.string());
+        }
+        initTables();
     }
-    initTables();
+    catch (const soci::soci_error& ex)
+    {
+        spdlog::critical("Database initialization failed: {}", ex.what());
+        throw std::runtime_error("Database initialization failed");
+    }
 }
 soci::session DatabaseConnections::GetConnection()
 {
@@ -33,8 +43,7 @@ void DatabaseConnections::initTables()
 {
     auto con = GetConnection();
     con << "PRAGMA foreign_keys = ON";
-    con << "PRAGMA synchronous = OFF"; // we only run it one thread (almost,
-                                       // just the settings no)
+    con << "PRAGMA synchronous = NORMAL";
     con << "CREATE TABLE IF NOT EXISTS SCHEMA_VERSION(VERSION INT)";
     con << "CREATE TABLE IF NOT EXISTS CHANNEL_GROUPS(GROUP_ID "
            "INTEGER NOT NULL PRIMARY KEY, "
@@ -78,7 +87,13 @@ void DatabaseConnections::initTables()
 int DatabaseConnections::getSchemaVersion(soci::session& con)
 {
     int version = 0;
-    con << "SELECT VERSION FROM SCHEMA_VERSION", soci::into(version);
+    soci::indicator ind;
+    con << "SELECT VERSION FROM SCHEMA_VERSION LIMIT 1",
+        soci::into(version, ind);
+    if (ind != soci::i_ok)
+    {
+        return 0;
+    }
     return version;
 }
 void DatabaseConnections::incrementSchemaVersion(soci::session& con, int version)

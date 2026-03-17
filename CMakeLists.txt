@@ -21,21 +21,11 @@ if(NOT SIMPLEIPTV_VERSION)
 endif()
 
 
-add_definitions(-DSIMPLEIPTV_VERSION="${SIMPLEIPTV_VERSION}")
-add_definitions(-DSIMPLEIPTV_STRING="Simple IPTV v${SIMPLEIPTV_VERSION}")
-
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
-endif()
-
-if(UNIX)
-    add_definitions(-DSTV_UNIX)
-endif()
-if(WIN32)
-    add_definitions(-DSTV_WINDOWS)
 endif()
 
 include(GNUInstallDirs)

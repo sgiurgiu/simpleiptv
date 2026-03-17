@@ -31,7 +31,16 @@ void ChannelsRepository::LoadChannelsAndGroups(
         executor,
         [self = shared_from_this(), cb = std::move(cb), cb_executor]() mutable
         {
-            auto root = self->loadChannelsData();
+            RootChannelsGroupPtr root;
+            try
+            {
+                root = self->loadChannelsData();
+            }
+            catch (const soci::soci_error& ex)
+            {
+                spdlog::error("Cannot load channels and groups: {}", ex.what());
+                root = std::make_shared<RootChannelsGroup>();
+            }
             boost::asio::post(cb_executor, [root = std::move(root),
                                             cb = std::move(cb)]() mutable
                               { cb(std::move(root)); });
@@ -235,24 +244,33 @@ void ChannelsRepository::GetFavouritesPage(
          cb_executor]() mutable
         {
             std::vector<ChannelPtr> channels;
-            auto session = DatabaseConnections::GetConnection();
             int total = 0;
-            session << "SELECT COUNT(*) FROM CHANNELS WHERE FAVOURITE=TRUE",
-                soci::into(total);
-
-            soci::rowset<soci::row> rows = { (
-                session.prepare
-                    << "SELECT CHANNEL_ID, NAME, URI, LOGO_URI, "
-                       "LOGO, EPG_CHANNEL_URI, "
-                       "EPG_CHANNEL_ID, XSTREAM_SERVER_ID, "
-                       "FAVOURITE, GROUP_ID FROM "
-                       "CHANNELS "
-                       "WHERE FAVOURITE=TRUE ORDER BY NAME LIMIT :size "
-                       "OFFSET :offset",
-                soci::use(channelsPerPage), soci::use(page * channelsPerPage)) };
-            for (const auto& r : rows)
+            try
             {
-                channels.push_back(self->loadChannel(r));
+                auto session = DatabaseConnections::GetConnection();
+                session << "SELECT COUNT(*) FROM CHANNELS WHERE FAVOURITE=TRUE",
+                    soci::into(total);
+
+                soci::rowset<soci::row> rows = { (
+                    session.prepare
+                        << "SELECT CHANNEL_ID, NAME, URI, LOGO_URI, "
+                           "LOGO, EPG_CHANNEL_URI, "
+                           "EPG_CHANNEL_ID, XSTREAM_SERVER_ID, "
+                           "FAVOURITE, GROUP_ID FROM "
+                           "CHANNELS "
+                           "WHERE FAVOURITE=TRUE ORDER BY NAME LIMIT :size "
+                           "OFFSET :offset",
+                    soci::use(channelsPerPage),
+                    soci::use(page * channelsPerPage)) };
+                for (const auto& r : rows)
+                {
+                    channels.push_back(self->loadChannel(r));
+                }
+            }
+            catch (const soci::soci_error& ex)
+            {
+                spdlog::error("Cannot load favourites page {}: {}", page,
+                              ex.what());
             }
 
             boost::asio::post(cb_executor, [channels = std::move(channels),
@@ -276,27 +294,35 @@ void ChannelsRepository::GetChannelsPage(
             auto ind = group ? soci::i_ok : soci::i_null;
             int total = 0;
             std::vector<ChannelPtr> channels;
-            auto session = DatabaseConnections::GetConnection();
-
-            session << "SELECT COUNT(*) FROM CHANNELS WHERE IIF(:id IS NULL, "
-                       "GROUP_ID IS NULL, GROUP_ID=:id)",
-                soci::use(id, ind, "id"), soci::into(total);
-
-            soci::rowset<soci::row> rows = { (
-                session.prepare << "SELECT CHANNEL_ID, NAME, URI, LOGO_URI, "
-                                   "LOGO, EPG_CHANNEL_URI, "
-                                   "EPG_CHANNEL_ID, XSTREAM_SERVER_ID, "
-                                   "FAVOURITE, GROUP_ID FROM "
-                                   "CHANNELS "
-                                   "WHERE IIF(:id IS NULL, "
-                                   "GROUP_ID IS NULL, GROUP_ID=:id)   ORDER BY "
-                                   "NAME LIMIT :size "
-                                   "OFFSET :offset",
-                soci::use(id, ind, "id"), soci::use(channelsPerPage, "size"),
-                soci::use(page * channelsPerPage, "offset")) };
-            for (const auto& r : rows)
+            try
             {
-                channels.push_back(self->loadChannel(r));
+                auto session = DatabaseConnections::GetConnection();
+
+                session << "SELECT COUNT(*) FROM CHANNELS WHERE IIF(:id IS NULL, "
+                           "GROUP_ID IS NULL, GROUP_ID=:id)",
+                    soci::use(id, ind, "id"), soci::into(total);
+
+                soci::rowset<soci::row> rows = { (
+                    session.prepare << "SELECT CHANNEL_ID, NAME, URI, LOGO_URI, "
+                                       "LOGO, EPG_CHANNEL_URI, "
+                                       "EPG_CHANNEL_ID, XSTREAM_SERVER_ID, "
+                                       "FAVOURITE, GROUP_ID FROM "
+                                       "CHANNELS "
+                                       "WHERE IIF(:id IS NULL, "
+                                       "GROUP_ID IS NULL, GROUP_ID=:id)   ORDER BY "
+                                       "NAME LIMIT :size "
+                                       "OFFSET :offset",
+                    soci::use(id, ind, "id"), soci::use(channelsPerPage, "size"),
+                    soci::use(page * channelsPerPage, "offset")) };
+                for (const auto& r : rows)
+                {
+                    channels.push_back(self->loadChannel(r));
+                }
+            }
+            catch (const soci::soci_error& ex)
+            {
+                spdlog::error("Cannot load channels page {}: {}", page,
+                              ex.what());
             }
 
             boost::asio::post(cb_executor, [channels = std::move(channels),
@@ -312,10 +338,17 @@ void ChannelsRepository::GetGroups(LoadGroupsCallback cb,
         [self = shared_from_this(), cb = std::move(cb), cb_executor]() mutable
         {
             std::vector<ChannelsGroupPtr> groups;
-            auto groupsMap = self->loadAllGroups();
-            std::transform(groupsMap.begin(), groupsMap.end(),
-                           std::back_inserter(groups),
-                           [](auto& kv) { return kv.second; });
+            try
+            {
+                auto groupsMap = self->loadAllGroups();
+                std::transform(groupsMap.begin(), groupsMap.end(),
+                               std::back_inserter(groups),
+                               [](auto& kv) { return kv.second; });
+            }
+            catch (const soci::soci_error& ex)
+            {
+                spdlog::error("Cannot load groups: {}", ex.what());
+            }
             boost::asio::post(cb_executor, [groups = std::move(groups),
                                             cb = std::move(cb)]() mutable
                               { cb(std::move(groups)); });
@@ -385,6 +418,7 @@ void ChannelsRepository::SaveGroup(ChannelsGroupPtr group,
          cb = std::move(cb), cb_executor]() mutable
         {
             std::optional<int> id;
+            try
             {
                 auto session = DatabaseConnections::GetConnection();
                 soci::rowset<soci::row> rows = { (
@@ -398,6 +432,11 @@ void ChannelsRepository::SaveGroup(ChannelsGroupPtr group,
                     break;
                 }
             }
+            catch (const soci::soci_error& ex)
+            {
+                spdlog::error("Cannot save group '{}': {}", group->GetName(),
+                              ex.what());
+            }
             if (id)
             {
                 ChannelsGroupPtr g = std::make_shared<ChannelsGroup>(
@@ -406,6 +445,11 @@ void ChannelsRepository::SaveGroup(ChannelsGroupPtr group,
                                        { self->upsertChannel(channel, g); });
                 boost::asio::post(cb_executor, [g, cb = std::move(cb)]() mutable
                                   { cb(std::move(g)); });
+            }
+            else
+            {
+                boost::asio::post(cb_executor, [cb = std::move(cb)]() mutable
+                                  { cb(ChannelsGroupPtr{}); });
             }
         });
 }
@@ -419,19 +463,32 @@ void ChannelsRepository::UpsertGroup(ChannelsGroupPtr group,
                       [self = shared_from_this(), group = std::move(group),
                        cb = std::move(cb), cb_executor]() mutable
                       {
-                          auto foundGroup = self->findGroup(group->GetName());
-                          if (foundGroup)
+                          try
                           {
-                              group->IterateChannels(
-                                  [self, foundGroup](auto channel)
-                                  { self->upsertChannel(channel, foundGroup); });
-                              boost::asio::post(cb_executor,
-                                                [group, cb = std::move(cb)]() mutable
-                                                { cb(std::move(group)); });
+                              auto foundGroup = self->findGroup(group->GetName());
+                              if (foundGroup)
+                              {
+                                  group->IterateChannels(
+                                      [self, foundGroup](auto channel)
+                                      { self->upsertChannel(channel, foundGroup); });
+                                  boost::asio::post(
+                                      cb_executor,
+                                      [group, cb = std::move(cb)]() mutable
+                                      { cb(std::move(group)); });
+                              }
+                              else
+                              {
+                                  self->SaveGroup(group, std::move(cb), cb_executor);
+                              }
                           }
-                          else
+                          catch (const soci::soci_error& ex)
                           {
-                              self->SaveGroup(group, std::move(cb), cb_executor);
+                              spdlog::error("Cannot upsert group '{}': {}",
+                                            group->GetName(), ex.what());
+                              boost::asio::post(
+                                  cb_executor,
+                                  [cb = std::move(cb)]() mutable
+                                  { cb(ChannelsGroupPtr{}); });
                           }
                       });
 }

@@ -62,12 +62,30 @@ void pllog_callback(void*, enum pl_log_level level, const char* msg)
 }
 } // namespace
 
-int SimpleIPTVVulkan::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-    VkDebugUtilsMessageTypeFlagsEXT messageType,
+int SimpleIPTVVulkan::debugCallback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT /*messageType*/,
     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-    void* pUserData)
+    void* /*pUserData*/)
 {
-    spdlog::debug("Vulkan debug: {}", pCallbackData->pMessage);
+    switch (messageSeverity)
+    {
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+        spdlog::error("Vulkan debug error: {}", pCallbackData->pMessage);
+        break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+        spdlog::warn("Vulkan debug warning: {}", pCallbackData->pMessage);
+        break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+        spdlog::info("Vulkan debug info: {}", pCallbackData->pMessage);
+        break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+        spdlog::debug("Vulkan debug verbose: {}", pCallbackData->pMessage);
+        break;
+    default:
+        spdlog::trace("Vulkan debug unknown: {}", pCallbackData->pMessage);
+        break;
+    }
     return VK_TRUE;
 }
 
@@ -149,6 +167,7 @@ void SimpleIPTVVulkan::createCustomShader(pl_shader sh, pl_tex texture)
 
 void SimpleIPTVVulkan::UpdateImguiDrawBuffers()
 {
+    std::lock_guard<std::mutex> _{ imguiRenderMutex };
     auto drawData = ImGui::GetDrawData();
     if (!drawData)
     {
@@ -233,10 +252,18 @@ void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame,
         dispatchParams.shader = &sh;
         dispatchParams.target = frame->fbo;
         dispatchParams.blend_params = &pl_alpha_overlay;
-        dispatchParams.scissors = { .x0 = std::max((int)(pcmd->ClipRect.x), 0),
-                                    .y0 = std::max((int)(pcmd->ClipRect.y), 0),
-                                    .x1 = std::max((int)(pcmd->ClipRect.z), 0),
-                                    .y1 = std::max((int)(pcmd->ClipRect.w), 0) };
+        int clipX0 = std::max((int)(pcmd->ClipRect.x), 0);
+        int clipY0 = std::max((int)(pcmd->ClipRect.y), 0);
+        int clipX1 = std::max((int)(pcmd->ClipRect.z), 0);
+        int clipY1 = std::max((int)(pcmd->ClipRect.w), 0);
+        if (clipX1 <= clipX0 || clipY1 <= clipY0)
+        {
+            continue;
+        }
+        dispatchParams.scissors = { .x0 = clipX0,
+                                    .y0 = clipY0,
+                                    .x1 = clipX1,
+                                    .y1 = clipY1 };
         dispatchParams.vertex_attribs = attribs_pl;
         dispatchParams.num_vertex_attribs = 3;
         dispatchParams.vertex_stride = sizeof(ImDrawVert);
@@ -259,6 +286,7 @@ void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame,
 
 void SimpleIPTVVulkan::DrawUI(pl_swapchain_frame* frame)
 {
+    std::lock_guard<std::mutex> _{ imguiRenderMutex };
     drawImgui(frame, imguiDrawVertexes, imguiDrawIndexes, imguiDrawCommands);
 }
 
@@ -474,8 +502,11 @@ mipmaps for smoother downscaling.
     }
     // pl_tex_recreate();
     imageData.tex = pl_tex_create(vulkan->gpu, &tparams);
-    imageData.name = "texture" + std::to_string(customTextures.size());
-    customTextures.insert(imageData.tex);
+    {
+        std::lock_guard<std::mutex> _{ imguiRenderMutex };
+        imageData.name = "texture" + std::to_string(customTextures.size());
+        customTextures.insert(imageData.tex);
+    }
 
     return imageData;
 }
@@ -504,18 +535,23 @@ ImageData SimpleIPTVVulkan::CreatePlayerBarImageData(int width,
     }
 
     imageData.tex = pl_tex_create(vulkan->gpu, &tparams);
-    playerBarTexture = imageData.tex;
+    {
+        std::lock_guard<std::mutex> _{ imguiRenderMutex };
+        playerBarTexture = imageData.tex;
+    }
 
     return imageData;
 }
 void SimpleIPTVVulkan::DestroyPlayerBarImageData(ImageData& imageData)
 {
     DestroyImageData(imageData);
+    std::lock_guard<std::mutex> _{ imguiRenderMutex };
     playerBarTexture = nullptr;
 }
 
 void SimpleIPTVVulkan::DestroyImageData(ImageData& image)
 {
+    std::lock_guard<std::mutex> _{ imguiRenderMutex };
     customTextures.erase(image.tex);
     pl_tex_destroy(vulkan->gpu, &image.tex);
 }
