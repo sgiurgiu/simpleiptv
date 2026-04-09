@@ -417,11 +417,10 @@ void MpvPlayer::mpvRenderUpdate(void *ctx)
 
 void MpvPlayer::mpvRenderThread()
 {
-    struct pl_color_space desired = { .primaries =
-                                          pl_color_primaries_guess(width, height),
-                                      .transfer = PL_COLOR_TRC_SRGB,
-                                      .hdr = pl_hdr_metadata_empty };
-    pl_swapchain_colorspace_hint(vulkanInstance->GetPlSwapchain(), &desired);
+
+    SetColorspace({ .primaries = pl_color_primaries_guess(width, height),
+                    .transfer = PL_COLOR_TRC_SRGB,
+                    .hdr = pl_hdr_metadata_empty });
 
     while (!renderThreadQuit)
     {
@@ -453,6 +452,12 @@ void MpvPlayer::mpvRenderThread()
         }
 
         vulkanInstance->UpdateImguiDrawBuffers();
+
+        {
+            std::lock_guard<std::mutex> lock(colorspaceMutex);
+            pl_swapchain_colorspace_hint(vulkanInstance->GetPlSwapchain(),
+                                         &colorspace);
+        }
 
         pl_swapchain_frame frame = {};
         if (!pl_swapchain_start_frame(vulkanInstance->GetPlSwapchain(), &frame))
@@ -488,9 +493,6 @@ bool MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame,
         .y1 = (int)desktopRect.Max.y,
     };
 
-    // Use what was negotiated in the swapchain frame
-    pl_color_space target = frame->color_space;
-
     int block = 0;
     mpv_render_param render_params[] = {
         { MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, &block },
@@ -500,8 +502,6 @@ bool MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame,
           (void *)frame },
         { (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_VIEWPORT,
           &rect },
-        { (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_TARGET_COLORSPACE,
-          &target },
         { MPV_RENDER_PARAM_INVALID, 0 }
     };
 
@@ -703,4 +703,14 @@ void MpvPlayer::showScreenshotOsd(const std::string &filename, bool error)
     };
     NodeBuilder builder{ node };
     mpv_command_node(mpv, builder.GetNode(), nullptr);
+}
+void MpvPlayer::SetColorspace(const pl_color_space &colorspace)
+{
+    std::lock_guard<std::mutex> _{ colorspaceMutex };
+    this->colorspace = colorspace;
+}
+pl_color_space MpvPlayer::GetColorspace() const
+{
+    std::lock_guard<std::mutex> _{ colorspaceMutex };
+    return colorspace;
 }

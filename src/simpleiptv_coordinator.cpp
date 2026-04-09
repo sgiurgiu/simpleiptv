@@ -77,6 +77,7 @@ SimpleIPTVCoordinator::SimpleIPTVCoordinator(boost::asio::io_context& uiContext,
                 this->workersProvider->GetSettingsRepository()
                     ->GetScreenshotFileTemplate("screenshot_%04n"));
         });
+    simpleiptv.AddGetPlayerListener([this]() { return &mpvPlayer; });
 }
 
 void SimpleIPTVCoordinator::Render()

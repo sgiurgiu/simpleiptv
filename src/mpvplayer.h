@@ -50,6 +50,8 @@ public:
     void VolumeDecrease();
     double GetVolume() const;
     void SetVolume(double volume);
+    void SetColorspace(const pl_color_space& colorspace);
+    pl_color_space GetColorspace() const;
 
     template <typename S>
     void AddPlayerStateListener(S slot)
@@ -96,6 +98,8 @@ private:
     mpv_render_context* mpvRenderContext = nullptr;
     pl_options placeboOptions = nullptr;
     double volume = 100.0;
+    mutable std::mutex colorspaceMutex;
+    pl_color_space colorspace;
 
     std::atomic_int width = 100;
     std::atomic_int height = 100;

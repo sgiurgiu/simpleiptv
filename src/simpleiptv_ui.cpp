@@ -34,6 +34,13 @@ SimpleIPTVUI::SimpleIPTVUI(boost::asio::any_io_executor ui_executor,
     channelsWindow->AddScreenshotSettingsChangedListener(
         [this]() { screenshotSettingsChangedSignal(); });
     channelsWindow->AddTakeScreenshotListener([this]() { screenshotSignal(); });
+
+    channelsWindow->GetPlayerSignal().connect(
+        [this]() -> MpvPlayer*
+        {
+            auto result = getPlayerSignal();
+            return result.value_or(nullptr);
+        });
 }
 
 ImRect SimpleIPTVUI::RenderDesktop()

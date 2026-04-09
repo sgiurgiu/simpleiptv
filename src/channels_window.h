@@ -6,10 +6,13 @@
 #include <memory>
 #include <optional>
 
+#include <libplacebo/colorspace.h>
+
 #include "display_tree_nodes/display_root_channel_group.h"
 #include "display_tree_nodes/display_server_node.h"
 
 #include "serverpopup.h"
+#include "settings/colorspace_dialog.h"
 #include "settings/http_proxy_dialog.h"
 #include "settings/screenshot_dialog.h"
 #include "workers_provider.h"
@@ -21,6 +24,7 @@ private:
     {
         explicit Key() = default;
     };
+    using GetPlayerSignalType = boost::signals2::signal<MpvPlayer*()>;
 
 public:
     ChannelsWindow(Key,
@@ -59,6 +63,15 @@ public:
     void ActivateNextChannel();
     void ActivatePreviousChannel();
     void ActivateChannelOfGroup(ChannelsGroupPtr group, ChannelPtr channel);
+    template <typename S>
+    void AddGetPlayerListener(S slot)
+    {
+        getPlayerSignal.connect(slot);
+    }
+    GetPlayerSignalType& GetPlayerSignal()
+    {
+        return getPlayerSignal;
+    }
 
 private:
     void initialize();
@@ -85,7 +98,10 @@ private:
     TakeScreenshotSignal takeScreenshotSignal;
     DisplayChannel* activatedChannel = nullptr;
     bool pinned = false;
+    ColorspaceDialog colorspaceDialog;
     std::shared_ptr<HTTPProxyDialog> httpProxyDialog;
     std::shared_ptr<ScreenshotDialog> screenshotDialog;
     std::optional<int> width;
+
+    GetPlayerSignalType getPlayerSignal;
 };

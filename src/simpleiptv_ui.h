@@ -99,6 +99,11 @@ public:
     {
         screenshotSettingsChangedSignal.connect(slot);
     }
+    template <typename S>
+    void AddGetPlayerListener(S slot)
+    {
+        getPlayerSignal.connect(slot);
+    }
 
 private:
     void channelActivated(ChannelPtr channel);
@@ -116,7 +121,8 @@ private:
     BasicOperationSignal volumeToggleMuteSignal;
     BasicOperationSignal screenshotSignal;
     BasicOperationSignal screenshotSettingsChangedSignal;
-
+    using GetPlayerSignal = boost::signals2::signal<MpvPlayer*()>;
+    GetPlayerSignal getPlayerSignal;
     bool quit = false;
     bool showChannels = true;
 #ifdef STV_DEBUG

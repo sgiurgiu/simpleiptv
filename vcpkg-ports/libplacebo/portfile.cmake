@@ -24,9 +24,9 @@ endfunction()
 
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
-    REPO sgiurgiu/libplacebo
-    REF "8069b871ced696a8ac9e371439ef6b4f0753207f"
-    SHA512 0d1b130d3168b6cdbb75c641330eef1f72541d0339c1d92030ca49dd1ef30148c3ad7c16431832d35bc590d36da8af94f013f374740329287ce26bdae793ada5
+    REPO haasn/libplacebo
+    REF "v7.360.1"
+    SHA512 209b1713cff34f06149af16fb3ea52e3662a566ef5df6b29811ad295aa8cb6388f827a93fc8e0eed1a72f35b3b3aae835520c933079e706a51d11136a8128799
     HEAD_REF master
 )
 

@@ -1,4 +1,5 @@
 #include "channels_window.h"
+#include "mpvplayer.h"
 
 #include <boost/asio/post.hpp>
 #include <chrono>
@@ -260,6 +261,7 @@ ImVec2 ChannelsWindow::ShowWindow(float playerBarHeight)
 
     httpProxyDialog->ShowDialog();
     screenshotDialog->ShowDialog();
+    colorspaceDialog.ShowColorspaceDialog();
     if (width != (int)std::floor(ImGui::GetWindowSize().x))
     {
         width = std::floor(ImGui::GetWindowSize().x);
@@ -359,6 +361,14 @@ void ChannelsWindow::showMenu()
             if (ImGui::MenuItem("Screenshot"))
             {
                 screenshotDialog->SetShowScreenshotDialog(true);
+            }
+
+            if (ImGui::MenuItem("Colorspace"))
+            {
+                auto player = getPlayerSignal();
+                if (!player)
+                    return;
+                colorspaceDialog.SetShowColorspaceDialog(true, player.value());
             }
             ImGui::EndMenu();
         }
