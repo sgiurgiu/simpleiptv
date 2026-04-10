@@ -54,8 +54,7 @@ void ColorspaceDialog::ShowColorspaceDialog()
             transferItems, cs.transfer);
         hdr = pl_color_space_is_hdr(&cs);
     }
-    if (ImGui::BeginPopupModal("Colorspace", nullptr,
-                               ImGuiWindowFlags_AlwaysAutoResize))
+    if (ImGui::BeginPopup("Colorspace", ImGuiWindowFlags_AlwaysAutoResize))
     {
         auto fieldsPosition = ImGui::CalcTextSize(LABEL_TEMPLATE.data()).x;
 
@@ -69,7 +68,10 @@ void ColorspaceDialog::ShowColorspaceDialog()
             {
                 bool isSelected = (selectedPrimaries == item.value);
                 if (ImGui::Selectable(item.label.c_str(), isSelected))
+                {
                     selectedPrimaries = item.value;
+                    updateColorspace();
+                }
                 if (isSelected)
                     ImGui::SetItemDefaultFocus();
             }
@@ -87,7 +89,10 @@ void ColorspaceDialog::ShowColorspaceDialog()
             {
                 bool isSelected = (selectedTransfer == item.value);
                 if (ImGui::Selectable(item.label.c_str(), isSelected))
+                {
                     selectedTransfer = item.value;
+                    updateColorspace();
+                }
                 if (isSelected)
                     ImGui::SetItemDefaultFocus();
             }
@@ -97,28 +102,23 @@ void ColorspaceDialog::ShowColorspaceDialog()
 
         ImGui::Text("HDR:");
         ImGui::SameLine(fieldsPosition);
-        ImGui::Checkbox("##hdr", &hdr);
+        if (ImGui::Checkbox("##hdr", &hdr))
+        {
+            updateColorspace();
+        }
+
+        if (ImGui::Button("Reset", ImVec2(120, 0)))
+        {
+            auto cs = player->GetDefaultColorspace();
+            selectedPrimaries = findComboIndex(primariesItems, cs.primaries);
+            selectedTransfer = findComboIndex(transferItems, cs.transfer);
+            hdr = pl_color_space_is_hdr(&cs);
+
+            updateColorspace();
+        }
 
         ImGui::Separator();
-        if (ImGui::Button("OK", ImVec2(120, 0)) ||
-            ImGui::IsKeyPressed(ImGuiKey_Enter))
-        {
-            pl_color_space cs = {};
-            cs.primaries = static_cast<pl_color_primaries>(
-                primariesItems[selectedPrimaries].value);
-            cs.transfer = static_cast<pl_color_transfer>(
-                transferItems[selectedTransfer].value);
-            if (hdr)
-                cs.hdr = pl_hdr_metadata_hdr10;
-            else
-                cs.hdr = pl_hdr_metadata_empty;
-            player->SetColorspace(cs);
-            showingDialog = false;
-            player = nullptr;
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel", ImVec2(120, 0)) ||
+        if (ImGui::Button("Close", ImVec2(120, 0)) ||
             ImGui::IsKeyPressed(ImGuiKey_Escape))
         {
             showingDialog = false;
@@ -128,4 +128,18 @@ void ColorspaceDialog::ShowColorspaceDialog()
 
         ImGui::EndPopup();
     }
+}
+
+void ColorspaceDialog::updateColorspace()
+{
+    pl_color_space cs = {};
+    cs.primaries =
+        static_cast<pl_color_primaries>(primariesItems[selectedPrimaries].value);
+    cs.transfer =
+        static_cast<pl_color_transfer>(transferItems[selectedTransfer].value);
+    if (hdr)
+        cs.hdr = pl_hdr_metadata_hdr10;
+    else
+        cs.hdr = pl_hdr_metadata_empty;
+    player->SetColorspace(cs);
 }

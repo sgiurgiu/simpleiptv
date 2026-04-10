@@ -17,6 +17,9 @@ public:
     }
 
 private:
+    void updateColorspace();
+
+private:
     bool showingDialog = false;
     int selectedPrimaries = 0;
     int selectedTransfer = 0;

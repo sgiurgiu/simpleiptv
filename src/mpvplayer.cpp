@@ -418,9 +418,7 @@ void MpvPlayer::mpvRenderUpdate(void *ctx)
 void MpvPlayer::mpvRenderThread()
 {
 
-    SetColorspace({ .primaries = pl_color_primaries_guess(width, height),
-                    .transfer = PL_COLOR_TRC_SRGB,
-                    .hdr = pl_hdr_metadata_empty });
+    SetColorspace(GetDefaultColorspace());
 
     while (!renderThreadQuit)
     {
@@ -713,4 +711,10 @@ pl_color_space MpvPlayer::GetColorspace() const
 {
     std::lock_guard<std::mutex> _{ colorspaceMutex };
     return colorspace;
+}
+pl_color_space MpvPlayer::GetDefaultColorspace() const
+{
+    return { .primaries = pl_color_primaries_guess(width, height),
+             .transfer = PL_COLOR_TRC_SRGB,
+             .hdr = pl_hdr_metadata_empty };
 }

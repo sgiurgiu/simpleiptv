@@ -74,6 +74,7 @@ public:
         subsAvailableSignal.connect(slot);
     }
     void ClosedCaptions(const std::string& id);
+    pl_color_space GetDefaultColorspace() const;
 
 private:
     void handleMpvEvent(mpv_event* event);
