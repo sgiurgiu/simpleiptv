@@ -40,9 +40,65 @@ ColorspaceDialog::ColorspaceDialog()
     }
 }
 
+void ColorspaceDialog::ShowColorspaceMenus(MpvPlayer* player)
+{
+    this->player = player;
+    auto cs = player->GetColorspace();
+    selectedPrimaries = findComboIndex(primariesItems, cs.primaries);
+    selectedTransfer = findComboIndex(transferItems, cs.transfer);
+    hdr = pl_color_space_is_hdr(&cs);
+
+    if (ImGui::BeginCombo("Primaries",
+                          primariesItems[selectedPrimaries].label.c_str()))
+    {
+        for (const auto& item : primariesItems)
+        {
+            bool isSelected = (selectedPrimaries == item.value);
+            if (ImGui::Selectable(item.label.c_str(), isSelected))
+            {
+                selectedPrimaries = item.value;
+                updateColorspace();
+            }
+            if (isSelected)
+                ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+    if (ImGui::BeginCombo("Transfer",
+                          transferItems[selectedTransfer].label.c_str()))
+    {
+        for (const auto& item : transferItems)
+        {
+            bool isSelected = (selectedTransfer == item.value);
+            if (ImGui::Selectable(item.label.c_str(), isSelected))
+            {
+                selectedTransfer = item.value;
+                updateColorspace();
+            }
+            if (isSelected)
+                ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+    if (ImGui::Checkbox("HDR", &hdr))
+    {
+        updateColorspace();
+    }
+    if (ImGui::Button("Reset", ImVec2(120, 0)))
+    {
+        auto cs = player->GetDefaultColorspace();
+        selectedPrimaries = findComboIndex(primariesItems, cs.primaries);
+        selectedTransfer = findComboIndex(transferItems, cs.transfer);
+        hdr = pl_color_space_is_hdr(&cs);
+
+        updateColorspace();
+    }
+}
 
 void ColorspaceDialog::ShowColorspaceDialog()
 {
+    if (true)
+        return;
     if (showingDialog && player)
     {
         ImGui::OpenPopup("Colorspace");

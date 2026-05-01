@@ -9,6 +9,7 @@ class ColorspaceDialog
 {
 public:
     ColorspaceDialog();
+    void ShowColorspaceMenus(MpvPlayer* player);
     void ShowColorspaceDialog();
     void SetShowColorspaceDialog(bool flag, MpvPlayer* player)
     {

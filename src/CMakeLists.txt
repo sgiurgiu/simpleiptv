@@ -1,5 +1,5 @@
 if(MSVC)
-    set(WIN32_APP_OPTIONS WIN32)
+  set(WIN32_APP_OPTIONS WIN32)
 endif()
 
 set(Boost_USE_MULTITHREADED      ON)
@@ -15,97 +15,97 @@ find_package(Boost 1.81 REQUIRED system filesystem program_options asio signals2
 list(APPEND STV_LIBARIES Boost::boost Boost::system Boost::filesystem Boost::url)
 
 if(VCPKG_TOOLCHAIN)
-    set(Boost_USE_STATIC_RUNTIME ON)
-    set(nlohmann-json_IMPLICIT_CONVERSIONS OFF)
-    find_package(VulkanHeaders CONFIG)
-    find_package(VulkanMemoryAllocator CONFIG REQUIRED)
-    find_package(glfw3 CONFIG REQUIRED)
-    find_package(OpenSSL REQUIRED)
-    find_package(spdlog CONFIG REQUIRED)
-    find_package(fmt CONFIG REQUIRED)
-    find_package(freetype CONFIG REQUIRED)
-    find_package(unofficial-sqlite3 CONFIG REQUIRED)
-    find_package(SOCI CONFIG REQUIRED)
-    find_package(Stb REQUIRED)
-    find_package(nlohmann_json CONFIG REQUIRED)
-    find_package(date CONFIG REQUIRED)
-    find_package(glslang CONFIG REQUIRED)
-    find_package(SPIRV-Headers CONFIG REQUIRED)
-    find_package(FFMPEG REQUIRED)
-    find_package(volk CONFIG REQUIRED)
+  set(Boost_USE_STATIC_RUNTIME ON)
+  set(nlohmann-json_IMPLICIT_CONVERSIONS OFF)
+  find_package(VulkanHeaders CONFIG)
+  find_package(VulkanMemoryAllocator CONFIG REQUIRED)
+  find_package(glfw3 CONFIG REQUIRED)
+  find_package(OpenSSL REQUIRED)
+  find_package(spdlog CONFIG REQUIRED)
+  find_package(fmt CONFIG REQUIRED)
+  find_package(freetype CONFIG REQUIRED)
+  find_package(unofficial-sqlite3 CONFIG REQUIRED)
+  find_package(SOCI CONFIG REQUIRED)
+  find_package(Stb REQUIRED)
+  find_package(nlohmann_json CONFIG REQUIRED)
+  find_package(date CONFIG REQUIRED)
+  find_package(glslang CONFIG REQUIRED)
+  find_package(SPIRV-Headers CONFIG REQUIRED)
+  find_package(FFMPEG REQUIRED)
+  find_package(volk CONFIG REQUIRED)
 
-    if(UNIX)
-		find_package(sdbus-c++ CONFIG REQUIRED)
-		list(APPEND STV_LIBARIES SDBusCpp::sdbus-c++)
-        find_package(PkgConfig REQUIRED)
-        pkg_check_modules(Libass REQUIRED IMPORTED_TARGET libass)
-        pkg_check_modules(LibMPV REQUIRED  IMPORTED_TARGET mpv)
-        list(APPEND STV_LIBARIES PkgConfig::LibMPV)
-        pkg_check_modules(Libebur128 REQUIRED IMPORTED_TARGET libebur128)
-        list(APPEND STV_LIBARIES PkgConfig::Libass PkgConfig::Libebur128)
-        pkg_check_modules(SpirvCrossC REQUIRED IMPORTED_TARGET spirv-cross-c)
-        list(APPEND STV_LIBARIES PkgConfig::SpirvCrossC)
-        pkg_check_modules(Libplacebo REQUIRED IMPORTED_TARGET libplacebo)
-        list(APPEND STV_LIBARIES PkgConfig::Libplacebo)
-    endif()
+  if(UNIX)
+    find_package(sdbus-c++ CONFIG REQUIRED)
+    list(APPEND STV_LIBARIES SDBusCpp::sdbus-c++)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(Libass REQUIRED IMPORTED_TARGET libass)
+    pkg_check_modules(LibMPV REQUIRED  IMPORTED_TARGET mpv)
+    list(APPEND STV_LIBARIES PkgConfig::LibMPV)
+    pkg_check_modules(Libebur128 REQUIRED IMPORTED_TARGET libebur128)
+    list(APPEND STV_LIBARIES PkgConfig::Libass PkgConfig::Libebur128)
+    pkg_check_modules(SpirvCrossC REQUIRED IMPORTED_TARGET spirv-cross-c)
+    list(APPEND STV_LIBARIES PkgConfig::SpirvCrossC)
+    pkg_check_modules(Libplacebo REQUIRED IMPORTED_TARGET libplacebo)
+    list(APPEND STV_LIBARIES PkgConfig::Libplacebo)
+  endif()
 
-    if(UNIX AND NOT APPLE) # freebsd ... sorry
-        find_package(PkgConfig REQUIRED)
-        pkg_check_modules(Systemd REQUIRED IMPORTED_TARGET libsystemd)
-        list(APPEND STV_LIBARIES PkgConfig::Systemd)
-    endif()
+  if(UNIX AND NOT APPLE) # freebsd ... sorry
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(Systemd REQUIRED IMPORTED_TARGET libsystemd)
+    list(APPEND STV_LIBARIES PkgConfig::Systemd)
+  endif()
 
-    list(APPEND STV_LIBARIES glfw freetype)
-    list(APPEND STV_LIBARIES OpenSSL::SSL)
-    list(APPEND STV_LIBARIES spdlog::spdlog_header_only fmt::fmt-header-only)
-    list(APPEND STV_LIBARIES unofficial::sqlite3::sqlite3 SOCI::soci_sqlite3_static)
-    list(APPEND STV_LIBARIES nlohmann_json::nlohmann_json)
-    list(APPEND STV_LIBARIES date::date date::date-tz)
-    list(APPEND STV_LIBARIES glslang::glslang glslang::glslang-default-resource-limits glslang::SPIRV )
-    list(APPEND STV_LIBARIES Vulkan::Headers GPUOpen::VulkanMemoryAllocator)
-    list(APPEND STV_LIBARIES volk::volk_headers)
-    
-    list(APPEND STV_LIBARIES SPIRV-Headers::SPIRV-Headers)
-    list(APPEND STV_LIBARIES ${FFMPEG_LIBRARIES})
-    list(APPEND STV_INCLUDES ${Stb_INCLUDE_DIR})
-    list(APPEND STV_INCLUDES ${FFMPEG_INCLUDE_DIRS})
+  list(APPEND STV_LIBARIES glfw freetype)
+  list(APPEND STV_LIBARIES OpenSSL::SSL)
+  list(APPEND STV_LIBARIES spdlog::spdlog_header_only fmt::fmt-header-only)
+  list(APPEND STV_LIBARIES unofficial::sqlite3::sqlite3 SOCI::soci_sqlite3_static)
+  list(APPEND STV_LIBARIES nlohmann_json::nlohmann_json)
+  list(APPEND STV_LIBARIES date::date date::date-tz)
+  list(APPEND STV_LIBARIES glslang::glslang glslang::glslang-default-resource-limits glslang::SPIRV )
+  list(APPEND STV_LIBARIES Vulkan::Headers GPUOpen::VulkanMemoryAllocator)
+  list(APPEND STV_LIBARIES volk::volk_headers)
+
+  list(APPEND STV_LIBARIES SPIRV-Headers::SPIRV-Headers)
+  list(APPEND STV_LIBARIES ${FFMPEG_LIBRARIES})
+  list(APPEND STV_INCLUDES ${Stb_INCLUDE_DIR})
+  list(APPEND STV_INCLUDES ${FFMPEG_INCLUDE_DIRS})
 else()
-    message(FATAL "VCPKG is required")
+  message(FATAL "VCPKG is required")
 endif()
 
 if(WIN32)
-    find_library(LIBMPV mpv ${LIBMPV_DIR})
-    list(APPEND STV_LIBARIES ${LIBMPV} "crypt32.lib")
-    list(APPEND STV_INCLUDES "win" ${LIBMPV_INCLUDE})
+  find_library(LIBMPV mpv ${LIBMPV_DIR})
+  list(APPEND STV_LIBARIES ${LIBMPV} "crypt32.lib")
+  list(APPEND STV_INCLUDES "win" ${LIBMPV_INCLUDE})
 endif()
 
 if(UNIX AND NOT APPLE)
-    set(DBUS_CLIENT_FILES dbus/org.freedesktop.ScreenSaver.xml
+  set(DBUS_CLIENT_FILES dbus/org.freedesktop.ScreenSaver.xml
     )
-    set(DBUS_SERVER_FILES
+  set(DBUS_SERVER_FILES
         dbus/org.mpris.MediaPlayer2.xml
         dbus/org.mpris.MediaPlayer2.Player.xml
         dbus/org.mpris.MediaPlayer2.TrackList.xml
     )
 
-    find_program(SDBUS-XML2CPP sdbus-c++-xml2cpp DOC "SDBUS XML2CPP program")
+  find_program(SDBUS-XML2CPP sdbus-c++-xml2cpp DOC "SDBUS XML2CPP program")
 
-    foreach(FILE ${DBUS_CLIENT_FILES})
-        file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/include/dbus)
-        execute_process(
+  foreach(FILE ${DBUS_CLIENT_FILES})
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/include/dbus)
+    execute_process(
             COMMAND ${SDBUS-XML2CPP} --proxy=${CMAKE_BINARY_DIR}/include/${FILE}.h ${CMAKE_CURRENT_SOURCE_DIR}/${FILE}
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
             COMMAND_ECHO STDOUT)
-    endforeach()
-    foreach(FILE ${DBUS_SERVER_FILES})
-        file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/include/dbus)
-        execute_process(
+  endforeach()
+  foreach(FILE ${DBUS_SERVER_FILES})
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/include/dbus)
+    execute_process(
             COMMAND ${SDBUS-XML2CPP} --adaptor=${CMAKE_BINARY_DIR}/include/${FILE}.h ${CMAKE_CURRENT_SOURCE_DIR}/${FILE}
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
             COMMAND_ECHO STDOUT)
-    endforeach()
+  endforeach()
 
-    list(APPEND STV_INCLUDES ${CMAKE_BINARY_DIR}/include)
+  list(APPEND STV_INCLUDES ${CMAKE_BINARY_DIR}/include)
 endif()
 
 set(STV_SRCS main.cpp
@@ -163,13 +163,13 @@ SET(IMGUI_SRCS
 list(APPEND STV_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/imgui)
 
 if(UNIX)
-list(APPEND STV_SRCS dbus_mpris_service.cpp)
+  list(APPEND STV_SRCS dbus_mpris_service.cpp)
 endif()
 
 
 
 if(MSVC)
-    list(APPEND STV_SRCS win/AppIcon.rc)
+  list(APPEND STV_SRCS win/AppIcon.rc)
 endif()
 
 set(EXECUTABLE_SOURCES
@@ -197,12 +197,17 @@ target_compile_definitions(${EXECUTABLE_NAME} PRIVATE "$<$<CONFIG:Debug>:STV_DEB
 target_compile_definitions(${EXECUTABLE_NAME} PRIVATE "$<$<CONFIG:Debug>:DEBUG>")
 target_compile_definitions(${EXECUTABLE_NAME} PRIVATE "$<$<CONFIG:Release>:NDEBUG>" "$<$<CONFIG:Release>:IMGUI_DISABLE_DEBUG_TOOLS>")
 if(ASAN_ENABLE)
-    target_compile_options(${EXECUTABLE_NAME} PUBLIC $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall -pedantic -Wextra>)
-    target_compile_options(${EXECUTABLE_NAME} PUBLIC $<$<AND:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>>:-fsanitize=undefined,address -fno-omit-frame-pointer>)
-    target_link_options(${EXECUTABLE_NAME} PUBLIC $<$<AND:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>>:-fsanitize=undefined,address>)
+  target_compile_options(${EXECUTABLE_NAME} PUBLIC $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall -pedantic -Wextra>)
+  target_compile_options(${EXECUTABLE_NAME} PUBLIC $<$<AND:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>>:-fsanitize=undefined,address -fno-omit-frame-pointer>)
+  target_link_options(${EXECUTABLE_NAME} PUBLIC $<$<AND:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>>:-fsanitize=undefined,address>)
 else()
-    target_compile_options(${EXECUTABLE_NAME} PUBLIC $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall -pedantic -Wextra>)
+  target_compile_options(${EXECUTABLE_NAME} PUBLIC $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall -pedantic -Wextra>)
 endif(ASAN_ENABLE)
+
+target_compile_options(${EXECUTABLE_NAME} PRIVATE
+    $<$<AND:$<CXX_COMPILER_ID:GNU,Clang,AppleClang>,$<CONFIG:Release,RelWithDebInfo>>:-march=native>
+    $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release,RelWithDebInfo>>:/arch:AVX2>
+)
 
 target_compile_definitions(${EXECUTABLE_NAME} PRIVATE "$<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>")
 target_compile_definitions(${EXECUTABLE_NAME} PRIVATE "$<$<C_COMPILER_ID:MSVC>:NOMINMAX>")
@@ -213,13 +218,13 @@ set_property(TARGET ${EXECUTABLE_NAME} PROPERTY  MSVC_RUNTIME_LIBRARY "MultiThre
 
 
 if(WIN32_APP_OPTIONS)
-    target_compile_definitions(${EXECUTABLE_NAME} PRIVATE WIN32_WINMAIN)
+  target_compile_definitions(${EXECUTABLE_NAME} PRIVATE WIN32_WINMAIN)
 endif()
 
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 
 if(WIN32)
-    file(REAL_PATH ${LIBMPV_DIR} MPV_DIR)    
-    install(FILES "${MPV_DIR}/mpv-2.dll"  DESTINATION ${CMAKE_INSTALL_BINDIR})
+  file(REAL_PATH ${LIBMPV_DIR} MPV_DIR)
+  install(FILES "${MPV_DIR}/mpv-2.dll"  DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()

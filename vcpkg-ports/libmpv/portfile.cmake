@@ -31,8 +31,8 @@ vcpkg_configure_meson(
         -Dwayland=disabled
         -Ddmabuf-wayland=disabled
         -Dxv=disabled
-        -Dcuda-hwaccel=disabled
-        -Dcuda-interop=disabled
+        -Dcuda-hwaccel=enabled
+        -Dcuda-interop=enabled
         -Dcdda=disabled
         -Djpeg=disabled
         -Dwayland=disabled

@@ -363,12 +363,17 @@ void ChannelsWindow::showMenu()
                 screenshotDialog->SetShowScreenshotDialog(true);
             }
 
-            if (ImGui::MenuItem("Colorspace"))
+            if (ImGui::BeginMenu("Colorspace"))
             {
                 auto player = getPlayerSignal();
                 if (!player)
+                {
+                    ImGui::EndMenu();
                     return;
-                colorspaceDialog.SetShowColorspaceDialog(true, player.value());
+                }
+
+                colorspaceDialog.ShowColorspaceMenus(player.value());
+                ImGui::EndMenu();
             }
             ImGui::EndMenu();
         }

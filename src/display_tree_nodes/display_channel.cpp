@@ -10,7 +10,6 @@
 #include <stb_image.h>
 #include <stb_image_resize2.h>
 
-#include "../stv_utils.h"
 #include "../workers_provider.h"
 #include "display_channel_group.h"
 #include "display_node.h"

@@ -60,7 +60,7 @@ MpvPlayer::MpvPlayer(boost::asio::any_io_executor ui_executor,
 #else
     // mpv_set_property_string(mpv, "ao", "auto");
 #endif
-    mpv_set_property_string(mpv, "hwdec", "no");
+    mpv_set_property_string(mpv, "hwdec", "auto");
     mpv_observe_property(mpv, 0, "height", MPV_FORMAT_DOUBLE);
     mpv_observe_property(mpv, 0, "width", MPV_FORMAT_DOUBLE);
     mpv_observe_property(mpv, 0, "pause", MPV_FORMAT_FLAG);
@@ -491,7 +491,7 @@ bool MpvPlayer::mpvRenderFrame(pl_swapchain_frame *frame,
         .y1 = (int)desktopRect.Max.y,
     };
 
-    int block = 0;
+    int block = 1;
     mpv_render_param render_params[] = {
         { MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, &block },
         { (enum mpv_render_param_type)MPV_RENDER_PARAM_LIBPLACEBO_OPTIONS,
