@@ -1,0 +1,12 @@
+diff --git a/src/meson.build b/src/meson.build
+index e93e800f..2caf9519 100644
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -295,6 +295,7 @@ pkg.generate(
+   version: version,
+   variables: pc_vars,
+   extra_cflags: extra_cflags,
++  libraries_private: meson.get_external_property('extra_libs', []),
+ )
+ 
+ 

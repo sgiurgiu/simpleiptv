@@ -19,7 +19,7 @@
     "vulkan-memory-allocator",
     "vulkan-validationlayers",
     "volk",
-    "glslang",
+    "shaderc",
     "spirv-cross",
     "spirv-headers",
     "openssl",
@@ -27,6 +27,7 @@
     "stb",
     "nlohmann-json",
     "date",
+    "libunibreak",
     {
       "name": "glfw3",
       "features": [
@@ -51,7 +52,7 @@
       "platform": "linux"
     },
     {
-      "name":"ffmpeg",
+      "name": "ffmpeg",
       "default-features": false,
       "features": [
         "nonfree",
@@ -74,6 +75,10 @@
     },
     "libebur128",
     "libass",
+    {
+       "name":"libunwind",
+       "platform": "!windows & !uwp & !xbox"
+    },
     "libmpv"
   ],
   "features": {

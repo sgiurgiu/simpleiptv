@@ -6,14 +6,22 @@
   "homepage": "https://github.com/sgiurgiu/mpv",
   "license": "MIT",
   "dependencies": [
-    { "name": "vcpkg-tool-meson", "host": true },
-    { "name": "vcpkg-cmake-config", "host": true },
     {
-	"name":"libplacebo",
-	"default-features": false,
-	"features":[
-		"vulkan"
-	]
+      "name": "vcpkg-tool-meson",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    },
+    {
+      "name": "libplacebo",
+      "default-features": false,
+      "features": [
+        "vulkan",
+        "shaderc",
+        "xxhash"
+      ]
     },
     "libass",
     "ffmpeg",
