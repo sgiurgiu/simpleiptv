@@ -29,6 +29,7 @@ if(VCPKG_TOOLCHAIN)
   find_package(Stb REQUIRED)
   find_package(nlohmann_json CONFIG REQUIRED)
   find_package(date CONFIG REQUIRED)
+  find_package(unofficial-shaderc CONFIG REQUIRED)
   find_package(FFMPEG REQUIRED)
   find_package(volk CONFIG REQUIRED)
   find_package(libunibreak CONFIG REQUIRED)
@@ -186,6 +187,8 @@ add_executable(${EXECUTABLE_NAME} ${EXECUTABLE_SOURCES})
 set_property(TARGET ${EXECUTABLE_NAME} PROPERTY POSITION_INDEPENDENT_CODE TRUE)
 
 target_link_libraries(${EXECUTABLE_NAME} PRIVATE  ${STV_LIBRARIES})
+# pkg-config shaderc.pc has wrong static link order; CMake target resolves deps correctly
+target_link_libraries(${EXECUTABLE_NAME} PRIVATE unofficial::shaderc::shaderc)
 target_include_directories(${EXECUTABLE_NAME} PRIVATE ${STV_INCLUDES})
 
 
