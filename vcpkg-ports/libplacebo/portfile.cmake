@@ -116,7 +116,6 @@ if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
   vcpkg_add_to_path("${CLANG_PARENT_PATH}")
   set(CLANG_CL "${CLANG_PARENT_PATH}/clang-cl.exe")
   set(LLD_LINK "${CLANG_PARENT_PATH}/lld-link.exe")
-  set(MESON_LINKER_BINARIES "c_ld = ['${LLD_LINK}']\ncpp_ld = ['${LLD_LINK}']")
 
   # libplacebo is not compatible with MSVC, use clang-cl
   if(VCPKG_DETECTED_CMAKE_C_COMPILER_ID STREQUAL "MSVC")
@@ -153,14 +152,9 @@ endif()
 
 
 # Set up meson
-set(meson_additional_binaries "")
-if(DEFINED MESON_LINKER_BINARIES)
-  set(meson_additional_binaries "${MESON_LINKER_BINARIES}")
-endif()
 vcpkg_configure_meson(
     SOURCE_PATH ${SOURCE_PATH}
     OPTIONS ${MESON_OPTIONS}
-    ADDITIONAL_BINARIES "${meson_additional_binaries}"
     ADDITIONAL_PROPERTIES
         "vulkan_headers_inc = '${CURRENT_INSTALLED_DIR}/include'\nextra_libs = ${extra_libs}\nno_static_windows_libs = ${NO_STATIC_WINDOWS_LIBS}"
 )
