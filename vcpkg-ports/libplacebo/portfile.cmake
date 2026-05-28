@@ -110,12 +110,16 @@ if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
     set(NO_STATIC_WINDOWS_LIBS true)
   endif()
 
+  # Meson probes for lld-link alongside clang-cl; ensure LLVM tools are on PATH.
+  vcpkg_find_acquire_program(CLANG)
+  cmake_path(GET CLANG PARENT_PATH CLANG_PARENT_PATH)
+  vcpkg_add_to_path("${CLANG_PARENT_PATH}")
+  set(CLANG_CL "${CLANG_PARENT_PATH}/clang-cl.exe")
+  set(LLD_LINK "${CLANG_PARENT_PATH}/lld-link.exe")
+  set(MESON_LINKER_BINARIES "c_ld = ['${LLD_LINK}']\ncpp_ld = ['${LLD_LINK}']")
+
   # libplacebo is not compatible with MSVC, use clang-cl
   if(VCPKG_DETECTED_CMAKE_C_COMPILER_ID STREQUAL "MSVC")
-    vcpkg_find_acquire_program(CLANG)
-    cmake_path(GET CLANG PARENT_PATH CLANG_PARENT_PATH)
-    set(CLANG_CL "${CLANG_PARENT_PATH}/clang-cl.exe")
-    set(LLD_LINK "${CLANG_PARENT_PATH}/lld-link.exe")
     set(compiler_flags "")
     set(linker_flags "")
     if(VCPKG_TARGET_ARCHITECTURE STREQUAL "x86")
@@ -138,6 +142,10 @@ if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
     string(APPEND contents "\nset(VCPKG_COMBINED_CXX_FLAGS_DEBUG \"${VCPKG_COMBINED_CXX_FLAGS_DEBUG} ${compiler_flags}\")")
     string(APPEND contents "\nset(VCPKG_COMBINED_CXX_FLAGS_RELEASE \"${VCPKG_COMBINED_CXX_FLAGS_RELEASE} ${compiler_flags}\")")
     file(WRITE "${cmake_vars_file}" "${contents}")
+  elseif(VCPKG_DETECTED_CMAKE_CXX_COMPILER MATCHES "clang-cl")
+    file(READ "${cmake_vars_file}" contents)
+    string(APPEND contents "\nset(VCPKG_DETECTED_CMAKE_LINKER \"${LLD_LINK}\")")
+    file(WRITE "${cmake_vars_file}" "${contents}")
   endif()
   set(cmake_vars_file "${cmake_vars_file}" CACHE INTERNAL "") # Don't run z_vcpkg_get_cmake_vars twice
 endif()
@@ -145,9 +153,14 @@ endif()
 
 
 # Set up meson
+set(meson_additional_binaries "")
+if(DEFINED MESON_LINKER_BINARIES)
+  set(meson_additional_binaries "${MESON_LINKER_BINARIES}")
+endif()
 vcpkg_configure_meson(
     SOURCE_PATH ${SOURCE_PATH}
     OPTIONS ${MESON_OPTIONS}
+    ADDITIONAL_BINARIES "${meson_additional_binaries}"
     ADDITIONAL_PROPERTIES
         "vulkan_headers_inc = '${CURRENT_INSTALLED_DIR}/include'\nextra_libs = ${extra_libs}\nno_static_windows_libs = ${NO_STATIC_WINDOWS_LIBS}"
 )
