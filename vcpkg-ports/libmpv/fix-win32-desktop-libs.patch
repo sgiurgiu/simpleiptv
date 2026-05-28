@@ -1,0 +1,34 @@
+diff --git a/meson.build b/meson.build
+--- a/meson.build
++++ b/meson.build
+@@ -508,18 +508,18 @@
+ 
+ features += {'win32-desktop': win32 and not uwp.found()}
+ if features['win32-desktop']
+-    win32_desktop_libs = [cc.find_library('avrt'),
+-                          cc.find_library('dwmapi'),
+-                          cc.find_library('gdi32'),
+-                          cc.find_library('imm32'),
+-                          cc.find_library('ntdll'),
+-                          cc.find_library('ole32'),
+-                          cc.find_library('pathcch'),
+-                          cc.find_library('shcore'),
+-                          cc.find_library('user32'),
+-                          cc.find_library('uuid'),
+-                          cc.find_library('uxtheme'),
+-                          cc.find_library('version')]
++    win32_desktop_libs = [cc.find_library('avrt', static: false),
++                          cc.find_library('dwmapi', static: false),
++                          cc.find_library('gdi32', static: false),
++                          cc.find_library('imm32', static: false),
++                          cc.find_library('ntdll', static: false),
++                          cc.find_library('ole32', static: false),
++                          cc.find_library('pathcch', static: false),
++                          cc.find_library('shcore', static: false),
++                          cc.find_library('user32', static: false),
++                          cc.find_library('uuid', static: false),
++                          cc.find_library('uxtheme', static: false),
++                          cc.find_library('version', static: false)]
+     dependencies += win32_desktop_libs
+     path_source = files('osdep/path-win.c')
+     if not get_option('fuzzers')
