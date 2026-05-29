@@ -1,7 +1,7 @@
 diff --git a/meson.build b/meson.build
 --- a/meson.build
 +++ b/meson.build
-@@ -508,18 +508,18 @@
+@@ -508,18 +508,26 @@
  
  features += {'win32-desktop': win32 and not uwp.found()}
  if features['win32-desktop']
@@ -17,18 +17,26 @@ diff --git a/meson.build b/meson.build
 -                          cc.find_library('uuid'),
 -                          cc.find_library('uxtheme'),
 -                          cc.find_library('version')]
-+    win32_desktop_libs = [cc.find_library('avrt', static: false),
-+                          cc.find_library('dwmapi', static: false),
-+                          cc.find_library('gdi32', static: false),
-+                          cc.find_library('imm32', static: false),
-+                          cc.find_library('ntdll', static: false),
-+                          cc.find_library('ole32', static: false),
-+                          cc.find_library('pathcch', static: false),
-+                          cc.find_library('shcore', static: false),
-+                          cc.find_library('user32', static: false),
-+                          cc.find_library('uuid', static: false),
-+                          cc.find_library('uxtheme', static: false),
-+                          cc.find_library('version', static: false)]
++    no_static_win = meson.get_external_property('no_static_windows_libs', false)
++    if no_static_win
++        win32_desktop_libs = [declare_dependency(link_args: [
++            '-lavrt', '-ldwmapi', '-lgdi32', '-limm32', '-lntdll', '-lole32',
++            '-lpathcch', '-lshcore', '-luser32', '-luuid', '-luxtheme', '-lversion',
++        ])]
++    else
++        win32_desktop_libs = [cc.find_library('avrt'),
++                              cc.find_library('dwmapi'),
++                              cc.find_library('gdi32'),
++                              cc.find_library('imm32'),
++                              cc.find_library('ntdll'),
++                              cc.find_library('ole32'),
++                              cc.find_library('pathcch'),
++                              cc.find_library('shcore'),
++                              cc.find_library('user32'),
++                              cc.find_library('uuid'),
++                              cc.find_library('uxtheme'),
++                              cc.find_library('version')]
++    endif
      dependencies += win32_desktop_libs
      path_source = files('osdep/path-win.c')
      if not get_option('fuzzers')

@@ -79,7 +79,11 @@
        "name":"libunwind",
        "platform": "!windows & !uwp & !xbox"
     },
-    "libmpv"
+    "libmpv",
+    {
+      "name": "pkgconf",
+      "host": true
+    }
   ],
   "features": {
     "app": {

@@ -36,17 +36,55 @@ set(MESON_OPTIONS
     -Djpeg=disabled
 )
 
+set(NO_STATIC_WINDOWS_LIBS false)
+set(MESON_ADDITIONAL_PROPERTIES "")
+
 if(VCPKG_LIBRARY_LINKAGE STREQUAL "static")
     list(APPEND MESON_OPTIONS -Dprefer_static=true)
 endif()
 
-vcpkg_configure_meson(
-    SOURCE_PATH "${SOURCE_PATH}"
-    OPTIONS ${MESON_OPTIONS}
-)
-vcpkg_install_meson()
-vcpkg_fixup_pkgconfig()
+if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
+    # Meson cannot find Windows SDK import libs with prefer_static (see libplacebo port).
+    set(NO_STATIC_WINDOWS_LIBS true)
+    set(MESON_ADDITIONAL_PROPERTIES "no_static_windows_libs = true")
+endif()
 
+if(MESON_ADDITIONAL_PROPERTIES)
+    vcpkg_configure_meson(
+        SOURCE_PATH "${SOURCE_PATH}"
+        OPTIONS ${MESON_OPTIONS}
+        ADDITIONAL_PROPERTIES "${MESON_ADDITIONAL_PROPERTIES}"
+    )
+else()
+    vcpkg_configure_meson(
+        SOURCE_PATH "${SOURCE_PATH}"
+        OPTIONS ${MESON_OPTIONS}
+    )
+endif()
+vcpkg_install_meson()
+
+set(WIN_DESKTOP_LIBS "-lavrt -ldwmapi -lgdi32 -limm32 -lntdll -lole32 -lpathcch -lshcore -luser32 -luuid -luxtheme -lversion ")
+
+if(NOT DEFINED VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "release")
+    set(pkgconfig_file "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel/meson-private/mpv.pc")
+    if(EXISTS "${pkgconfig_file}")
+        if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
+            vcpkg_replace_string("${pkgconfig_file}" "Libs: " "Libs: ${WIN_DESKTOP_LIBS}")
+        endif()
+        file(COPY "${pkgconfig_file}" DESTINATION "${CURRENT_PACKAGES_DIR}/lib/pkgconfig")
+    endif()
+endif()
+if(NOT DEFINED VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "debug")
+    set(pkgconfig_file "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-dbg/meson-private/mpv.pc")
+    if(EXISTS "${pkgconfig_file}")
+        if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
+            vcpkg_replace_string("${pkgconfig_file}" "Libs: " "Libs: ${WIN_DESKTOP_LIBS}")
+        endif()
+        file(COPY "${pkgconfig_file}" DESTINATION "${CURRENT_PACKAGES_DIR}/debug/lib/pkgconfig")
+    endif()
+endif()
+
+vcpkg_fixup_pkgconfig()
 
 file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include")
 

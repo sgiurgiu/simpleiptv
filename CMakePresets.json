@@ -57,8 +57,6 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "ENABLE_TESTS": "OFF",
-                "LIBMPV_DIR": "$env{libMpvDir}",
-                "LIBMPV_INCLUDE": "$env{libMpvIncludeDir}",
 				"VCPKG_TARGET_TRIPLET" : "x64-windows-static",
 				"CMAKE_TOOLCHAIN_FILE" : "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
                 "CMAKE_MAKE_PROGRAM" : "C:/ninja-win/ninja.exe"

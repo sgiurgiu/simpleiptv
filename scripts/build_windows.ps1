@@ -1,11 +1,3 @@
-param(
-    [string]
-    $libMpvDir = "E:\projects\mpv",
-    [string]
-    $libMpvIncludeDir = "E:\projects\mpv\include"
-)
-
-
 # Invokes a Cmd.exe shell script and updates the environment.
 function Invoke-CmdScript {
   param(
@@ -32,12 +24,6 @@ $buildDir = ".\build-release"
 Remove-Item -LiteralPath $packagesDir -Force -Recurse -ErrorAction Ignore
 New-Item -ItemType Directory -Force -Path $packagesDir
 
-
-echo "Using lib mpv directory: $libMpvDir"
-echo "Using lib mpv include directory: $libMpvIncludeDir"
-
-set-item Env:libMpvDir $libMpvDir    
-set-item Env:libMpvIncludeDir $libMpvIncludeDir
 $version = git describe --tags
 set-item Env:SIMPLEIPTV_VERSION $version
 echo "Building Simple IPTV Version $version"
@@ -47,5 +33,3 @@ cmake --workflow --preset=release-windows
 
 Copy-Item -Path "$buildDir\*.msi" -Destination $packagesDir -Verbose
 echo "Copying $buildDir\*.msi to $packagesDir"
-
-
