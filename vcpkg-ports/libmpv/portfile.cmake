@@ -8,6 +8,7 @@ vcpkg_from_github(
     HEAD_REF libmpv_placebo
     PATCHES
         "${CMAKE_CURRENT_LIST_DIR}/fix-win32-desktop-libs.patch"
+        "${CMAKE_CURRENT_LIST_DIR}/fix-win32-smtc.patch"
 )
 
 set(MESON_OPTIONS
@@ -34,6 +35,12 @@ set(MESON_OPTIONS
     -Dcuda-interop=enabled
     -Dcdda=disabled
     -Djpeg=disabled
+    -Dwin32-smtc=disabled
+    -Degl-angle=disabled
+    -Degl-angle-lib=disabled
+    -Degl-angle-win32=disabled
+    -Dgl-win32=disabled
+    -Dd3d11=disabled
 )
 
 set(NO_STATIC_WINDOWS_LIBS false)

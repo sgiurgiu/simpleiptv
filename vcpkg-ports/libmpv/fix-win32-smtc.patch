@@ -1,0 +1,16 @@
+diff --git a/osdep/win32/meson.build b/osdep/win32/meson.build
+--- a/osdep/win32/meson.build
++++ b/osdep/win32/meson.build
+@@ -3,6 +3,11 @@
+ 
+ features += {'win32-smtc': cpp.has_header('winrt/base.h', required: get_option('win32-smtc'))}
+ if features['win32-smtc']
+-    dependencies += cpp.find_library('runtimeobject')
++    no_static_win = meson.get_external_property('no_static_windows_libs', false)
++    if no_static_win
++        dependencies += declare_dependency(link_args: ['-lruntimeobject'])
++    else
++        dependencies += cpp.find_library('runtimeobject')
++    endif
+     sources += files('smtc.cpp')
+ endif
