@@ -8,6 +8,7 @@ vcpkg_from_github(
     HEAD_REF libmpv_placebo
     PATCHES
         "${CMAKE_CURRENT_LIST_DIR}/fix-win32-desktop-libs.patch"
+        "${CMAKE_CURRENT_LIST_DIR}/fix-win32-rc-codepage.patch"
         "${CMAKE_CURRENT_LIST_DIR}/fix-win32-smtc.patch"
         "${CMAKE_CURRENT_LIST_DIR}/fix-vulkan.patch"
 )
