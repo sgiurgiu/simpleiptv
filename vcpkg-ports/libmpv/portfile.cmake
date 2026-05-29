@@ -32,8 +32,8 @@ set(MESON_OPTIONS
     -Dwayland=disabled
     -Ddmabuf-wayland=disabled
     -Dxv=disabled
-    -Dcuda-hwaccel=enabled
-    -Dcuda-interop=enabled
+    -Dcuda-hwaccel=disabled
+    -Dcuda-interop=disabled
     -Dcdda=disabled
     -Djpeg=disabled
     -Dwin32-smtc=disabled
@@ -47,12 +47,12 @@ set(MESON_OPTIONS
 set(MESON_ADDITIONAL_PROPERTIES "vulkan_headers_inc = '${CURRENT_INSTALLED_DIR}/include'")
 
 if(VCPKG_LIBRARY_LINKAGE STREQUAL "static")
-    list(APPEND MESON_OPTIONS -Dprefer_static=true)
+  list(APPEND MESON_OPTIONS -Dprefer_static=true)
 endif()
 
 if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
-    # Meson cannot find Windows SDK import libs with prefer_static (see libplacebo port).
-    string(APPEND MESON_ADDITIONAL_PROPERTIES "\nno_static_windows_libs = true")
+  # Meson cannot find Windows SDK import libs with prefer_static (see libplacebo port).
+  string(APPEND MESON_ADDITIONAL_PROPERTIES "\nno_static_windows_libs = true")
 endif()
 
 vcpkg_configure_meson(
@@ -65,22 +65,22 @@ vcpkg_install_meson()
 set(WIN_DESKTOP_LIBS "-lavrt -ldwmapi -lgdi32 -limm32 -lntdll -lole32 -lpathcch -lshcore -luser32 -luuid -luxtheme -lversion ")
 
 if(NOT DEFINED VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "release")
-    set(pkgconfig_file "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel/meson-private/mpv.pc")
-    if(EXISTS "${pkgconfig_file}")
-        if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
-            vcpkg_replace_string("${pkgconfig_file}" "Libs: " "Libs: ${WIN_DESKTOP_LIBS}")
-        endif()
-        file(COPY "${pkgconfig_file}" DESTINATION "${CURRENT_PACKAGES_DIR}/lib/pkgconfig")
+  set(pkgconfig_file "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel/meson-private/mpv.pc")
+  if(EXISTS "${pkgconfig_file}")
+    if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
+      vcpkg_replace_string("${pkgconfig_file}" "Libs: " "Libs: ${WIN_DESKTOP_LIBS}")
     endif()
+    file(COPY "${pkgconfig_file}" DESTINATION "${CURRENT_PACKAGES_DIR}/lib/pkgconfig")
+  endif()
 endif()
 if(NOT DEFINED VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "debug")
-    set(pkgconfig_file "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-dbg/meson-private/mpv.pc")
-    if(EXISTS "${pkgconfig_file}")
-        if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
-            vcpkg_replace_string("${pkgconfig_file}" "Libs: " "Libs: ${WIN_DESKTOP_LIBS}")
-        endif()
-        file(COPY "${pkgconfig_file}" DESTINATION "${CURRENT_PACKAGES_DIR}/debug/lib/pkgconfig")
+  set(pkgconfig_file "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-dbg/meson-private/mpv.pc")
+  if(EXISTS "${pkgconfig_file}")
+    if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
+      vcpkg_replace_string("${pkgconfig_file}" "Libs: " "Libs: ${WIN_DESKTOP_LIBS}")
     endif()
+    file(COPY "${pkgconfig_file}" DESTINATION "${CURRENT_PACKAGES_DIR}/debug/lib/pkgconfig")
+  endif()
 endif()
 
 vcpkg_fixup_pkgconfig()
