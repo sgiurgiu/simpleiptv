@@ -53,6 +53,19 @@ endif()
 if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
   # Meson cannot find Windows SDK import libs with prefer_static (see libplacebo port).
   string(APPEND MESON_ADDITIONAL_PROPERTIES "\nno_static_windows_libs = true")
+
+  # Meson atomic/stdatomic probes and FFmpeg need MSVC experimental C11 atomics.
+  vcpkg_cmake_get_vars(cmake_vars_file)
+  include("${cmake_vars_file}")
+  if(VCPKG_DETECTED_CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+    set(MSVC_C11_ATOMICS_FLAGS "/experimental:c11atomics /std:c11")
+    file(READ "${cmake_vars_file}" contents)
+    string(APPEND contents "\nset(VCPKG_DETECTED_CMAKE_C_FLAGS \"${VCPKG_DETECTED_CMAKE_C_FLAGS} ${MSVC_C11_ATOMICS_FLAGS}\")")
+    string(APPEND contents "\nset(VCPKG_COMBINED_C_FLAGS_DEBUG \"${VCPKG_COMBINED_C_FLAGS_DEBUG} ${MSVC_C11_ATOMICS_FLAGS}\")")
+    string(APPEND contents "\nset(VCPKG_COMBINED_C_FLAGS_RELEASE \"${VCPKG_COMBINED_C_FLAGS_RELEASE} ${MSVC_C11_ATOMICS_FLAGS}\")")
+    file(WRITE "${cmake_vars_file}" "${contents}")
+    set(cmake_vars_file "${cmake_vars_file}" CACHE INTERNAL "")
+  endif()
 endif()
 
 vcpkg_configure_meson(

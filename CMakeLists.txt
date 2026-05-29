@@ -24,6 +24,12 @@ endif()
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# FFmpeg/mpv headers include <stdatomic.h>; MSVC needs experimental C11 atomics.
+if(MSVC)
+    add_compile_options(/experimental:c11atomics)
+    add_compile_options($<$<COMPILE_LANGUAGE:C>:/std:c11>)
+endif()
+
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
