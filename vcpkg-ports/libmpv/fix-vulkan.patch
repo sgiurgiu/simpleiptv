@@ -1,0 +1,47 @@
+diff --git a/meson.build b/meson.build
+--- a/meson.build
++++ b/meson.build
+@@ -1311,12 +1311,21 @@
+     libplacebo.get_variable('pl_has_vulkan', default_value: '0') == '1',
+     error_message: 'libplacebo compiled without vulkan support!',
+ )
+-# libplacebo/ffmpeg public headers depend on Vulkan 1.3
+-vulkan = dependency('vulkan', version: '>= 1.3.238', required: vulkan_opt)
+-features += {'vulkan': vulkan.found() and (vulkan.type_name() == 'internal' or
+-                       cc.has_header_symbol('vulkan/vulkan_core.h',
+-                                            'VK_VERSION_1_3',
+-                                            dependencies: vulkan))}
++vulkan_headers_inc = meson.get_external_property('vulkan_headers_inc', '')
++if vulkan_headers_inc != ''
++    vulkan_inc = include_directories(vulkan_headers_inc)
++    vulkan = declare_dependency(include_directories: vulkan_inc)
++    features += {'vulkan': vulkan_opt.allowed() and cc.has_header_symbol(
++                       'vulkan/vulkan_core.h', 'VK_VERSION_1_3',
++                       include_directories: vulkan_inc)}
++else
++    # libplacebo/ffmpeg public headers depend on Vulkan 1.3
++    vulkan = dependency('vulkan', version: '>= 1.3.238', required: vulkan_opt)
++    features += {'vulkan': vulkan.found() and (vulkan.type_name() == 'internal' or
++                           cc.has_header_symbol('vulkan/vulkan_core.h',
++                                                'VK_VERSION_1_3',
++                                                dependencies: vulkan))}
++endif
+ if features['vulkan']
+     dependencies += vulkan
+     sources += files('video/out/hwdec/hwdec_vulkan.c',
+@@ -1341,9 +1350,14 @@
+      sources += files('video/out/vulkan/context_xlib.c')
+ endif
+ 
+-features += {'vk-khr-display': vulkan.type_name() == 'internal' or
++if vulkan_headers_inc != ''
++    features += {'vk-khr-display': cc.has_function('vkCreateDisplayPlaneSurfaceKHR',
++        prefix: '#include <vulkan/vulkan_core.h>', include_directories: vulkan_inc)}
++else
++    features += {'vk-khr-display': vulkan.type_name() == 'internal' or
+                                cc.has_function('vkCreateDisplayPlaneSurfaceKHR', prefix: '#include <vulkan/vulkan_core.h>',
+                                                dependencies: [vulkan])}
++endif
+ if features['vk-khr-display']
+     sources += files('video/out/vulkan/context_display.c')
+ endif

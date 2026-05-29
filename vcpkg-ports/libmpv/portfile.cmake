@@ -9,6 +9,7 @@ vcpkg_from_github(
     PATCHES
         "${CMAKE_CURRENT_LIST_DIR}/fix-win32-desktop-libs.patch"
         "${CMAKE_CURRENT_LIST_DIR}/fix-win32-smtc.patch"
+        "${CMAKE_CURRENT_LIST_DIR}/fix-vulkan.patch"
 )
 
 set(MESON_OPTIONS
@@ -43,8 +44,7 @@ set(MESON_OPTIONS
     -Dd3d11=disabled
 )
 
-set(NO_STATIC_WINDOWS_LIBS false)
-set(MESON_ADDITIONAL_PROPERTIES "")
+set(MESON_ADDITIONAL_PROPERTIES "vulkan_headers_inc = '${CURRENT_INSTALLED_DIR}/include'")
 
 if(VCPKG_LIBRARY_LINKAGE STREQUAL "static")
     list(APPEND MESON_OPTIONS -Dprefer_static=true)
@@ -52,22 +52,14 @@ endif()
 
 if(VCPKG_TARGET_IS_WINDOWS AND NOT VCPKG_TARGET_IS_MINGW)
     # Meson cannot find Windows SDK import libs with prefer_static (see libplacebo port).
-    set(NO_STATIC_WINDOWS_LIBS true)
-    set(MESON_ADDITIONAL_PROPERTIES "no_static_windows_libs = true")
+    string(APPEND MESON_ADDITIONAL_PROPERTIES "\nno_static_windows_libs = true")
 endif()
 
-if(MESON_ADDITIONAL_PROPERTIES)
-    vcpkg_configure_meson(
-        SOURCE_PATH "${SOURCE_PATH}"
-        OPTIONS ${MESON_OPTIONS}
-        ADDITIONAL_PROPERTIES "${MESON_ADDITIONAL_PROPERTIES}"
-    )
-else()
-    vcpkg_configure_meson(
-        SOURCE_PATH "${SOURCE_PATH}"
-        OPTIONS ${MESON_OPTIONS}
-    )
-endif()
+vcpkg_configure_meson(
+    SOURCE_PATH "${SOURCE_PATH}"
+    OPTIONS ${MESON_OPTIONS}
+    ADDITIONAL_PROPERTIES "${MESON_ADDITIONAL_PROPERTIES}"
+)
 vcpkg_install_meson()
 
 set(WIN_DESKTOP_LIBS "-lavrt -ldwmapi -lgdi32 -limm32 -lntdll -lole32 -lpathcch -lshcore -luser32 -luuid -luxtheme -lversion ")

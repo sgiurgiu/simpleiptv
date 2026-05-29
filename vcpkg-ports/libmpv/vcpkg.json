@@ -1,7 +1,7 @@
 {
   "name": "libmpv",
   "version": "0.41.0",
-  "port-version": 10,
+  "port-version": 11,
   "description": "LibMPV port",
   "homepage": "https://github.com/sgiurgiu/mpv",
   "license": "MIT",
@@ -24,6 +24,7 @@
       ]
     },
     "libass",
+    "vulkan-headers",
     "ffmpeg",
     "libarchive",
     "libiconv",
