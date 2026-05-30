@@ -1,12 +1,11 @@
 diff --git a/meson.build b/meson.build
 --- a/meson.build
 +++ b/meson.build
-@@ -1783,7 +1783,13 @@
+@@ -1783,7 +1783,11 @@ features += {'libmpv-' + get_option('default_library'): get_option('libmpv')}
  # build targets
  if win32
      windows = import('windows')
 -    res_flags = ['--codepage=65001']
-+    # GNU windres accepts --codepage; MSVC rc.exe uses -c65001 (added by Meson).
 +    if cc.get_id() in ['msvc', 'clang-cl']
 +        res_flags = []
 +    else
