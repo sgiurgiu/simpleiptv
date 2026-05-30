@@ -1,0 +1,16 @@
+diff --git a/osdep/io.h b/osdep/io.h
+--- a/osdep/io.h
++++ b/osdep/io.h
+@@ -143,7 +143,12 @@ char *mp_dlerror(void);
+ // mp_stat types. MSVCRT's dev_t and ino_t are way too short to be unique.
+ typedef uint64_t mp_dev_t_;
+ #ifdef _WIN64
++#if defined(_MSC_VER) && !defined(__clang__)
++// cl.exe has no __int128; ReFS 128-bit file IDs may be truncated.
++typedef uint64_t mp_ino_t_;
++#else
+ typedef unsigned __int128 mp_ino_t_;
++#endif
+ #else
+ // 32-bit Windows doesn't have a __int128-type, which means ReFS file IDs will
+ // be truncated and might collide. This is probably not a problem because ReFS
