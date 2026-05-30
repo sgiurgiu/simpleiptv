@@ -11,6 +11,7 @@ vcpkg_from_github(
         "${CMAKE_CURRENT_LIST_DIR}/fix-win32-rc-codepage.patch"
         "${CMAKE_CURRENT_LIST_DIR}/fix-win32-thread-stdcall.patch"
         "${CMAKE_CURRENT_LIST_DIR}/fix-win32-io-int128.patch"
+        "${CMAKE_CURRENT_LIST_DIR}/fix-win32-ta-align.patch"
         "${CMAKE_CURRENT_LIST_DIR}/fix-win32-smtc.patch"
         "${CMAKE_CURRENT_LIST_DIR}/fix-vulkan.patch"
 )
