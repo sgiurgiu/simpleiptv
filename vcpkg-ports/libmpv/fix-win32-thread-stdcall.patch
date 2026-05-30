@@ -1,0 +1,19 @@
+diff --git a/osdep/threads-win32.h b/osdep/threads-win32.h
+--- a/osdep/threads-win32.h
++++ b/osdep/threads-win32.h
+@@ -130,11 +130,13 @@ static inline int mp_exec_once(mp_once *once, void (*init_routine)(void))
+ #define MP_THREAD_VOID unsigned __stdcall
+ #define MP_THREAD_RETURN() return 0
+ 
++typedef unsigned (__stdcall *mp_thread_fn)(void *);
++
+ static inline int mp_thread_create(mp_thread *thread,
+-                                   MP_THREAD_VOID (*fun)(void *),
++                                   mp_thread_fn fn,
+                                    void *__restrict arg)
+ {
+-    *thread = (HANDLE) _beginthreadex(NULL, 0, fun, arg, 0, NULL);
++    *thread = (HANDLE) _beginthreadex(NULL, 0, fn, arg, 0, NULL);
+     return *thread ? 0 : -1;
+ }
+ 
