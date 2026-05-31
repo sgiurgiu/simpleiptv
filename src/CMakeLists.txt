@@ -34,7 +34,29 @@ if(VCPKG_TOOLCHAIN)
   find_package(volk CONFIG REQUIRED)
   find_package(libunibreak CONFIG REQUIRED)
 
+  # pkgconf is a host tool in vcpkg; ensure CMake finds it on Windows CI.
+  if(WIN32 AND NOT PKG_CONFIG_EXECUTABLE)
+    get_filename_component(_vcpkg_installed_root "${CMAKE_BINARY_DIR}/vcpkg_installed" ABSOLUTE)
+    if(DEFINED VCPKG_TARGET_TRIPLET)
+      set(_vcpkg_triplet "${VCPKG_TARGET_TRIPLET}")
+    else()
+      set(_vcpkg_triplet "x64-windows-static")
+    endif()
+    string(REGEX REPLACE "-static$" "" _vcpkg_host_triplet "${_vcpkg_triplet}")
+    find_program(PKG_CONFIG_EXECUTABLE NAMES pkgconf pkg-config
+      HINTS
+        "${_vcpkg_installed_root}/${_vcpkg_triplet}/tools/pkgconf"
+        "${_vcpkg_installed_root}/${_vcpkg_host_triplet}/tools/pkgconf"
+      NO_DEFAULT_PATH)
+  endif()
   find_package(PkgConfig REQUIRED)
+  if(WIN32 AND DEFINED VCPKG_INSTALLED_DIR)
+    set(_pkg_config_path "${VCPKG_INSTALLED_DIR}/lib/pkgconfig")
+    if(DEFINED ENV{PKG_CONFIG_PATH})
+      string(APPEND _pkg_config_path ";$ENV{PKG_CONFIG_PATH}")
+    endif()
+    set(ENV{PKG_CONFIG_PATH} "${_pkg_config_path}")
+  endif()
   pkg_check_modules(LibMPV REQUIRED IMPORTED_TARGET mpv)
   list(APPEND STV_LIBRARIES PkgConfig::LibMPV)
 

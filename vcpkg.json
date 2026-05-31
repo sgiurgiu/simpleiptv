@@ -80,10 +80,7 @@
        "platform": "!windows & !uwp & !xbox"
     },
     "libmpv",
-    {
-      "name": "pkgconf",
-      "host": true
-    }
+    "pkgconf"
   ],
   "features": {
     "app": {
