@@ -10,12 +10,14 @@ constexpr std::string_view FIELD_TEMPLATE = "XXXXXXXXXXXXXXXXXXXXXX";
 
 } // namespace
 
-
 ScreenshotDialog::ScreenshotDialog(Key, WorkersProvider* workersProvider)
 : workersProvider{ workersProvider }
 {
-    screenshotPath = workersProvider->GetSettingsRepository()->GetScreenshotPath(std::filesystem::path("."));
-    auto screenshotFormatString = workersProvider->GetSettingsRepository()->GetScreenshotFormat("jpg");
+    screenshotPath = workersProvider->GetSettingsRepository()
+                         ->GetScreenshotPath(std::filesystem::path("."))
+                         .string();
+    auto screenshotFormatString =
+        workersProvider->GetSettingsRepository()->GetScreenshotFormat("jpg");
     for (size_t i = 0; i < screenshotFormats.size(); i++)
     {
         if (screenshotFormats[i] == screenshotFormatString)
@@ -29,7 +31,8 @@ ScreenshotDialog::ScreenshotDialog(Key, WorkersProvider* workersProvider)
             "screenshot_%04n");
 }
 
-std::shared_ptr<ScreenshotDialog> ScreenshotDialog::Create(WorkersProvider* workersProvider)
+std::shared_ptr<ScreenshotDialog>
+ScreenshotDialog::Create(WorkersProvider* workersProvider)
 {
     return std::make_shared<ScreenshotDialog>(Key{}, workersProvider);
 }
@@ -53,7 +56,8 @@ void ScreenshotDialog::ShowDialog()
         ImGui::Text("Format:");
         ImGui::SameLine(fieldsPosition);
         ImGui::PushItemWidth(ImGui::CalcTextSize(FIELD_TEMPLATE.data()).x);
-        ImGui::Combo("##screenshot_format", &screenshotFormat, screenshotFormats.data(), (int)screenshotFormats.size());
+        ImGui::Combo("##screenshot_format", &screenshotFormat,
+                     screenshotFormats.data(), (int)screenshotFormats.size());
         ImGui::PopItemWidth();
         ImGui::Text("File Template:");
         ImGui::SameLine(fieldsPosition);
@@ -63,9 +67,12 @@ void ScreenshotDialog::ShowDialog()
         if (ImGui::Button("OK", ImVec2(120, 0)) ||
             ImGui::IsKeyPressed(ImGuiKey_Enter))
         {
-            workersProvider->GetSettingsRepository()->SetScreenshotPath(screenshotPath);
-            workersProvider->GetSettingsRepository()->SetScreenshotFormat(screenshotFormats[screenshotFormat]);
-            workersProvider->GetSettingsRepository()->SetScreenshotFileTemplate(screenshotFileTemplate);
+            workersProvider->GetSettingsRepository()->SetScreenshotPath(
+                screenshotPath);
+            workersProvider->GetSettingsRepository()->SetScreenshotFormat(
+                screenshotFormats[screenshotFormat]);
+            workersProvider->GetSettingsRepository()->SetScreenshotFileTemplate(
+                screenshotFileTemplate);
             screenshotSettingsChangedSignal();
             ImGui::CloseCurrentPopup();
         }
