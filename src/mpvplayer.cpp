@@ -273,7 +273,7 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
                                   fileLoadingErrorSignal(error);
                               });
         }
-            break;
+        break;
         case mpv_end_file_reason::MPV_END_FILE_REASON_EOF:
             [[fallthrough]];
         case mpv_end_file_reason::MPV_END_FILE_REASON_STOP:
@@ -663,7 +663,8 @@ void MpvPlayer::Screenshot()
 }
 void MpvPlayer::SetScreenshotPath(const std::filesystem::path &path)
 {
-    mpv_set_option_string(mpv, "screenshot-directory", path.c_str());
+    std::string path_str = path.string();
+    mpv_set_option_string(mpv, "screenshot-directory", path_str.c_str());
 }
 void MpvPlayer::SetScreenshotFormat(const std::string &format)
 {
