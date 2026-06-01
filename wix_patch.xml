@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <CustomAction
+      Id="ScheduleRemoveExistingProducts"
+      BinaryKey="WixCA"
+      DllEntry="WixCA"
+      Execute="immediate"
+      Return="check"
+      Impersonate="no"/>
+
+    <InstallExecuteSequence>
+      <RemoveExistingProducts After="InstallInitialize"/>
+    </InstallExecuteSequence>
+  </Fragment>
+</Wix>

@@ -13,11 +13,11 @@ project(simpleiptv LANGUAGES C CXX
     )
 
 if(DEFINED ENV{SIMPLEIPTV_VERSION})
-    SET(SIMPLEIPTV_VERSION "$ENV{SIMPLEIPTV_VERSION}")
+  SET(SIMPLEIPTV_VERSION "$ENV{SIMPLEIPTV_VERSION}")
 endif()
 
 if(NOT SIMPLEIPTV_VERSION)
-    SET(SIMPLEIPTV_VERSION "0.0.1")
+  SET(SIMPLEIPTV_VERSION "0.0.1")
 endif()
 
 
@@ -26,12 +26,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # FFmpeg/mpv headers include <stdatomic.h>; MSVC needs experimental C11 atomics.
 if(MSVC)
-    add_compile_options(/experimental:c11atomics)
-    add_compile_options($<$<COMPILE_LANGUAGE:C>:/std:c11>)
+  add_compile_options(/experimental:c11atomics)
+  add_compile_options($<$<COMPILE_LANGUAGE:C>:/std:c11>)
 endif()
 
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
 include(GNUInstallDirs)
@@ -42,8 +42,8 @@ set(EXECUTABLE_NAME simpleiptv)
 add_subdirectory(src)
 
 if(ENABLE_TESTS)
-    enable_testing()
-    add_subdirectory(test)
+  enable_testing()
+  add_subdirectory(test)
 endif()
 
 SET(CPACK_PACKAGE_NAME "simpleiptv")
@@ -66,17 +66,17 @@ set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 
 if(DEFINED ENV{OS_DIST_TAG})
-    set(CPACK_RPM_PACKAGE_RELEASE "1.$ENV{OS_DIST_TAG}")
-#    set(CPACK_RPM_PACKAGE_RELEASE_DIST "$ENV{OS_DIST_TAG}")
- else()
-    set(CPACK_RPM_PACKAGE_RELEASE "1")
- endif()
+  set(CPACK_RPM_PACKAGE_RELEASE "1.$ENV{OS_DIST_TAG}")
+  #    set(CPACK_RPM_PACKAGE_RELEASE_DIST "$ENV{OS_DIST_TAG}")
+else()
+  set(CPACK_RPM_PACKAGE_RELEASE "1")
+endif()
 
 if(DEFINED ENV{OS_DIST_TAG})
-    set(CPACK_DEBIAN_PACKAGE_RELEASE "1+$ENV{OS_DIST_TAG}")
+  set(CPACK_DEBIAN_PACKAGE_RELEASE "1+$ENV{OS_DIST_TAG}")
 else()
-    set(CPACK_DEBIAN_PACKAGE_RELEASE "1")
- endif()
+  set(CPACK_DEBIAN_PACKAGE_RELEASE "1")
+endif()
 
 # FreeBSD revision: bump only when rebuilding the same version
 set(CPACK_FREEBSD_PACKAGE_REVISION "1")
@@ -96,12 +96,14 @@ install(FILES "${CMAKE_SOURCE_DIR}/simpleiptv.desktop" DESTINATION "${CMAKE_INST
 
 set(CPACK_PACKAGE_EXECUTABLES "${EXECUTABLE_NAME};Simple IPTV")
 if(CPACK_GENERATOR STREQUAL "WIX")
-    set(CPACK_WIX_UPGRADE_GUID "c68b00de-fa4f-4f48-9e15-6c55bcf04b2f")
-    set(CPACK_WIX_PROGRAM_MENU_FOLDER "Simple IPTV")
-    set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/gpl-3.0.rtf")
-    set(CPACK_PACKAGE_INSTALL_DIRECTORY "Simple IPTV")	
-    set(CPACK_WIX_PRODUCT_ICON "${CMAKE_SOURCE_DIR}/icons/simpleiptv-icon_64.png")
-    set(CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/icons/simpleiptv-icon_64.png")
+  set(CPACK_WIX_UPGRADE_GUID "c68b00de-fa4f-4f48-9e15-6c55bcf04b2f")
+  set(CPACK_WIX_PROGRAM_MENU_FOLDER "Simple IPTV")
+  set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/gpl-3.0.rtf")
+  set(CPACK_PACKAGE_INSTALL_DIRECTORY "Simple IPTV")
+  set(CPACK_WIX_PRODUCT_ICON "${CMAKE_SOURCE_DIR}/icons/simpleiptv-icon_64.png")
+  set(CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/icons/simpleiptv-icon_64.png")
+  set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "Simple IPTV")
+  set(CPACK_WIX_PATCH_FILE "${CMAKE_SOURCE_DIR}/wix_patch.xml")
 endif()
 
 
