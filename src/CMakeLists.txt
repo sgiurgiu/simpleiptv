@@ -61,6 +61,9 @@ if(VCPKG_TOOLCHAIN)
   list(APPEND STV_LIBRARIES PkgConfig::LibMPV)
 
   if(WIN32)
+    # libmpv Vulkan Win32 code links loader WSI symbols (vkCreateWin32SurfaceKHR, etc.).
+    find_package(Vulkan REQUIRED)
+    list(APPEND STV_LIBRARIES Vulkan::Vulkan)
     list(APPEND STV_LIBRARIES crypt32.lib)
     list(APPEND STV_INCLUDES win)
   endif()

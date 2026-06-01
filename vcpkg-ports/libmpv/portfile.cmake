@@ -79,7 +79,8 @@ vcpkg_configure_meson(
 )
 vcpkg_install_meson()
 
-set(WIN_DESKTOP_LIBS "-lavrt -ldwmapi -lgdi32 -limm32 -lntdll -lole32 -lpathcch -lshcore -luser32 -luuid -luxtheme -lversion ")
+# mpv Vulkan Win32 context calls loader WSI entry points (e.g. vkCreateWin32SurfaceKHR).
+set(WIN_DESKTOP_LIBS "-lavrt -ldwmapi -lgdi32 -limm32 -lntdll -lole32 -lpathcch -lshcore -luser32 -luuid -luxtheme -lversion -lvulkan-1 ")
 
 if(NOT DEFINED VCPKG_BUILD_TYPE OR VCPKG_BUILD_TYPE STREQUAL "release")
   set(pkgconfig_file "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel/meson-private/mpv.pc")

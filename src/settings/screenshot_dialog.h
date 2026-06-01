@@ -16,7 +16,8 @@ private:
 
 public:
     ScreenshotDialog(Key, WorkersProvider* workersProvider);
-    static std::shared_ptr<ScreenshotDialog> Create(WorkersProvider* workersProvider);
+    static std::shared_ptr<ScreenshotDialog>
+    Create(WorkersProvider* workersProvider);
     void ShowDialog();
     void SetShowScreenshotDialog(bool flag)
     {
@@ -27,6 +28,7 @@ public:
     {
         screenshotSettingsChangedSignal.connect(slot);
     }
+
 private:
     WorkersProvider* workersProvider;
     bool showingDialog = false;
@@ -35,5 +37,4 @@ private:
     int screenshotFormat = 0;
     std::string screenshotFileTemplate;
     boost::signals2::signal<void()> screenshotSettingsChangedSignal;
-
 };
