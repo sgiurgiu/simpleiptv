@@ -142,12 +142,8 @@ void startGraphicalInterface()
     // ImGui::StyleColorsLight();
     /*ImGui::GetStyle().Colors[ImGuiCol_WindowBg] =
         ImVec4(0.56f, 0.56f, 0.56f, 0.94f);*/
-    // Setup Platform/Renderer backends
-    // ImGui_ImplGlfw_InitForOpenGL(window, true);
-    std::thread uiThread([window, &workersProvider, vk = vulkanInstance.get()]()
-                         { runMainLoop(window, workersProvider, vk); });
 
-    uiThread.join();
+    runMainLoop(window, workersProvider, vulkanInstance.get());
 
     int width;
     int height;
