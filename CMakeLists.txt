@@ -93,7 +93,6 @@ install(FILES "${CMAKE_SOURCE_DIR}/icons/simpleiptv-icon_256.png" DESTINATION "$
 install(FILES "${CMAKE_SOURCE_DIR}/simpleiptv.desktop" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications" RENAME "simpleiptv.desktop")
 
 
-set(CPACK_WIX_PATCH_FILE_PATH "${CMAKE_SOURCE_DIR}/wix_patch.xml" CACHE INTERNAL "")
 set(CPACK_WIX_LICENSE_PATH "${CMAKE_SOURCE_DIR}/gpl-3.0.rtf" CACHE INTERNAL "")
 set(CPACK_WIX_ICON_PATH "${CMAKE_SOURCE_DIR}/icons/simpleiptv-icon_64.png" CACHE INTERNAL "")
 
