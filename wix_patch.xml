@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CPackWiXPatch>
-  <CPackWiXFragment Id="Product">
+  <CPackWiXFragment Id="#PRODUCT">
     <Upgrade Id="c68b00de-fa4f-4f48-9e15-6c55bcf04b2f">
       <UpgradeVersion
         Minimum="0.0.0"
