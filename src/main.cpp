@@ -10,6 +10,8 @@
 #include <boost/asio/io_context.hpp>
 #include <iostream>
 #include <spdlog/spdlog.h>
+#include <stb_image.h>
+#include <stb_image_resize2.h>
 #include <thread>
 #include <vulkan/vulkan.h>
 
@@ -18,14 +20,14 @@
 #include "imgui/imgui_impl_vulkan.h"
 
 #include "dbconnection_pool.h"
+#include "images/icon.h"
 #include "simpleiptv_coordinator.h"
 #include "simpleiptv_vulkan.h"
 #include "stv_utils.h"
 #include "workers_provider.h"
 
-#include <openssl/crypto.h>
-
 #include <boost/url.hpp>
+#include <openssl/crypto.h>
 
 struct PreloadOpensslCrypto
 {
@@ -125,6 +127,22 @@ void startGraphicalInterface()
         spdlog::critical("Vulkan not supported");
         glfwDestroyWindow(window);
         return;
+    }
+
+    {
+        int width = 0;
+        int height = 0;
+        int channels = 0;
+        auto imageData = stbi_load_from_memory(
+            reinterpret_cast<const stbi_uc*>(______icons_simpleiptv_icon_32_png),
+            ______icons_simpleiptv_icon_32_png_len, &width, &height, &channels,
+            STBI_rgb_alpha);
+        GLFWimage images[1];
+        images[0].pixels = imageData;
+        images[0].width = width;
+        images[0].height = height;
+        glfwSetWindowIcon(window, 1, images);
+        stbi_image_free(imageData);
     }
 
     auto vulkanInstance = std::make_unique<SimpleIPTVVulkan>();

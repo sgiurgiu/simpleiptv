@@ -1,4 +1,5 @@
 #include "channels_window.h"
+#include "aboutwindow.h"
 #include "mpvplayer.h"
 
 #include <boost/asio/post.hpp>
@@ -43,6 +44,7 @@ ChannelsWindow::ChannelsWindow(Key,
 , rootNode{ DisplayRootChannelsGroup::Create(workersProvider, ui_executor) }
 , httpProxyDialog{ HTTPProxyDialog::Create(ui_executor, workersProvider) }
 , screenshotDialog{ ScreenshotDialog::Create(workersProvider) }
+, aboutWindow{ vulkanInstance }
 {
     width = workersProvider->GetSettingsRepository()->GetChannelsWindowWidth(300);
 }
@@ -107,8 +109,7 @@ void ChannelsWindow::ActivateNextChannel()
         else
         {
             auto* firstNode = rootNode->children.begin()->get();
-            firstNode->loadChildren(
-                workersProvider, vulkanInstance, ui_executor);
+            firstNode->loadChildren(workersProvider, vulkanInstance, ui_executor);
             if (!firstNode->children.empty())
             {
                 firstNode->isOpen = true;
@@ -120,13 +121,12 @@ void ChannelsWindow::ActivateNextChannel()
     else
     {
         auto* firstNode = rootNode->children.begin()->get();
-        firstNode->loadChildren(
-            workersProvider, vulkanInstance, ui_executor);
+        firstNode->loadChildren(workersProvider, vulkanInstance, ui_executor);
         if (!firstNode->children.empty())
         {
             firstNode->isOpen = true;
-            activatedChannel = dynamic_cast<DisplayChannel*>(
-                firstNode->children.begin()->get());
+            activatedChannel =
+                dynamic_cast<DisplayChannel*>(firstNode->children.begin()->get());
         }
     }
 
@@ -167,8 +167,7 @@ void ChannelsWindow::ActivatePreviousChannel()
         else
         {
             auto* lastNode = rootNode->children.rbegin()->get();
-            lastNode->loadChildren(
-                workersProvider, vulkanInstance, ui_executor);
+            lastNode->loadChildren(workersProvider, vulkanInstance, ui_executor);
             if (!lastNode->children.empty())
             {
                 lastNode->isOpen = true;
@@ -180,13 +179,12 @@ void ChannelsWindow::ActivatePreviousChannel()
     else
     {
         auto* lastNode = rootNode->children.rbegin()->get();
-        lastNode->loadChildren(
-            workersProvider, vulkanInstance, ui_executor);
+        lastNode->loadChildren(workersProvider, vulkanInstance, ui_executor);
         if (!lastNode->children.empty())
         {
             lastNode->isOpen = true;
-            activatedChannel = dynamic_cast<DisplayChannel*>(
-                lastNode->children.rbegin()->get());
+            activatedChannel =
+                dynamic_cast<DisplayChannel*>(lastNode->children.rbegin()->get());
         }
     }
 
@@ -262,6 +260,7 @@ ImVec2 ChannelsWindow::ShowWindow(float playerBarHeight)
     httpProxyDialog->ShowDialog();
     screenshotDialog->ShowDialog();
     colorspaceDialog.ShowColorspaceDialog();
+    aboutWindow.ShowAboutWindow();
     if (width != (int)std::floor(ImGui::GetWindowSize().x))
     {
         width = std::floor(ImGui::GetWindowSize().x);
@@ -371,10 +370,18 @@ void ChannelsWindow::showMenu()
                     ImGui::EndMenu();
                     return;
                 }
-
                 colorspaceDialog.ShowColorspaceMenus(player.value());
                 ImGui::EndMenu();
             }
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Help"))
+        {
+            if (ImGui::MenuItem("About"))
+            {
+                aboutWindow.SetWindowShowing(true);
+            }
+
             ImGui::EndMenu();
         }
 

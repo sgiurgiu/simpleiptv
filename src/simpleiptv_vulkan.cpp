@@ -29,8 +29,8 @@
 
 #define IMAGE_POOL_SIZE (2)
 
-#include "stv_utils.h"
 #include "mpvplayer.h"
+#include "stv_utils.h"
 
 namespace
 {
@@ -260,10 +260,9 @@ void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame,
         {
             continue;
         }
-        dispatchParams.scissors = { .x0 = clipX0,
-                                    .y0 = clipY0,
-                                    .x1 = clipX1,
-                                    .y1 = clipY1 };
+        dispatchParams.scissors = {
+            .x0 = clipX0, .y0 = clipY0, .x1 = clipX1, .y1 = clipY1
+        };
         dispatchParams.vertex_attribs = attribs_pl;
         dispatchParams.num_vertex_attribs = 3;
         dispatchParams.vertex_stride = sizeof(ImDrawVert);
@@ -494,12 +493,6 @@ mipmaps for smoother downscaling.
     tparams.format =
         pl_find_named_fmt(vulkan->gpu, (channels == 4) ? "rgba8" : "rgb8");
 
-    if (channelsLogoHeight != height)
-    {
-        spdlog::error("channelsLogoHeight is  {} and height is {}",
-                      channelsLogoHeight, height);
-        channelsLogoHeight = height;
-    }
     // pl_tex_recreate();
     imageData.tex = pl_tex_create(vulkan->gpu, &tparams);
     {

@@ -11,6 +11,7 @@
 #include "display_tree_nodes/display_root_channel_group.h"
 #include "display_tree_nodes/display_server_node.h"
 
+#include "aboutwindow.h"
 #include "serverpopup.h"
 #include "settings/colorspace_dialog.h"
 #include "settings/http_proxy_dialog.h"
@@ -102,6 +103,7 @@ private:
     std::shared_ptr<HTTPProxyDialog> httpProxyDialog;
     std::shared_ptr<ScreenshotDialog> screenshotDialog;
     std::optional<int> width;
+    AboutWindow aboutWindow;
 
     GetPlayerSignalType getPlayerSignal;
 };

@@ -86,10 +86,11 @@ private:
     void createCustomShader(pl_shader sh, pl_tex texture);
     void initPlCache();
     void destroyPlCache();
-    static int debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-        VkDebugUtilsMessageTypeFlagsEXT messageType,
-        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-        void* pUserData);
+    static int
+    debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                  VkDebugUtilsMessageTypeFlagsEXT messageType,
+                  const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+                  void* pUserData);
 
 private:
     pl_vk_inst vk_instance = nullptr;
@@ -114,6 +115,5 @@ private:
     std::vector<ImDrawIdx> imguiDrawIndexes;
     std::vector<ImGuiDrawCommand> imguiDrawCommands;
 
-    int channelsLogoHeight = 0;
     std::mutex imguiRenderMutex;
 };

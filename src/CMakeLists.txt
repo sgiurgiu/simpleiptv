@@ -101,8 +101,8 @@ if(VCPKG_TOOLCHAIN)
   list(APPEND STV_INCLUDES ${Stb_INCLUDE_DIR})
   list(APPEND STV_INCLUDES ${FFMPEG_INCLUDE_DIRS})
   if(UNIX)
-   pkg_check_modules(Libunwind REQUIRED IMPORTED_TARGET libunwind libunwind-coredump)
-   list(APPEND STV_LIBRARIES PkgConfig::Libunwind)
+    pkg_check_modules(Libunwind REQUIRED IMPORTED_TARGET libunwind libunwind-coredump)
+    list(APPEND STV_LIBRARIES PkgConfig::Libunwind)
   endif()
 else()
   message(FATAL "VCPKG is required")
@@ -175,6 +175,7 @@ set(STV_SRCS main.cpp
     display_tree_nodes/display_server_node.cpp
     display_tree_nodes/display_server_category.cpp
     display_tree_nodes/display_root_channel_group.cpp
+    aboutwindow.cpp
     )
 
 SET(IMGUI_SRCS
@@ -253,5 +254,3 @@ if(WIN32_APP_OPTIONS)
 endif()
 
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-
