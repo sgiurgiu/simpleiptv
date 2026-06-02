@@ -1,16 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Fragment>
-    <CustomAction
-      Id="ScheduleRemoveExistingProducts"
-      BinaryKey="WixCA"
-      DllEntry="WixCA"
-      Execute="immediate"
-      Return="check"
-      Impersonate="no"/>
+
+    <Upgrade Id="c68b00de-fa4f-4f48-9e15-6c55bcf04b2f">
+      <UpgradeVersion
+        Minimum="0.0.0"
+        IncludeMinimum="yes"
+        Maximum="99.99.99"
+        IncludeMaximum="yes"
+        OnlyDetect="no"
+        Property="PREVIOUSVERSIONSINSTALLED" />
+    </Upgrade>
 
     <InstallExecuteSequence>
-      <RemoveExistingProducts After="InstallInitialize"/>
+      <RemoveExistingProducts After="InstallInitialize" />
     </InstallExecuteSequence>
+
   </Fragment>
 </Wix>
