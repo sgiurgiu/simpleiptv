@@ -449,8 +449,6 @@ void MpvPlayer::mpvRenderThread()
             needsResize = false;
         }
 
-        vulkanInstance->UpdateImguiDrawBuffers();
-
         {
             std::lock_guard<std::mutex> lock(colorspaceMutex);
             pl_swapchain_colorspace_hint(vulkanInstance->GetPlSwapchain(),

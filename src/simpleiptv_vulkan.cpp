@@ -165,128 +165,95 @@ void SimpleIPTVVulkan::createCustomShader(pl_shader sh, pl_tex texture)
     pl_shader_custom(sh, &custom_shader);
 }
 
-void SimpleIPTVVulkan::UpdateImguiDrawBuffers()
+void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame)
 {
-    std::lock_guard<std::mutex> _{ imguiRenderMutex };
     auto drawData = ImGui::GetDrawData();
     if (!drawData)
     {
         return;
     }
-    if (imguiDrawVertexes.size() != (size_t)drawData->TotalVtxCount)
-    {
-        imguiDrawVertexes.resize((size_t)drawData->TotalVtxCount);
-    }
-    if (imguiDrawIndexes.size() != (size_t)drawData->TotalIdxCount)
-    {
-        imguiDrawIndexes.resize((size_t)drawData->TotalIdxCount);
-    }
 
-    imguiDrawCommands.clear();
-    int vertexOffset = 0;
-    int indexOffset = 0;
-    ImDrawVert* vtxDst = imguiDrawVertexes.data();
-    ImDrawIdx* idxDst = imguiDrawIndexes.data();
+    // These depend only on the frame, not on the individual draw command, so
+    // compute them once instead of recomputing for every command each frame.
+    const bool is_srgb = frame->color_space.primaries == PL_COLOR_PRIM_BT_709 &&
+                         frame->color_space.transfer == PL_COLOR_TRC_SRGB;
+    struct pl_color_repr repr = pl_color_repr_rgb;
+    pl_color_map_args map_args = {};
+    map_args.src = frame->color_space;
+    map_args.dst = is_srgb ? pl_color_space_srgb : frame->color_space;
+
+    // Draw straight from ImGui's draw lists. ImGui keeps this data valid from
+    // ImGui::Render() until the next ImGui::NewFrame() (both run on this render
+    // thread, with us in between), and pl_dispatch_vertex consumes the vertex /
+    // index pointers synchronously, so there is no need to copy or flatten the
+    // geometry into our own buffers first.
     for (int32_t i = 0; i < drawData->CmdListsCount; i++)
     {
         const ImDrawList* cmd_list = drawData->CmdLists[i];
-        memcpy(vtxDst, cmd_list->VtxBuffer.Data,
-               (size_t)cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
-        memcpy(idxDst, cmd_list->IdxBuffer.Data,
-               (size_t)cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
-        vtxDst += cmd_list->VtxBuffer.Size;
-        idxDst += cmd_list->IdxBuffer.Size;
-
         for (int32_t j = 0; j < cmd_list->CmdBuffer.Size; j++)
         {
             const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[j];
-            imguiDrawCommands.push_back(
-                { pcmd->GetTexID(), pcmd, vertexOffset, indexOffset });
+            ImTextureID textureId = pcmd->GetTexID();
+
+            // Defaults to the font atlas; an unknown id also falls back to it.
+            pl_tex currentTexture = imguiFontTex;
+            if ((void*)textureId == playerBarTexture)
+            {
+                currentTexture = playerBarTexture;
+            }
+            else if (customTextures.contains((pl_tex)textureId))
+            {
+                currentTexture = (pl_tex)textureId;
+            }
+
+            pl_shader sh = pl_dispatch_begin(dispatch);
+            createCustomShader(sh, currentTexture);
+
+            pl_shader_color_map_ex(sh, NULL, &map_args);
+            pl_shader_encode_color(sh, &repr);
+
+            pl_dispatch_vertex_params dispatchParams = {};
+            dispatchParams.shader = &sh;
+            dispatchParams.target = frame->fbo;
+            dispatchParams.blend_params = &pl_alpha_overlay;
+            int clipX0 = std::max((int)(pcmd->ClipRect.x), 0);
+            int clipY0 = std::max((int)(pcmd->ClipRect.y), 0);
+            int clipX1 = std::max((int)(pcmd->ClipRect.z), 0);
+            int clipY1 = std::max((int)(pcmd->ClipRect.w), 0);
+            if (clipX1 <= clipX0 || clipY1 <= clipY0)
+            {
+                continue;
+            }
+            dispatchParams.scissors = {
+                .x0 = clipX0, .y0 = clipY0, .x1 = clipX1, .y1 = clipY1
+            };
+            dispatchParams.vertex_attribs = attribs_pl;
+            dispatchParams.num_vertex_attribs = 3;
+            dispatchParams.vertex_stride = sizeof(ImDrawVert);
+            dispatchParams.vertex_position_idx = 0;
+            dispatchParams.vertex_coords = PL_COORDS_ABSOLUTE;
+            dispatchParams.vertex_flipped = frame->flipped;
+            dispatchParams.vertex_type = PL_PRIM_TRIANGLE_LIST;
+            dispatchParams.vertex_count = (int)pcmd->ElemCount;
+            dispatchParams.vertex_data =
+                cmd_list->VtxBuffer.Data + pcmd->VtxOffset;
+
+            dispatchParams.index_data =
+                cmd_list->IdxBuffer.Data + pcmd->IdxOffset;
+            dispatchParams.index_fmt = PL_INDEX_UINT16;
+            dispatchParams.index_offset = 0;
+
+            pl_dispatch_vertex(dispatch, &dispatchParams);
         }
-        vertexOffset += cmd_list->VtxBuffer.Size;
-        indexOffset += cmd_list->IdxBuffer.Size;
-    }
-}
-
-void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame,
-                                 const std::vector<ImDrawVert>& vertexes,
-                                 const std::vector<ImDrawIdx>& indexes,
-                                 const std::vector<ImGuiDrawCommand>& commands)
-{
-    for (const auto& cmd : commands)
-    {
-        ImTextureID textureId = cmd.textureId;
-
-        pl_tex currentTexture = imguiFontTex;
-        if ((void*)textureId == imguiFontTex)
-        {
-            currentTexture = imguiFontTex;
-        }
-        else if ((void*)textureId == playerBarTexture)
-        {
-            currentTexture = playerBarTexture;
-        }
-        else if (customTextures.contains((pl_tex)textureId))
-        {
-            currentTexture = (pl_tex)textureId;
-        }
-        else
-        {
-        }
-
-        const ImDrawCmd* pcmd = cmd.pcmd;
-        pl_shader sh = pl_dispatch_begin(dispatch);
-        createCustomShader(sh, currentTexture);
-
-        bool is_srgb = frame->color_space.primaries == PL_COLOR_PRIM_BT_709 &&
-                       frame->color_space.transfer == PL_COLOR_TRC_SRGB;
-
-        struct pl_color_repr repr = pl_color_repr_rgb;
-        pl_color_map_args map_args = {};
-        map_args.src = frame->color_space;
-        map_args.dst = is_srgb ? pl_color_space_srgb : frame->color_space;
-        pl_shader_color_map_ex(sh, NULL, &map_args);
-        pl_shader_encode_color(sh, &repr);
-
-        pl_dispatch_vertex_params dispatchParams = {};
-        dispatchParams.shader = &sh;
-        dispatchParams.target = frame->fbo;
-        dispatchParams.blend_params = &pl_alpha_overlay;
-        int clipX0 = std::max((int)(pcmd->ClipRect.x), 0);
-        int clipY0 = std::max((int)(pcmd->ClipRect.y), 0);
-        int clipX1 = std::max((int)(pcmd->ClipRect.z), 0);
-        int clipY1 = std::max((int)(pcmd->ClipRect.w), 0);
-        if (clipX1 <= clipX0 || clipY1 <= clipY0)
-        {
-            continue;
-        }
-        dispatchParams.scissors = {
-            .x0 = clipX0, .y0 = clipY0, .x1 = clipX1, .y1 = clipY1
-        };
-        dispatchParams.vertex_attribs = attribs_pl;
-        dispatchParams.num_vertex_attribs = 3;
-        dispatchParams.vertex_stride = sizeof(ImDrawVert);
-        dispatchParams.vertex_position_idx = 0;
-        dispatchParams.vertex_coords = PL_COORDS_ABSOLUTE;
-        dispatchParams.vertex_flipped = frame->flipped;
-        dispatchParams.vertex_type = PL_PRIM_TRIANGLE_LIST;
-        dispatchParams.vertex_count = (int)pcmd->ElemCount;
-        dispatchParams.vertex_data =
-            vertexes.data() + cmd.vertexOffset + pcmd->VtxOffset;
-
-        dispatchParams.index_data =
-            indexes.data() + cmd.indexOffset + pcmd->IdxOffset;
-        dispatchParams.index_fmt = PL_INDEX_UINT16;
-        dispatchParams.index_offset = 0;
-
-        pl_dispatch_vertex(dispatch, &dispatchParams);
     }
 }
 
 void SimpleIPTVVulkan::DrawUI(pl_swapchain_frame* frame)
 {
+    // The lock guards customTextures / playerBarTexture against texture
+    // create/destroy happening on other threads while drawImgui reads them.
     std::lock_guard<std::mutex> _{ imguiRenderMutex };
-    drawImgui(frame, imguiDrawVertexes, imguiDrawIndexes, imguiDrawCommands);
+    drawImgui(frame);
 }
 
 void SimpleIPTVVulkan::DrawBackgroundFrame(pl_swapchain_frame* frame)

@@ -12,7 +12,6 @@
 #include <spdlog/spdlog.h>
 #include <stb_image.h>
 #include <stb_image_resize2.h>
-#include <thread>
 #include <vulkan/vulkan.h>
 
 #include "imgui/imgui.h"
@@ -209,13 +208,17 @@ void runMainLoop(GLFWwindow* window,
 
     // Main loop
     bool done = false;
-    auto start = std::chrono::steady_clock::now();
-    // TODO:: make this dynamic based on the monitor refresh rate
-    constexpr std::chrono::milliseconds targetFrameTime{ 16 };
+    // Idle UI refresh interval (seconds). glfwWaitEventsTimeout blocks until an
+    // input/window event or this timeout, so interaction wakes us immediately
+    // while an untouched screen redraws at this rate instead of a constant 60
+    // fps. The tick still drives time-based UI (volume auto-hide, tooltip
+    // delays, EPG rollover). Video is unaffected: it drives the render thread
+    // directly via mpvRenderUpdate.
+    constexpr double idleTick = 1.0 / 15.0;
     while (!done)
     {
         done = glfwWindowShouldClose(window);
-        glfwPollEvents();
+        glfwWaitEventsTimeout(idleTick);
 
         if (coordinator.ShouldQuit())
         {
@@ -227,15 +230,6 @@ void runMainLoop(GLFWwindow* window,
         }
 
         coordinator.Render();
-
-        auto end = std::chrono::steady_clock::now();
-        auto duration =
-            std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration < targetFrameTime)
-        {
-            std::this_thread::sleep_for(targetFrameTime - duration);
-        }
-        start = std::chrono::steady_clock::now();
     }
     work.reset();
     glfwSetWindowUserPointer(window, nullptr);

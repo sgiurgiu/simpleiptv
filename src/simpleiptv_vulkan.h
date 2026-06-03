@@ -24,14 +24,6 @@ struct ImageData
     std::string name;
 };
 
-struct ImGuiDrawCommand
-{
-    ImTextureID textureId;
-    const ImDrawCmd* pcmd;
-    int vertexOffset = 0;
-    int indexOffset = 0;
-};
-
 class MpvPlayer;
 
 class SimpleIPTVVulkan
@@ -69,13 +61,9 @@ public:
                                        int channels,
                                        uint8_t* data);
     void DestroyPlayerBarImageData(ImageData& imageData);
-    void UpdateImguiDrawBuffers();
 
 private:
-    void drawImgui(pl_swapchain_frame* frame,
-                   const std::vector<ImDrawVert>& vertexes,
-                   const std::vector<ImDrawIdx>& indexes,
-                   const std::vector<ImGuiDrawCommand>& commands);
+    void drawImgui(pl_swapchain_frame* frame);
     void createVulkanInstance(const char** extensions,
                               int extensions_count,
                               GLFWwindow* window);
@@ -110,10 +98,6 @@ private:
     std::unordered_set<pl_tex> customTextures;
     pl_tex playerBarTexture = nullptr;
     pl_tex channelsLogosAtlas = nullptr;
-
-    std::vector<ImDrawVert> imguiDrawVertexes;
-    std::vector<ImDrawIdx> imguiDrawIndexes;
-    std::vector<ImGuiDrawCommand> imguiDrawCommands;
 
     std::mutex imguiRenderMutex;
 };
