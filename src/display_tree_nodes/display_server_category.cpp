@@ -1,16 +1,36 @@
 #include "display_server_category.h"
 
 #include <boost/url.hpp>
+#include <fmt/format.h>
 #include <imgui.h>
+#include <imgui_stdlib.h>
 #include <spdlog/spdlog.h>
 #include <utility>
 
+#include "../fonts/IconsFontAwesome4.h"
 #include "../workers_provider.h"
 #include "common.h"
 #include "display_remote_channel_group.h"
 
+DisplayServerCategory::DisplayServerCategory(
+    DisplayNodeKey key,
+    const std::string& name,
+    const std::string& url,
+    WorkersProvider* workersProvider,
+    const boost::asio::any_io_executor& ui_executor,
+    DisplayServer* parent)
+: DisplayChannelsGroup{ key, name, workersProvider, ui_executor, parent }
+, displayServer{ parent }
+, url{ url }
+, groupsFilterLabel{ fmt::format("##filterRemoteGroups{}", name) }
+, eraserLabel{ fmt::format("{}##eraserGroupsFilter{}",
+                           reinterpret_cast<const char*>(ICON_FA_ERASER),
+                           name) }
+{
+}
+
 void DisplayServerCategory::render(std::unordered_set<DisplayNode*>& selectedNodes,
-                                   const std::string& filter)
+                                   const std::string&)
 {
     ImGuiTreeNodeFlags tree_node_flags = ImGuiTreeNodeFlags_SpanAvailWidth |
                                          ImGuiTreeNodeFlags_OpenOnArrow |
@@ -36,9 +56,25 @@ void DisplayServerCategory::render(std::unordered_set<DisplayNode*>& selectedNod
         }
         else
         {
+            ImGui::InputTextWithHint(groupsFilterLabel.c_str(), "Filter",
+                                     &groupsFilter);
+            ImGui::SameLine(0, 0);
+            ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, 0x00000000);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0x00000000);
+
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2{});
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{});
+            if (ImGui::Button(eraserLabel.c_str()))
+            {
+                groupsFilter.clear();
+            }
+            ImGui::PopStyleVar(2);
+            ImGui::PopStyleColor(3);
+
             for (auto& c : children)
             {
-                c->render(selectedNodes, filter);
+                c->render(selectedNodes, groupsFilter);
             }
         }
         ImGui::TreePop();

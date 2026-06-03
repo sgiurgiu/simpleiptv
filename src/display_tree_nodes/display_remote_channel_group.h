@@ -3,6 +3,7 @@
 #include "display_channel_group.h"
 #include "display_server_category.h"
 
+#include <fmt/format.h>
 #include <functional>
 #include <vector>
 
@@ -13,12 +14,7 @@ struct DisplayRemoteChannelsGroup : public DisplayChannelsGroup
                                const std::string& url,
                                WorkersProvider* workersProvider,
                                const boost::asio::any_io_executor& ui_executor,
-                               DisplayServerCategory* parent)
-    : DisplayChannelsGroup{ key, name, workersProvider, ui_executor, parent }
-    , serverCategory{ parent }
-    , url{ url }
-    {
-    }
+                               DisplayServerCategory* parent);
     static std::shared_ptr<DisplayRemoteChannelsGroup>
     Create(const std::string& name,
            const std::string& url,
@@ -45,16 +41,16 @@ struct DisplayRemoteChannelsGroup : public DisplayChannelsGroup
                               const boost::asio::any_io_executor&) override
     {
     }
-    virtual bool shouldRender(const std::string&) const override
-    {
-        return true;
-    }
+    virtual bool shouldRender(const std::string&) const override;
     void showPopup();
     // we have another one because we want to control here how we load our children
     void loadRemoteChildren();
     void saveGroupLocally();
     DisplayServerCategory* serverCategory;
     std::string url;
+    std::string channelsFilter;
+    std::string channelsFilterLabel;
+    std::string eraserFilterLabel;
     bool areChildrenLoading = false;
     bool areChildrenLoaded = false;
     using SaveGroupFunction = std::function<void()>;

@@ -4,19 +4,54 @@
 #include <boost/url.hpp>
 #include <fmt/format.h>
 #include <imgui.h>
+#include <imgui_stdlib.h>
 #include <memory>
 #include <optional>
 #include <spdlog/spdlog.h>
 
+#include "../fonts/IconsFontAwesome4.h"
 #include "../workers_provider.h"
 #include "common.h"
 #include "display_channel.h"
 #include "display_node.h"
 #include "display_server_node.h"
 
+DisplayRemoteChannelsGroup::DisplayRemoteChannelsGroup(
+    DisplayNodeKey key,
+    const std::string& name,
+    const std::string& url,
+    WorkersProvider* workersProvider,
+    const boost::asio::any_io_executor& ui_executor,
+    DisplayServerCategory* parent)
+: DisplayChannelsGroup{ key, name, workersProvider, ui_executor, parent }
+, serverCategory{ parent }
+, url{ url }
+, channelsFilterLabel{ fmt::format("##filterRemoteChannels{}", name) }
+, eraserFilterLabel{ fmt::format("{}##eraserRemoteChannelsFilter{}",
+                                 reinterpret_cast<const char*>(ICON_FA_ERASER),
+                                 name) }
+{
+}
+
+bool DisplayRemoteChannelsGroup::shouldRender(const std::string& filter) const
+{
+    if (filter.empty())
+        return true;
+
+    auto it = std::search(name.cbegin(), name.cend(), filter.cbegin(),
+                          filter.cend(), [](char c1, char c2)
+                          { return std::tolower(c1) == std::tolower(c2); });
+
+    return it != name.cend();
+}
+
 void DisplayRemoteChannelsGroup::render(
     std::unordered_set<DisplayNode*>& selectedNodes, const std::string& filter)
 {
+    if (!shouldRender(filter))
+    {
+        return;
+    }
     ImGuiTreeNodeFlags tree_node_flags = ImGuiTreeNodeFlags_SpanAvailWidth |
                                          ImGuiTreeNodeFlags_OpenOnArrow |
                                          ImGuiTreeNodeFlags_OpenOnDoubleClick;
@@ -43,9 +78,25 @@ void DisplayRemoteChannelsGroup::render(
         }
         else
         {
+            ImGui::InputTextWithHint(channelsFilterLabel.c_str(), "Filter",
+                                     &channelsFilter);
+            ImGui::SameLine(0, 0);
+            ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, 0x00000000);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0x00000000);
+
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2{});
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{});
+            if (ImGui::Button(eraserFilterLabel.c_str()))
+            {
+                channelsFilter.clear();
+            }
+            ImGui::PopStyleVar(2);
+            ImGui::PopStyleColor(3);
+
             for (auto& c : children)
             {
-                c->render(selectedNodes, filter);
+                c->render(selectedNodes, channelsFilter);
             }
         }
         ImGui::TreePop();

@@ -29,7 +29,6 @@
 
 #define IMAGE_POOL_SIZE (2)
 
-#include "mpvplayer.h"
 #include "stv_utils.h"
 
 namespace

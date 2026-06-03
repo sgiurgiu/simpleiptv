@@ -4,7 +4,6 @@
 #include <mutex>
 #include <string>
 #include <unordered_set>
-#include <vector>
 
 #include <imgui.h>
 #include <imgui_internal.h>

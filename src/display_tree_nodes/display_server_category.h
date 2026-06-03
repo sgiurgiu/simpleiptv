@@ -10,12 +10,7 @@ struct DisplayServerCategory : public DisplayChannelsGroup
                           const std::string& url,
                           WorkersProvider* workersProvider,
                           const boost::asio::any_io_executor& ui_executor,
-                          DisplayServer* parent)
-    : DisplayChannelsGroup{ key, name, workersProvider, ui_executor, parent }
-    , displayServer{ parent }
-    , url{ url }
-    {
-    }
+                          DisplayServer* parent);
     static std::shared_ptr<DisplayServerCategory>
     Create(const std::string& name,
            const std::string& url,
@@ -36,7 +31,7 @@ struct DisplayServerCategory : public DisplayChannelsGroup
         return DisplayNodeType::SERVER_CATEGORY;
     }
     virtual void render(std::unordered_set<DisplayNode*>& selectedNodes,
-                        const std::string& filter) override;
+                        const std::string&) override;
     virtual void loadChildren(WorkersProvider*,
                               SimpleIPTVVulkan*,
                               const boost::asio::any_io_executor&) override
@@ -51,4 +46,7 @@ struct DisplayServerCategory : public DisplayChannelsGroup
     DisplayServer* displayServer;
     std::string url;
     bool areChildrenLoading = false;
+    std::string groupsFilter;
+    std::string groupsFilterLabel;
+    std::string eraserLabel;
 };

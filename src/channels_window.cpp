@@ -1,6 +1,4 @@
 #include "channels_window.h"
-#include "aboutwindow.h"
-#include "mpvplayer.h"
 
 #include <boost/asio/post.hpp>
 #include <chrono>
@@ -11,6 +9,7 @@
 #include <spdlog/spdlog.h>
 #include <unordered_set>
 
+#include "aboutwindow.h"
 #include "display_tree_nodes/display_channel.h"
 #include "fonts/IconsFontAwesome4.h"
 
