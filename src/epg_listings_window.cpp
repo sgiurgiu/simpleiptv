@@ -487,12 +487,11 @@ bool EpgListingWindow::addHoursHeaderBar()
     auto sinceColumnStart =
         std::chrono::duration_cast<std::chrono::system_clock::duration>(
             currentLocalTime - minCoveredHour);
-    float fraction =
-        (float)sinceColumnStart.count() / (float)columnSpan.count();
+    float fraction = (float)sinceColumnStart.count() / (float)columnSpan.count();
     float nowX = headerOrigin.x + colWidth + colWidth * fraction;
     drawList->AddLine(ImVec2(nowX, headerOrigin.y),
                       ImVec2(nowX, headerOrigin.y + headerHeight),
-                      IM_COL32(255, 70, 70, 255), 2.0f);
+                      IM_COL32(255, 70, 70, 255.f * 0.80f), 2.0f);
 
     return true;
 }

@@ -164,7 +164,7 @@ void DisplayRemoteChannelsGroup::loadRemoteChildren()
                                                 username, password, streamId));
                 auto epgParams = epgUrl.params();
                 epgParams.replace(epgParams.find("action"),
-                                  { "action", "get_short_epg" });
+                                  { "action", "get_simple_data_table" });
                 epgParams.set("stream_id", std::to_string(streamId));
 
                 auto channel = std::make_shared<Channel>(
