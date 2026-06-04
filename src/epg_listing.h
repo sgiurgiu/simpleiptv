@@ -29,7 +29,13 @@ public:
     LocalTime GetStartTime() const;
     LocalTime GetEndTime() const;
 
+    // Build a synthetic "No Data" listing spanning [start, end), used to pad
+    // gaps in a channel's guide so the whole window is always covered.
+    static EpgListing MakeNoData(LocalTime start, LocalTime end);
+    bool IsNoData() const;
+
 private:
+    EpgListing() = default;
     std::string decode64(const std::string& val);
     std::chrono::system_clock::time_point getTimePoint(const std::string& timestamp);
 
@@ -50,4 +56,5 @@ private:
     std::chrono::system_clock::time_point endTime;
     LocalTime localStartTime;
     LocalTime localEndTime;
+    bool noData = false;
 };

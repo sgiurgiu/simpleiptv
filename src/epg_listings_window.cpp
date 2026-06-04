@@ -6,8 +6,10 @@
 #include <stb_image_resize2.h>
 
 #include <algorithm>
+#include <array>
 #include <boost/asio/post.hpp>
 #include <chrono>
+#include <cmath>
 
 #include <fmt/chrono.h>
 #include <fmt/format.h>
@@ -17,7 +19,80 @@
 namespace
 {
 static constexpr auto COL_WIDTH_DURATION = std::chrono::hours{ 1 };
+
+// A small fixed palette the programs cycle through across the whole guide, so
+// only a handful of colours are ever on screen. Even hue spacing keeps them
+// distinct; the value is kept low enough for the white labels to stay readable.
+const std::array<ImU32, 10>& listingPalette()
+{
+    static const std::array<ImU32, 10> palette = []
+    {
+        std::array<ImU32, 10> p{};
+        for (std::size_t i = 0; i < p.size(); ++i)
+        {
+            float hue = static_cast<float>(i) / static_cast<float>(p.size());
+            p[i] = ImColor::HSV(hue, 0.55f, 0.42f);
+        }
+        return p;
+    }();
+    return palette;
 }
+
+// Offsetting each row's starting colour by a stride coprime with the palette
+// size staggers the colours so they don't line up into vertical stripes.
+static constexpr std::size_t ROW_COLOR_STRIDE = 7;
+
+// Pad a channel's (already sorted) listings with synthetic "No Data" entries so
+// the whole covered window is always painted: before the first programme,
+// between programmes, and after the last one. An empty channel becomes one big
+// "No Data" block. Gaps are measured the same way the draw loop clamps overlaps
+// (against the next programme's start), so the two stay consistent.
+void fillNoDataGaps(std::vector<EpgListing>& listings,
+                    EpgListing::LocalTime winStart,
+                    EpgListing::LocalTime winEnd)
+{
+    if (winEnd <= winStart)
+        return;
+
+    std::vector<EpgListing> filled;
+    filled.reserve(listings.size() * 2 + 1);
+
+    if (listings.empty())
+    {
+        filled.push_back(EpgListing::MakeNoData(winStart, winEnd));
+        listings = std::move(filled);
+        return;
+    }
+
+    // gap before the first programme
+    if (listings.front().GetStartTime() > winStart)
+    {
+        auto gapEnd = std::min(listings.front().GetStartTime(), winEnd);
+        if (winStart < gapEnd)
+            filled.push_back(EpgListing::MakeNoData(winStart, gapEnd));
+    }
+
+    for (std::size_t i = 0; i < listings.size(); ++i)
+    {
+        filled.push_back(listings[i]);
+
+        // the gap after this programme runs to the next one, or to the end of
+        // the window for the last programme
+        auto gapStart = listings[i].GetEndTime();
+        auto gapEnd =
+            (i + 1 < listings.size()) ? listings[i + 1].GetStartTime() : winEnd;
+        if (gapStart < gapEnd)
+        {
+            auto clampedStart = std::max(gapStart, winStart);
+            auto clampedEnd = std::min(gapEnd, winEnd);
+            if (clampedStart < clampedEnd)
+                filled.push_back(EpgListing::MakeNoData(clampedStart, clampedEnd));
+        }
+    }
+
+    listings = std::move(filled);
+}
+} // namespace
 
 EpgListingWindow::EpgListingWindow(Key,
                                    const boost::asio::any_io_executor& ui_executor,
@@ -31,20 +106,39 @@ EpgListingWindow::EpgListingWindow(Key,
         std::optional<int>{});
     reloadCoveredHours();
 }
-void EpgListingWindow::reloadCoveredHours()
+// The two timezone branches exist because some target compilers don't yet
+// implement the C++20 <chrono> calendar/timezone API; there we fall back to
+// Howard Hinnant's date library. Both produce the same local time points.
+EpgListingWindow::HoursTimePoint EpgListingWindow::topOfCurrentHour()
 {
-    coveredHours.clear();
-    columnsStartPos.clear();
 #if __cpp_lib_chrono >= 201907L
     auto tp =
         std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
-    auto top_of_the_hour_tp = std::chrono::floor<std::chrono::hours>(tp);
+    return std::chrono::floor<std::chrono::hours>(tp);
 #else
     auto tp =
         date::make_zoned(date::current_zone(), std::chrono::system_clock::now())
             .get_local_time();
-    auto top_of_the_hour_tp = date::floor<std::chrono::hours>(tp);
+    return date::floor<std::chrono::hours>(tp);
 #endif
+}
+EpgListingWindow::LocalSeconds EpgListingWindow::localNowSeconds()
+{
+#if __cpp_lib_chrono >= 201907L
+    auto tp =
+        std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
+    return std::chrono::time_point_cast<std::chrono::seconds>(tp);
+#else
+    auto tp =
+        date::make_zoned(date::current_zone(), std::chrono::system_clock::now())
+            .get_local_time();
+    return date::floor<std::chrono::seconds>(tp);
+#endif
+}
+void EpgListingWindow::reloadCoveredHours()
+{
+    coveredHours.clear();
+    auto top_of_the_hour_tp = topOfCurrentHour();
     minCoveredHour = top_of_the_hour_tp;
     for (int i = 0; i < columnsCount - 1; i++)
     {
@@ -52,22 +146,12 @@ void EpgListingWindow::reloadCoveredHours()
         top_of_the_hour_tp += COL_WIDTH_DURATION;
     }
     maxCoveredHour = top_of_the_hour_tp;
-    columnsStartPos.resize(columnsCount);
 }
 bool EpgListingWindow::shouldReloadCoveredHours() const
 {
     if (coveredHours.empty())
         return true;
-#if __cpp_lib_chrono >= 201907L
-    auto tp =
-        std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
-    auto top_of_the_hour_tp = std::chrono::floor<std::chrono::hours>(tp);
-#else
-    auto tp =
-        date::make_zoned(date::current_zone(), std::chrono::system_clock::now())
-            .get_local_time();
-    auto top_of_the_hour_tp = date::floor<std::chrono::hours>(tp);
-#endif
+    auto top_of_the_hour_tp = topOfCurrentHour();
     return (coveredHours.begin()->time_since_epoch() !=
             top_of_the_hour_tp.time_since_epoch());
 }
@@ -101,18 +185,7 @@ bool EpgListingWindow::ShowWindow()
         reloadCoveredHours();
         loadChannelsOfSelectedGroup();
     }
-    {
-#if __cpp_lib_chrono >= 201907L
-        auto tp = std::chrono::current_zone()->to_local(
-            std::chrono::system_clock::now());
-        currentLocalTime = std::chrono::time_point_cast<std::chrono::seconds>(tp);
-#else
-        auto tp = date::make_zoned(date::current_zone(),
-                                   std::chrono::system_clock::now())
-                      .get_local_time();
-        currentLocalTime = date::floor<std::chrono::seconds>(tp);
-#endif
-    }
+    currentLocalTime = localNowSeconds();
 
     auto availableSpace = ImGui::GetContentRegionAvail().x;
     ImGui::SetNextItemWidth(availableSpace / 3.f);
@@ -192,9 +265,9 @@ bool EpgListingWindow::ShowWindow()
 
     addHoursHeaderBar();
 
-    for (const auto& c : channels)
+    for (std::size_t row = 0; row < channels.size(); ++row)
     {
-        addChannel(c);
+        addChannel(channels[row], row);
     }
     ImGui::EndChild();
 
@@ -202,7 +275,8 @@ bool EpgListingWindow::ShowWindow()
     return open;
 }
 
-bool EpgListingWindow::addChannel(const DisplayChannelPtr& channel)
+bool EpgListingWindow::addChannel(const DisplayChannelPtr& channel,
+                                  std::size_t rowIndex)
 {
     ImDrawList* drawList = ImGui::GetWindowDrawList();
 
@@ -211,7 +285,7 @@ bool EpgListingWindow::addChannel(const DisplayChannelPtr& channel)
 
     const float rowHeight = 50.f;
     auto pos = window->DC.CursorPos;
-    const ImGuiID id = window->GetID(channel->channel->GetName().c_str());
+    const ImGuiID id = window->GetID(channel.get());
     ImVec2 size =
         ImGui::CalcItemSize(ImVec2(maxDisplayWidth, rowHeight), 0.0f, 0.0f);
     const ImRect bb(window->DC.CursorPos, window->DC.CursorPos + size);
@@ -257,14 +331,16 @@ bool EpgListingWindow::addChannel(const DisplayChannelPtr& channel)
         }
     }
     pos += ImVec2(colWidth, 0.f);
-    int index = 0;
     auto durPerPixelColWidth =
         (double)std::chrono::duration_cast<std::chrono::system_clock::duration>(
             std::chrono::hours{ 1 })
             .count() /
         colWidth;
-    for (const auto& epg : channel->epgListings)
+    const auto& listings = channel->epgListings;
+    const auto& palette = listingPalette();
+    for (std::size_t index = 0; index < listings.size(); ++index)
     {
+        const auto& epg = listings[index];
         if (epg.GetStartTime() >= maxCoveredHour)
             break;
 
@@ -274,9 +350,24 @@ bool EpgListingWindow::addChannel(const DisplayChannelPtr& channel)
         {
             startTime = minCoveredHour;
         }
+        // Some feeds contain an erroneous program whose duration runs far too
+        // long and overlaps the entries after it. Clamp its end to the next
+        // program's start so a bad entry can't swallow its neighbours.
+        if (index + 1 < listings.size())
+        {
+            auto nextStart = listings[index + 1].GetStartTime();
+            if (nextStart < endTime)
+            {
+                endTime = nextStart;
+            }
+        }
         if (endTime > maxCoveredHour)
         {
             endTime = maxCoveredHour;
+        }
+        if (endTime <= startTime)
+        {
+            continue; // fully overlapped or out of view, nothing to draw
         }
         auto gapFromStartDuration = startTime - minCoveredHour;
         float gapFromStartDurationCount =
@@ -299,8 +390,7 @@ bool EpgListingWindow::addChannel(const DisplayChannelPtr& channel)
         drawList->PushClipRect(listingRect.Min, listingRect.Max);
         bool hovered = false;
         bool held = false;
-        const ImGuiID id = window->GetID(
-            (channel->channel->GetName() + std::to_string(index)).c_str());
+        const ImGuiID id = window->GetID(&epg);
         ImGui::ButtonBehavior(listingRect, id, &hovered, &held);
         if (hovered && ImGui::BeginTooltip())
         {
@@ -308,8 +398,21 @@ bool EpgListingWindow::addChannel(const DisplayChannelPtr& channel)
                         epg.GetDescription().c_str());
             ImGui::EndTooltip();
         }
-        ImU32 color =
-            hovered ? ImGui::GetColorU32(ImGuiCol_ButtonHovered) : 0xFF3D3837;
+        ImU32 color;
+        if (hovered)
+        {
+            color = ImGui::GetColorU32(ImGuiCol_ButtonHovered);
+        }
+        else if (epg.IsNoData())
+        {
+            color = IM_COL32(45, 45, 48, 255); // recessed grey for gaps
+        }
+        else
+        {
+            std::size_t colorIndex =
+                (rowIndex * ROW_COLOR_STRIDE + index) % palette.size();
+            color = palette[colorIndex];
+        }
 
         drawList->AddRectFilled(listingRect.Min, listingRect.Max, color, 0);
         drawList->AddRect(listingRect.Min, listingRect.Max, 0xFFFFFFFF, 0);
@@ -323,8 +426,6 @@ bool EpgListingWindow::addChannel(const DisplayChannelPtr& channel)
                           0xFFFFFFFF, epg.GetTime().c_str());
 
         drawList->PopClipRect();
-
-        ++index;
     }
     return pressed;
 }
@@ -340,6 +441,7 @@ bool EpgListingWindow::addHoursHeaderBar()
                          ImGui::GetStyle().FrameBorderSize;
 
     auto pos = window->DC.CursorPos;
+    const ImVec2 headerOrigin = pos;
 
     const ImGuiID id = window->GetID("time");
     ImVec2 size =
@@ -358,8 +460,6 @@ bool EpgListingWindow::addHoursHeaderBar()
     drawList->AddRectFilled(pos, maxListingVec, 0xFF3D3837, 0);
     drawList->AddRect(pos, maxListingVec, 0xFFFFFFFF, 0);
     drawList->PopClipRect();
-    int colsStartPosIndex = 0;
-    columnsStartPos[colsStartPosIndex++].first = pos;
 
     for (const auto& time : coveredHours)
     {
@@ -376,9 +476,23 @@ bool EpgListingWindow::addHoursHeaderBar()
         drawList->AddText(ImVec2(pos.x + ImGui::GetFontSize() / 2.f, pos.y + 2),
                           0xFFFFFFFF, format.c_str());
         drawList->PopClipRect();
-        columnsStartPos[colsStartPosIndex].first = pos;
-        columnsStartPos[colsStartPosIndex++].second = time;
     }
+
+    // Place a vertical "now" marker inside the header bar (so it indicates the
+    // current time without drawing over the rows below). It always falls in the
+    // first column, since the covered range starts at the top of the hour.
+    constexpr auto columnSpan =
+        std::chrono::duration_cast<std::chrono::system_clock::duration>(
+            COL_WIDTH_DURATION);
+    auto sinceColumnStart =
+        std::chrono::duration_cast<std::chrono::system_clock::duration>(
+            currentLocalTime - minCoveredHour);
+    float fraction =
+        (float)sinceColumnStart.count() / (float)columnSpan.count();
+    float nowX = headerOrigin.x + colWidth + colWidth * fraction;
+    drawList->AddLine(ImVec2(nowX, headerOrigin.y),
+                      ImVec2(nowX, headerOrigin.y + headerHeight),
+                      IM_COL32(255, 70, 70, 255), 2.0f);
 
     return true;
 }
@@ -430,12 +544,13 @@ void EpgListingWindow::loadChannelsOfSelectedGroup()
 void EpgListingWindow::loadEpgsOfLoadedChannels()
 {
     columnsCount = INITIAL_COLUMNS_COUNT;
-    channelsLoadedEpgs = 0;
-    maxPages = totalChannels / channelsPerPage;
+    maxPages = totalChannels > 0 ? (totalChannels - 1) / channelsPerPage : 0;
     for (const auto& channel : channels)
     {
         if (channel->channel->GetEPGChannelUri().empty())
         {
+            // No EPG source at all: show the whole window as "No Data".
+            fillNoDataGaps(channel->epgListings, minCoveredHour, maxCoveredHour);
             continue;
         }
 
@@ -446,21 +561,28 @@ void EpgListingWindow::loadEpgsOfLoadedChannels()
                 auto self = weak.lock();
                 if (!self)
                     return;
-                if (ec)
-                    return;
-                auto json = nlohmann::json::parse(body, nullptr, false, true);
-                if (json.is_discarded() || !json.is_object())
+                if (!ec)
                 {
-                    // bad data
-                    return;
+                    auto json = nlohmann::json::parse(body, nullptr, false, true);
+                    if (!json.is_discarded() && json.is_object())
+                    {
+                        auto epg_listings = json["epg_listings"];
+                        for (const auto& listingObject : epg_listings)
+                        {
+                            channel->epgListings.emplace_back(listingObject);
+                        }
+                        // The draw loop assumes chronological order (and clamps
+                        // overlaps against the next entry), so keep them sorted.
+                        std::sort(channel->epgListings.begin(),
+                                  channel->epgListings.end(),
+                                  [](const EpgListing& a, const EpgListing& b)
+                                  { return a.GetStartTime() < b.GetStartTime(); });
+                    }
                 }
-
-                auto epg_listings = json["epg_listings"];
-
-                for (const auto& listingObject : epg_listings)
-                {
-                    channel->epgListings.emplace_back(listingObject);
-                }
+                // Whether the request failed, returned malformed data, or just
+                // left gaps, pad the timeline so the window is fully covered.
+                fillNoDataGaps(channel->epgListings, self->minCoveredHour,
+                               self->maxCoveredHour);
             },
             false);
     }

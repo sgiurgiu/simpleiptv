@@ -99,3 +99,37 @@ std::string EpgListing::GetTime() const
 {
     return time;
 }
+
+EpgListing EpgListing::MakeNoData(LocalTime start, LocalTime end)
+{
+    EpgListing listing;
+    listing.noData = true;
+    listing.title = "No Data";
+    listing.description = "No Data";
+    listing.localStartTime = start;
+    listing.localEndTime = end;
+    // Synthetic fillers only need their local times for layout; the absolute
+    // system time is irrelevant, so derive it directly instead of converting
+    // local->system (which would risk throwing around DST boundaries).
+    listing.startTime =
+        std::chrono::system_clock::time_point{ start.time_since_epoch() };
+    listing.endTime =
+        std::chrono::system_clock::time_point{ end.time_since_epoch() };
+#if __cpp_lib_chrono >= 201907L
+    listing.startLocalHour = fmt::format("{:%H:%M}", start);
+    listing.endLocalHour = fmt::format("{:%H:%M}", end);
+#else
+    listing.startLocalHour = date::format("%H:%M", start);
+    listing.endLocalHour = date::format("%H:%M", end);
+#endif
+    listing.timeAndProgram = fmt::format("{}-{} {}", listing.startLocalHour,
+                                         listing.endLocalHour, listing.title);
+    listing.time =
+        fmt::format("{}-{}", listing.startLocalHour, listing.endLocalHour);
+    return listing;
+}
+
+bool EpgListing::IsNoData() const
+{
+    return noData;
+}

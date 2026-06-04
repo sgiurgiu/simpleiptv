@@ -66,7 +66,7 @@ private:
     };
     using DisplayChannelPtr = std::shared_ptr<DisplayChannel>;
     bool addHoursHeaderBar();
-    bool addChannel(const DisplayChannelPtr& channel);
+    bool addChannel(const DisplayChannelPtr& channel, std::size_t rowIndex);
 
 private:
     boost::asio::any_io_executor ui_executor;
@@ -82,7 +82,6 @@ private:
     int maxPages = 0;
     int totalChannels = 0;
     int columnsCount = INITIAL_COLUMNS_COUNT;
-    int channelsLoadedEpgs = 0;
 #if __cpp_lib_chrono >= 201907L
     using HoursTimePoint =
         std::chrono::time_point<std::chrono::local_t, std::chrono::milliseconds>;
@@ -91,11 +90,12 @@ private:
     using HoursTimePoint = date::local_time<std::chrono::milliseconds>;
     using LocalSeconds = date::local_time<std::chrono::seconds>;
 #endif
+    static HoursTimePoint topOfCurrentHour();
+    static LocalSeconds localNowSeconds();
     std::vector<HoursTimePoint> coveredHours;
     LocalSeconds currentLocalTime;
     HoursTimePoint maxCoveredHour;
     HoursTimePoint minCoveredHour;
-    std::vector<std::pair<ImVec2, HoursTimePoint>> columnsStartPos;
     using ActivatedChannelSignal =
         boost::signals2::signal<void(ChannelsGroupPtr, ChannelPtr)>;
     ActivatedChannelSignal channelActivatedSignal;
