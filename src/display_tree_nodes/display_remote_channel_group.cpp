@@ -140,6 +140,7 @@ void DisplayRemoteChannelsGroup::loadRemoteChildren()
             {
                 return;
             }
+            self->children.clear();
             DisplayServer* server = static_cast<DisplayServer*>(node);
             int server_id = server->getUnderlyingID();
 
@@ -221,6 +222,12 @@ void DisplayRemoteChannelsGroup::showPopup()
                     loadRemoteChildren();
                 }
             }
+        }
+        if (!areChildrenLoading && ImGui::Selectable("Refresh"))
+        {
+            areChildrenLoaded = false;
+            areChildrenLoading = true;
+            loadRemoteChildren();
         }
         ImGui::EndPopup();
     }
