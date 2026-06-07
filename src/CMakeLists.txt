@@ -33,6 +33,7 @@ if(VCPKG_TOOLCHAIN)
   find_package(FFMPEG REQUIRED)
   find_package(volk CONFIG REQUIRED)
   find_package(libunibreak CONFIG REQUIRED)
+  find_package(expat CONFIG REQUIRED)
 
   # pkgconf is a host tool in vcpkg; ensure CMake finds it on Windows CI.
   if(WIN32 AND NOT PKG_CONFIG_EXECUTABLE)
@@ -97,6 +98,7 @@ if(VCPKG_TOOLCHAIN)
 
   list(APPEND STV_LIBRARIES ${FFMPEG_LIBRARIES})
   list(APPEND STV_LIBRARIES libunibreak::libunibreak)
+  list(APPEND STV_LIBRARIES expat::expat)
 
   list(APPEND STV_INCLUDES ${Stb_INCLUDE_DIR})
   list(APPEND STV_INCLUDES ${FFMPEG_INCLUDE_DIRS})
@@ -160,6 +162,9 @@ set(STV_SRCS main.cpp
     boost_error_code_converter.cpp
     epg_listing.cpp
     epg_listings_window.cpp
+    epg/xmltv_parser.cpp
+    epg/epg_repository.cpp
+    epg/xmltv_epg_importer.cpp
     sanitize_url.cpp
     servers/server.cpp
     servers/servers_repository.cpp

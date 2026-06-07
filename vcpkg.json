@@ -28,6 +28,7 @@
     "nlohmann-json",
     "date",
     "libunibreak",
+    "expat",
     {
       "name": "glfw3",
       "features": [
@@ -76,8 +77,8 @@
     "libebur128",
     "libass",
     {
-       "name":"libunwind",
-       "platform": "!windows & !uwp & !xbox"
+      "name": "libunwind",
+      "platform": "!windows & !uwp & !xbox"
     },
     "libmpv",
     "pkgconf"

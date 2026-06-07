@@ -2,9 +2,7 @@
 
 #include <boost/asio/any_io_executor.hpp>
 #include <functional>
-#include <map>
 #include <memory>
-#include <optional>
 #include <vector>
 
 #include "server.h"
@@ -30,6 +28,7 @@ public:
     void AddServer(const Server& server,
                    LoadServerCallback cb,
                    const boost::asio::any_io_executor& cb_executor);
+    void UpdateServerXmlTvUpdatedAt(const Server& server);
 
 private:
 private:

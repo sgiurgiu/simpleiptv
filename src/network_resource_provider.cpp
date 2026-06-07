@@ -4,7 +4,9 @@
 #include <boost/asio/strand.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/beast/core.hpp>
+#include <boost/beast/core/error.hpp>
 #include <boost/beast/http.hpp>
+#include <boost/beast/http/buffer_body.hpp>
 #include <boost/beast/ssl.hpp>
 #include <boost/system/system_error.hpp>
 #include <boost/url.hpp>
@@ -48,21 +50,20 @@ void add_windows_root_certs(boost::asio::ssl::context& ctx)
     SSL_CTX_set_cert_store(ctx.native_handle(), store);
 }
 #endif
-
-class RequestSession : public std::enable_shared_from_this<RequestSession>
+template <typename ResponseBody>
+class RequestSessionBase
 {
-private:
-    using response_parser_t =
-        boost::beast::http::response_parser<boost::beast::http::string_body>;
+protected:
+    using response_parser_t = boost::beast::http::response_parser<ResponseBody>;
     using request_t = boost::beast::http::request<boost::beast::http::empty_body>;
     using stream_t = boost::beast::ssl_stream<boost::beast::tcp_stream>;
 
 public:
-    RequestSession(boost::asio::ssl::context& sslContext,
-                   const boost::asio::any_io_executor& executor,
-                   const HttpProxy& proxy,
-                   const std::string& url,
-                   NetworkResourceProvider::ResourceLoadedCallback cb)
+    RequestSessionBase(boost::asio::ssl::context& sslContext,
+                       const boost::asio::any_io_executor& executor,
+                       const HttpProxy& proxy,
+                       const std::string& url,
+                       NetworkResourceProvider::ResourceLoadedCallback cb)
     : sslContext{ sslContext }
     , executor{ executor }
     , strand{ boost::asio::make_strand(this->executor) }
@@ -82,6 +83,8 @@ public:
             constructRequest(url_parse_result.value());
         }
     }
+
+    virtual ~RequestSessionBase() = default;
 
     void constructRequest(boost::urls::url_view urlView)
     {
@@ -264,8 +267,6 @@ private:
             return;
         }
         using namespace std::placeholders;
-        auto readMethod =
-            std::bind(&RequestSession::onReadHeader, shared_from_this(), _1, _2);
         boost::beast::get_lowest_layer(stream).expires_after(streamTimeout);
         boost::system::error_code errorCode;
         std::size_t readHeaderBytesTransferred = 0;
@@ -281,6 +282,7 @@ private:
         }
         onReadHeader(errorCode, readHeaderBytesTransferred);
     }
+
     void onReadHeader(const boost::system::error_code& ec,
                       std::size_t bytesTransferred)
     {
@@ -290,6 +292,7 @@ private:
             handleError(ec);
             return;
         }
+
         std::string location;
         for (const auto& h : responseParser.get())
         {
@@ -299,65 +302,43 @@ private:
                 break;
             }
         }
+        auto status = responseParser.get().result();
         if (!location.empty())
         {
-            auto status = responseParser.get().result();
-
             if (status == boost::beast::http::status::moved_permanently ||
                 status == boost::beast::http::status::temporary_redirect ||
                 status == boost::beast::http::status::permanent_redirect ||
                 status == boost::beast::http::status::see_other ||
                 status == boost::beast::http::status::found)
             {
-                // close this, make a new request session for the new location
-                boost::asio::post(
-                    executor,
-                    [self = shared_from_this(), location]()
-                    {
-                        auto session = std::make_shared<RequestSession>(
-                            self->sslContext, self->executor, self->proxy,
-                            location, std::move(self->cb));
-                        session->PerformRequest();
-                    });
+                onLocationChanged(std::move(location));
             }
         }
         else
         {
-            boost::beast::get_lowest_layer(stream).expires_after(streamTimeout);
-            boost::system::error_code errorCode;
-            std::size_t readBytesTransferred = 0;
-            if (isSsl)
+            if (status == boost::beast::http::status::ok)
             {
-                readBytesTransferred = boost::beast::http::read(
-                    stream, readBuffer, responseParser, errorCode);
+                readBody();
             }
             else
             {
-                readBytesTransferred = boost::beast::http::read(
-                    stream.next_layer(), readBuffer, responseParser, errorCode);
+                handleError({ (int)boost::beast::http::error::bad_status,
+                              ec.category() });
             }
-            onRead(errorCode, readBytesTransferred);
         }
-    }
-    void onRead(const boost::system::error_code& ec, std::size_t bytesTransferred)
-    {
-        boost::ignore_unused(bytesTransferred);
-        if (ec)
-        {
-            handleError(ec);
-            return;
-        }
-        // we got our response
-        std::string body = responseParser.get().body();
-        cb(std::move(body), std::error_code{});
     }
 
+protected:
     void handleError(const boost::system::error_code& ec)
     {
         cb("", BoostToErrorCode(ec));
     }
 
-private:
+protected:
+    virtual void onLocationChanged(std::string location) = 0;
+    virtual void readBody() = 0;
+
+protected:
     boost::asio::ssl::context& sslContext;
     boost::asio::any_io_executor executor;
     boost::asio::strand<boost::asio::any_io_executor> strand;
@@ -377,6 +358,132 @@ private:
     bool isSsl = false;
 };
 
+class RequestSession
+: public RequestSessionBase<boost::beast::http::string_body>,
+  std::enable_shared_from_this<RequestSession>
+{
+public:
+    RequestSession(boost::asio::ssl::context& sslContext,
+                   const boost::asio::any_io_executor& executor,
+                   const HttpProxy& proxy,
+                   const std::string& url,
+                   NetworkResourceProvider::ResourceLoadedCallback cb)
+    : RequestSessionBase{ sslContext, executor, proxy, url, cb }
+    {
+    }
+
+private:
+    virtual void onLocationChanged(std::string location) override
+    {
+        // close this, make a new request session for the new location
+        boost::asio::post(executor,
+                          [self = shared_from_this(),
+                           location = std::move(location)]() mutable
+                          {
+                              auto session = std::make_shared<RequestSession>(
+                                  self->sslContext, self->executor, self->proxy,
+                                  std::move(location), std::move(self->cb));
+                              session->PerformRequest();
+                          });
+    }
+    virtual void readBody() override
+    {
+        boost::beast::get_lowest_layer(stream).expires_after(streamTimeout);
+        boost::system::error_code errorCode;
+        if (isSsl)
+        {
+            boost::beast::http::read(stream, readBuffer, responseParser,
+                                     errorCode);
+        }
+        else
+        {
+            boost::beast::http::read(stream.next_layer(), readBuffer,
+                                     responseParser, errorCode);
+        }
+
+        if (errorCode)
+        {
+            handleError(errorCode);
+            return;
+        }
+        // we got our response
+        std::string body = responseParser.get().body();
+        cb(std::move(body), std::error_code{});
+    }
+};
+
+class RequestSessionStream
+: public RequestSessionBase<boost::beast::http::buffer_body>,
+  std::enable_shared_from_this<RequestSessionStream>
+{
+public:
+    RequestSessionStream(boost::asio::ssl::context& sslContext,
+                         const boost::asio::any_io_executor& executor,
+                         const HttpProxy& proxy,
+                         const std::string& url,
+                         NetworkResourceProvider::ResourceLoadedCallback cb)
+    : RequestSessionBase{ sslContext, executor, proxy, url, cb }
+    {
+    }
+
+private:
+    virtual void onLocationChanged(std::string location) override
+    {
+        // close this, make a new request session for the new location
+        boost::asio::post(
+            executor,
+            [self = shared_from_this(), location = std::move(location)]() mutable
+            {
+                auto session = std::make_shared<RequestSessionStream>(
+                    self->sslContext, self->executor, self->proxy,
+                    std::move(location), std::move(self->cb));
+                session->PerformRequest();
+            });
+    }
+    virtual void readBody() override
+    {
+        responseParser.body_limit(boost::none);
+        while (!responseParser.is_done())
+        {
+            char buffer[4 * 1024];
+            responseParser.get().body().data = buffer;
+            responseParser.get().body().size = sizeof(buffer);
+            boost::beast::get_lowest_layer(stream).expires_after(streamTimeout);
+            boost::system::error_code errorCode;
+            if (isSsl)
+            {
+                boost::beast::http::read(stream, readBuffer, responseParser,
+                                         errorCode);
+            }
+            else
+            {
+                boost::beast::http::read(stream.next_layer(), readBuffer,
+                                         responseParser, errorCode);
+            }
+
+            if (errorCode == boost::beast::http::error::need_buffer)
+            {
+                errorCode.assign(0, errorCode.category());
+            }
+
+            if (errorCode)
+            {
+                handleError(errorCode);
+                return;
+            }
+            std::size_t bodyBytes =
+                sizeof(buffer) - responseParser.get().body().size;
+            if (bodyBytes > 0)
+            {
+                // we got our response
+                std::string body(buffer, bodyBytes);
+                cb(std::move(body), std::error_code{});
+            }
+        }
+        // end of stream
+        cb("", std::error_code{});
+    }
+};
 } // namespace
 
 NetworkResourceProvider::NetworkResourceProvider(
@@ -402,6 +509,7 @@ NetworkResourceProvider::Create(const boost::asio::any_io_executor& executor,
     return std::make_shared<NetworkResourceProvider>(Key{}, executor,
                                                      std::move(proxyRepository));
 }
+
 void NetworkResourceProvider::GetResource(
     const std::string& url,
     const boost::asio::any_io_executor& cb_executor,
@@ -410,8 +518,8 @@ void NetworkResourceProvider::GetResource(
 {
     using namespace std::placeholders;
     proxyRepository->LoadConfiguredProxy(
-        [weak = weak_from_this(), url, cb_executor, cb,
-         cacheResource](HttpProxy proxy)
+        [weak = weak_from_this(), url, cb_executor, cb = std::move(cb),
+         cacheResource](HttpProxy proxy) mutable
         {
             auto self = weak.lock();
             if (!self)
@@ -430,11 +538,12 @@ void NetworkResourceProvider::getResource(HttpProxy proxy,
 {
     try
     {
-        auto logo = cacheResource ? cache.Get(url) : std::optional<std::string>{};
-        if (cacheResource && logo)
+        auto cachedResource =
+            cacheResource ? cache.Get(url) : std::optional<std::string>{};
+        if (cacheResource && cachedResource)
         {
             spdlog::debug("Got {} from cache", url);
-            auto func = std::bind(cb, logo.value(), std::error_code{});
+            auto func = std::bind(cb, cachedResource.value(), std::error_code{});
             boost::asio::post(cb_executor, func);
         }
         else
@@ -442,8 +551,8 @@ void NetworkResourceProvider::getResource(HttpProxy proxy,
             spdlog::debug("Downloading {}", url);
             auto request = std::make_shared<RequestSession>(
                 sslContext, executor, proxy, url,
-                [weak = weak_from_this(), url, cb_executor, cb,
-                 cacheResource](std::string body, std::error_code ec)
+                [weak = weak_from_this(), url, cb_executor, cb = std::move(cb),
+                 cacheResource](std::string body, std::error_code ec) mutable
                 {
                     auto self = weak.lock();
                     if (!self)
@@ -461,9 +570,57 @@ void NetworkResourceProvider::getResource(HttpProxy proxy,
     catch (const std::exception& ex)
     {
         spdlog::error("Cannot perform request {}", ex.what());
-        auto func = std::bind(
-            cb, std::string{},
-            std::make_error_code(std::errc::io_error));
+        auto func = std::bind(cb, std::string{},
+                              std::make_error_code(std::errc::io_error));
+        boost::asio::post(cb_executor, func);
+    }
+}
+
+void NetworkResourceProvider::GetResourceStreaming(
+    const std::string& url,
+    const boost::asio::any_io_executor& cb_executor,
+    ResourceLoadedCallback cb)
+{
+    using namespace std::placeholders;
+    proxyRepository->LoadConfiguredProxy(
+        [weak = weak_from_this(), url, cb_executor,
+         cb = std::move(cb)](HttpProxy proxy) mutable
+        {
+            auto self = weak.lock();
+            if (!self)
+                return;
+            self->getResourceStreaming(std::move(proxy), std::move(url),
+                                       std::move(cb_executor), std::move(cb));
+        },
+        executor);
+}
+void NetworkResourceProvider::getResourceStreaming(
+    HttpProxy proxy,
+    std::string url,
+    boost::asio::any_io_executor cb_executor,
+    ResourceLoadedCallback cb)
+{
+    try
+    {
+        spdlog::debug("Downloading {}", url);
+        auto request = std::make_shared<RequestSessionStream>(
+            sslContext, executor, proxy, url,
+            [weak = weak_from_this(), url, cb_executor,
+             cb = std::move(cb)](std::string body, std::error_code ec) mutable
+            {
+                auto self = weak.lock();
+                if (!self)
+                    return;
+                auto func = std::bind(cb, std::move(body), ec);
+                boost::asio::post(cb_executor, func);
+            });
+        request->PerformRequest();
+    }
+    catch (const std::exception& ex)
+    {
+        spdlog::error("Cannot perform request {}", ex.what());
+        auto func = std::bind(cb, std::string{},
+                              std::make_error_code(std::errc::io_error));
         boost::asio::post(cb_executor, func);
     }
 }

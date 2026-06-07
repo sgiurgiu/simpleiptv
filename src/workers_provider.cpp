@@ -10,6 +10,7 @@ WorkersProvider::WorkersProvider()
 , networkResourceProvider{ NetworkResourceProvider::Create(
       networkPool.get_executor(), proxyRepository) }
 , serversRepository{ ServersRepository::Create(dbPool.get_executor()) }
+, epgRepository{ EpgRepository::Create(dbPool.get_executor()) }
 #ifdef STV_UNIX
 , mprisService{ MprisService::Create() }
 #endif
@@ -19,6 +20,10 @@ WorkersProvider::WorkersProvider()
 std::shared_ptr<ServersRepository> WorkersProvider::GetServersRepository()
 {
     return serversRepository;
+}
+std::shared_ptr<EpgRepository> WorkersProvider::GetEpgRepository()
+{
+    return epgRepository;
 }
 std::shared_ptr<ChannelsRepository> WorkersProvider::GetChannelsRepository()
 {

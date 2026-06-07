@@ -1,8 +1,13 @@
 #include "servers_repository.h"
 
 #include <boost/asio/post.hpp>
+#include <charconv>
+#include <chrono>
+#include <optional>
 #include <soci/soci.h>
+#include <soci/use.h>
 #include <spdlog/spdlog.h>
+#include <system_error>
 
 #include "../dbconnection_pool.h"
 
@@ -35,7 +40,7 @@ void ServersRepository::LoadServers(LoadServersCallback cb,
                        "SERVER_URL_SCHEMA, USERNAME, "
                        "PASSWORD, TIMEZONE, IS_TRIAL, MAX_CONNECTIONS, "
                        "CREATED_AT, RTMP_PORT, HTTPS_PORT,"
-                       "STATUS, EXPIRY_DATE FROM "
+                       "STATUS, EXPIRY_DATE, XMLTV_UPDATED_AT FROM "
                        "XSTREAM_SERVERS ORDER BY HOST") };
                 for (const auto& r : rows)
                 {
@@ -53,22 +58,39 @@ void ServersRepository::LoadServers(LoadServersCallback cb,
                     auto httpsPort = r.get<std::string>(11, "");
                     auto status = r.get<std::string>(12, "");
                     int64_t expiryDate = r.get<int64_t>(13, 0);
+                    std::string strXmltvUpdatedAt = r.get<std::string>(14, "");
 
                     soci::rowset<soci::row> formatRows = { (
-                        session.prepare
-                            << "SELECT FORMAT FROM "
-                               "SERVER_OUTPUT_FORMATS WHERE XSTREAM_SERVER_ID=:ID",
+                        session.prepare << "SELECT FORMAT FROM "
+                                           "SERVER_OUTPUT_FORMATS WHERE "
+                                           "XSTREAM_SERVER_ID=:ID",
                         soci::use(id)) };
                     std::vector<std::string> outputFormats;
                     for (const auto& fr : formatRows)
                     {
                         outputFormats.push_back(fr.get<std::string>(0, ""));
                     }
+                    std::optional<std::chrono::system_clock::time_point> xmlTvUpdatedAt;
+                    if (!strXmltvUpdatedAt.empty())
+                    {
+                        int64_t secs = 0;
+                        auto [_, ec] = std::from_chars(
+                            strXmltvUpdatedAt.data(),
+                            strXmltvUpdatedAt.data() + strXmltvUpdatedAt.size(),
+                            secs);
+                        if (ec == std::errc{})
+                        {
+                            xmlTvUpdatedAt =
+                                std::chrono::system_clock::time_point{
+                                    std::chrono::seconds{ secs }
+                                };
+                        }
+                    }
 
                     servers.push_back(std::make_shared<Server>(
                         id, host, port, urlScheme, username, password, timezone,
                         status, expiryDate, createdAt, trial, maxConnections,
-                        rtmpPort, httpsPort, outputFormats));
+                        rtmpPort, httpsPort, outputFormats, xmlTvUpdatedAt));
                 }
             }
             catch (const soci::soci_error& ex)
@@ -116,26 +138,29 @@ void ServersRepository::AddServer(const Server& server,
                            ":status, :exp_date, :trial, :max_con, :created, "
                            ":rtmp_port, :https_port) RETURNING SERVER_ID",
                     soci::use(host, "host"), soci::use(port, "port"),
-                    soci::use(urlScheme, "schema"), soci::use(username, "username"),
-                    soci::use(password, "password"), soci::use(timezone, "timezone"),
-                    soci::use(status, "status"), soci::use(expiryDate, "exp_date"),
+                    soci::use(urlScheme, "schema"),
+                    soci::use(username, "username"),
+                    soci::use(password, "password"),
+                    soci::use(timezone, "timezone"), soci::use(status, "status"),
+                    soci::use(expiryDate, "exp_date"),
                     soci::use(maxConnections, "max_con"),
                     soci::use(createdAt, "created"),
                     soci::use(rtmpPort, "rtmp_port"),
-                    soci::use(httpsPort, "https_port"), soci::use(trial, "trial"),
-                    soci::into(id);
+                    soci::use(httpsPort, "https_port"),
+                    soci::use(trial, "trial"), soci::into(id);
                 for (const auto& f : server.GetOutputFormats())
                 {
-                    session
-                        << "INSERT INTO SERVER_OUTPUT_FORMATS(XSTREAM_SERVER_ID, "
-                           "FORMAT) VALUES(:id, :format)",
+                    session << "INSERT INTO "
+                               "SERVER_OUTPUT_FORMATS(XSTREAM_SERVER_ID, "
+                               "FORMAT) VALUES(:id, :format)",
                         soci::use(id), soci::use(f);
                 }
                 serverPtr = std::make_shared<Server>(
-                    id, server.GetHost(), server.GetPort(), server.GetUrlScheme(),
-                    server.GetUsername(), server.GetPassword(),
-                    server.GetTimezone(), server.GetStatus(),
-                    server.GetExpiryDate(), server.GetCreatedAt(), server.IsTrial(),
+                    id, server.GetHost(), server.GetPort(),
+                    server.GetUrlScheme(), server.GetUsername(),
+                    server.GetPassword(), server.GetTimezone(),
+                    server.GetStatus(), server.GetExpiryDate(),
+                    server.GetCreatedAt(), server.IsTrial(),
                     server.GetMaxConnections(), server.GetRTMPPort(),
                     server.GetHTTPSPort(), server.GetOutputFormats());
             }
@@ -148,4 +173,26 @@ void ServersRepository::AddServer(const Server& server,
                                             cb = std::move(cb)]() mutable
                               { cb(std::move(serverPtr)); });
         });
+}
+void ServersRepository::UpdateServerXmlTvUpdatedAt(const Server& server)
+{
+    auto xmlTvUpdatedAt = server.GetXmlTvUpdatedAt();
+    if (!xmlTvUpdatedAt)
+        return;
+    auto secs = std::chrono::duration_cast<std::chrono::seconds>(
+                    xmlTvUpdatedAt->time_since_epoch())
+                    .count();
+    auto strSecs = std::to_string(secs);
+    try
+    {
+        auto session = DatabaseConnections::GetConnection();
+        session << "UPDATE XSTREAM_SERVERS SET XMLTV_UPDATED_AT = :updated_at "
+                   "WHERE SERVER_ID = :id",
+            soci::use(strSecs, "updated_at"), soci::use(server.GetId(), "id");
+    }
+    catch (const soci::soci_error& ex)
+    {
+        spdlog::error("Cannot update server '{}': {}", server.GetHost(),
+                      ex.what());
+    }
 }

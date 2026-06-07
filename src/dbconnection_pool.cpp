@@ -65,6 +65,13 @@ void DatabaseConnections::initTables()
            "FOREIGN KEY (XSTREAM_SERVER_ID) REFERENCES "
            "XSTREAM_SERVERS(SERVER_ID))";
 
+    con << "CREATE TABLE IF NOT EXISTS EPG_PROGRAMMES(XSTREAM_SERVER_ID INT,"
+           "EPG_CHANNEL_ID TEXT, START_TIME INT, STOP_TIME INT, TITLE TEXT,"
+           "DESCRIPTION TEXT, FOREIGN KEY (XSTREAM_SERVER_ID) REFERENCES "
+           "XSTREAM_SERVERS(SERVER_ID))";
+    con << "CREATE INDEX IF NOT EXISTS IDX_EPG_LOOKUP ON "
+           "EPG_PROGRAMMES(XSTREAM_SERVER_ID, EPG_CHANNEL_ID, START_TIME)";
+
     con << "CREATE TABLE IF NOT EXISTS SETTINGS(KEY TEXT PRIMARY KEY, VALUE "
            "TEXT)";
     int version = getSchemaVersion(con);
@@ -83,13 +90,17 @@ void DatabaseConnections::initTables()
                "XSTREAM_SERVERS(SERVER_ID))";
         incrementSchemaVersion(con, version);
     }
+    if (version < 2)
+    {
+        con << "ALTER TABLE XSTREAM_SERVERS ADD COLUMN XMLTV_UPDATED_AT TEXT";
+        incrementSchemaVersion(con, version);
+    }
 }
 int DatabaseConnections::getSchemaVersion(soci::session& con)
 {
     int version = 0;
     soci::indicator ind;
-    con << "SELECT VERSION FROM SCHEMA_VERSION LIMIT 1",
-        soci::into(version, ind);
+    con << "SELECT VERSION FROM SCHEMA_VERSION LIMIT 1", soci::into(version, ind);
     if (ind != soci::i_ok)
     {
         return 0;

@@ -14,7 +14,8 @@ Server::Server(int id,
                int maxConnections,
                std::string rtmpPort,
                std::string httpsPort,
-               std::vector<std::string> outputFormats)
+               std::vector<std::string> outputFormats,
+               std::optional<std::chrono::system_clock::time_point> xmltvUpdatedAt)
 : id{ id }
 , host{ std::move(host) }
 , port{ std::move(port) }
@@ -29,6 +30,7 @@ Server::Server(int id,
 , maxConnections{ maxConnections }
 , rtmpPort{ std::move(rtmpPort) }
 , httpsPort{ std::move(httpsPort) }
+, xmltvUpdatedAt{ xmltvUpdatedAt }
 , outputFormats{ std::move(outputFormats) }
 {
 }

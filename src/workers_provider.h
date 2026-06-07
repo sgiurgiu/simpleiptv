@@ -4,6 +4,7 @@
 #include <boost/asio/thread_pool.hpp>
 
 #include "channels/channels_repository.h"
+#include "epg/epg_repository.h"
 #include "network_resource_provider.h"
 #include "proxy_repository.h"
 #include "servers/servers_repository.h"
@@ -26,6 +27,7 @@ public:
     std::shared_ptr<SettingsRepository> GetSettingsRepository();
     std::shared_ptr<NetworkResourceProvider> GetNetworkResourceProvider();
     std::shared_ptr<ServersRepository> GetServersRepository();
+    std::shared_ptr<EpgRepository> GetEpgRepository();
 #ifdef STV_UNIX
     std::shared_ptr<MprisService> GetMprisService();
 #endif
@@ -39,6 +41,7 @@ private:
     std::shared_ptr<SettingsRepository> settingsRepository;
     std::shared_ptr<NetworkResourceProvider> networkResourceProvider;
     std::shared_ptr<ServersRepository> serversRepository;
+    std::shared_ptr<EpgRepository> epgRepository;
 #ifdef STV_UNIX
     std::shared_ptr<MprisService> mprisService;
 #endif

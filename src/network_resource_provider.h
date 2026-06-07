@@ -4,7 +4,6 @@
 #include <boost/asio/ssl/context.hpp>
 #include <functional>
 #include <memory>
-#include <optional>
 
 #include "proxy_repository.h"
 #include "resource_cache.h"
@@ -33,6 +32,11 @@ public:
                      const boost::asio::any_io_executor& cb_executor,
                      ResourceLoadedCallback cb,
                      bool cacheResource = true);
+    // the callback will be called on the cb_executor provided
+    // each time we read some data
+    void GetResourceStreaming(const std::string& url,
+                              const boost::asio::any_io_executor& cb_executor,
+                              ResourceLoadedCallback cb);
 
 private:
     void getResource(HttpProxy proxy,
@@ -40,6 +44,10 @@ private:
                      boost::asio::any_io_executor cb_executor,
                      ResourceLoadedCallback cb,
                      bool cacheResource);
+    void getResourceStreaming(HttpProxy proxy,
+                              std::string url,
+                              boost::asio::any_io_executor cb_executor,
+                              ResourceLoadedCallback cb);
 
 private:
     boost::asio::any_io_executor executor;

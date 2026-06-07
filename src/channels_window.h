@@ -13,6 +13,7 @@
 
 #include "aboutwindow.h"
 #include "serverpopup.h"
+#include "servers/server.h"
 #include "settings/colorspace_dialog.h"
 #include "settings/http_proxy_dialog.h"
 #include "settings/screenshot_dialog.h"
@@ -81,6 +82,7 @@ private:
     void showLocalChannelsTab();
     void showRemoteChannelsTab();
     void showMenu();
+    void loadServerXmlTv(ServerPtr server);
 
 private:
     boost::asio::any_io_executor ui_executor;

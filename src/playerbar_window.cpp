@@ -292,11 +292,13 @@ void PlayerBarWindow::SetCurrentChannel(ChannelPtr channel)
     epgListings.clear();
     ccButtonPressed = false;
     subsIds.clear();
-    /*if (channelLogoTexture)
+    if (logo.tex)
     {
-        glDeleteTextures(1, &channelLogoTexture);
-        channelLogoTexture = 0;
-    }*/
+        vulkanInstance->WaitForIdle();
+        vulkanInstance->DestroyPlayerBarImageData(logo);
+        logo.tex = nullptr;
+        logo.name = "";
+    }
     windowBackground = noChannelWindowBackground;
     loadChannelLogoData();
     loadEpg(0);

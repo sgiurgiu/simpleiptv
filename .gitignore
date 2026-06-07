@@ -82,4 +82,5 @@ build-release/
 build-asan/
 .cache/
 .zed/
+xmltv.xml
 

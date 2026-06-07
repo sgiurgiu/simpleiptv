@@ -1,6 +1,8 @@
 #pragma once
 
+#include <chrono>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -21,7 +23,9 @@ public:
            int maxConnections,
            std::string rtmpPort,
            std::string httpsPort,
-           std::vector<std::string> outputFormats);
+           std::vector<std::string> outputFormats,
+           std::optional<std::chrono::system_clock::time_point> xmltvUpdatedAt =
+               std::nullopt);
 
     int GetId() const
     {
@@ -83,6 +87,14 @@ public:
     {
         return outputFormats;
     }
+    std::optional<std::chrono::system_clock::time_point> GetXmlTvUpdatedAt() const
+    {
+        return xmltvUpdatedAt;
+    }
+    void SetXmlTvUpdatedAt(const std::chrono::system_clock::time_point& time)
+    {
+        xmltvUpdatedAt = time;
+    }
 
 private:
     int id = 0;
@@ -99,6 +111,7 @@ private:
     int maxConnections = 0;
     std::string rtmpPort;
     std::string httpsPort;
+    std::optional<std::chrono::system_clock::time_point> xmltvUpdatedAt;
     std::vector<std::string> outputFormats;
 };
 using ServerPtr = std::shared_ptr<Server>;

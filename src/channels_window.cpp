@@ -1,6 +1,7 @@
 #include "channels_window.h"
 
 #include <boost/asio/post.hpp>
+#include <boost/url.hpp>
 #include <chrono>
 #include <cmath>
 #include <imgui.h>
@@ -11,7 +12,9 @@
 
 #include "aboutwindow.h"
 #include "display_tree_nodes/display_channel.h"
+#include "epg/xmltv_epg_importer.h"
 #include "fonts/IconsFontAwesome4.h"
+#include "servers/server.h"
 
 namespace
 {
@@ -431,7 +434,35 @@ void ChannelsWindow::loadSavedServers()
                     });
 
                 self->servers.push_back(server);
+                self->loadServerXmlTv(s);
             }
+        },
+        ui_executor);
+}
+
+void ChannelsWindow::loadServerXmlTv(ServerPtr server)
+{
+    // Skip servers whose guide we refreshed recently, so we don't re-download
+    // ~100 MB on every launch.
+    auto updatedAt = server->GetXmlTvUpdatedAt();
+    if (updatedAt && std::chrono::system_clock::now() - *updatedAt <
+                         std::chrono::hours{ 12 })
+    {
+        spdlog::info("XMLTV for server {} is fresh; skipping refresh",
+                     server->GetId());
+        return;
+    }
+
+    auto importer = XmlTvEpgImporter::Create(workersProvider);
+    importer->Import(
+        server,
+        [id = server->GetId()](std::error_code ec)
+        {
+            if (ec)
+                spdlog::error("XMLTV import failed for server {}: {}", id,
+                              ec.message());
+            else
+                spdlog::debug("XMLTV import complete for server {}", id);
         },
         ui_executor);
 }
