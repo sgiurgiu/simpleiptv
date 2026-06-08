@@ -16,6 +16,27 @@ EpgListing::EpgListing(const nlohmann::json& json)
     description = decode64(json["description"].get<std::string>());
     startTime = getTimePoint(json["start_timestamp"].get<std::string>());
     endTime = getTimePoint(json["stop_timestamp"].get<std::string>());
+    finalize();
+}
+
+EpgListing EpgListing::FromProgramme(std::int64_t startUnix,
+                                     std::int64_t stopUnix,
+                                     std::string title,
+                                     std::string description)
+{
+    EpgListing listing;
+    listing.title = std::move(title);
+    listing.description = std::move(description);
+    listing.startTime =
+        std::chrono::system_clock::from_time_t(static_cast<time_t>(startUnix));
+    listing.endTime =
+        std::chrono::system_clock::from_time_t(static_cast<time_t>(stopUnix));
+    listing.finalize();
+    return listing;
+}
+
+void EpgListing::finalize()
+{
 #if __cpp_lib_chrono >= 201907L
     auto tz = std::chrono::current_zone();
     localStartTime = tz->to_local(startTime);

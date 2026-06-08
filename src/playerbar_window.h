@@ -104,6 +104,7 @@ public:
 private:
     void loadChannelLogoData();
     void loadEpg(int retry);
+    void loadEpgFromNetwork(int retry);
 
 private:
     boost::asio::any_io_executor ui_executor;

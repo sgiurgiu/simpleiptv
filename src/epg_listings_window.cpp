@@ -544,45 +544,93 @@ void EpgListingWindow::loadEpgsOfLoadedChannels()
 {
     columnsCount = INITIAL_COLUMNS_COUNT;
     maxPages = totalChannels > 0 ? (totalChannels - 1) / channelsPerPage : 0;
+
+    // The repository is keyed in UTC seconds. Anchor the query window on "now"
+    // (the same instant in any timezone) with a margin generous enough to keep
+    // programmes overlapping either edge of the displayed hours; the draw loop
+    // clips to the visible range precisely.
+    auto now = std::chrono::system_clock::now();
+    auto toUnix = [](std::chrono::system_clock::time_point tp)
+    {
+        return static_cast<std::int64_t>(
+            std::chrono::duration_cast<std::chrono::seconds>(tp.time_since_epoch())
+                .count());
+    };
+    std::int64_t fromUnix = toUnix(now - std::chrono::hours{ 6 });
+    std::int64_t windowEndUnix =
+        toUnix(now + std::chrono::hours{ columnsCount + 2 });
+
     for (const auto& channel : channels)
     {
-        if (channel->channel->GetEPGChannelUri().empty())
+        if (channel->channel->GetEPGChannelId().empty())
         {
-            // No EPG source at all: show the whole window as "No Data".
-            fillNoDataGaps(channel->epgListings, minCoveredHour, maxCoveredHour);
+            // Nothing stored locally for this channel; try the internet (which
+            // itself falls back to "No Data" when there is no EPG URI either).
+            loadEpgFromNetwork(channel);
             continue;
         }
 
-        workersProvider->GetNetworkResourceProvider()->GetResource(
-            channel->channel->GetEPGChannelUri(), ui_executor,
-            [weak = weak_from_this(), channel](std::string body, std::error_code ec)
+        workersProvider->GetEpgRepository()->GetProgrammes(
+            channel->channel->GetXStreamServerId(),
+            channel->channel->GetEPGChannelId(), fromUnix, windowEndUnix,
+            [weak = weak_from_this(), channel](std::vector<EpgListing> listings)
             {
                 auto self = weak.lock();
                 if (!self)
                     return;
-                if (!ec)
+                if (listings.empty())
                 {
-                    auto json = nlohmann::json::parse(body, nullptr, false, true);
-                    if (!json.is_discarded() && json.is_object())
-                    {
-                        auto epg_listings = json["epg_listings"];
-                        for (const auto& listingObject : epg_listings)
-                        {
-                            channel->epgListings.emplace_back(listingObject);
-                        }
-                        // The draw loop assumes chronological order (and clamps
-                        // overlaps against the next entry), so keep them sorted.
-                        std::sort(channel->epgListings.begin(),
-                                  channel->epgListings.end(),
-                                  [](const EpgListing& a, const EpgListing& b)
-                                  { return a.GetStartTime() < b.GetStartTime(); });
-                    }
+                    // No stored programmes: fall back to the internet as before.
+                    self->loadEpgFromNetwork(channel);
+                    return;
                 }
-                // Whether the request failed, returned malformed data, or just
-                // left gaps, pad the timeline so the window is fully covered.
+                // The repository already returns them ordered by start time.
+                channel->epgListings = std::move(listings);
                 fillNoDataGaps(channel->epgListings, self->minCoveredHour,
                                self->maxCoveredHour);
             },
-            false);
+            ui_executor);
     }
+}
+
+void EpgListingWindow::loadEpgFromNetwork(const DisplayChannelPtr& channel)
+{
+    if (channel->channel->GetEPGChannelUri().empty())
+    {
+        // No EPG source at all: show the whole window as "No Data".
+        fillNoDataGaps(channel->epgListings, minCoveredHour, maxCoveredHour);
+        return;
+    }
+
+    workersProvider->GetNetworkResourceProvider()->GetResource(
+        channel->channel->GetEPGChannelUri(), ui_executor,
+        [weak = weak_from_this(), channel](std::string body, std::error_code ec)
+        {
+            auto self = weak.lock();
+            if (!self)
+                return;
+            if (!ec)
+            {
+                auto json = nlohmann::json::parse(body, nullptr, false, true);
+                if (!json.is_discarded() && json.is_object())
+                {
+                    auto epg_listings = json["epg_listings"];
+                    for (const auto& listingObject : epg_listings)
+                    {
+                        channel->epgListings.emplace_back(listingObject);
+                    }
+                    // The draw loop assumes chronological order (and clamps
+                    // overlaps against the next entry), so keep them sorted.
+                    std::sort(channel->epgListings.begin(),
+                              channel->epgListings.end(),
+                              [](const EpgListing& a, const EpgListing& b)
+                              { return a.GetStartTime() < b.GetStartTime(); });
+                }
+            }
+            // Whether the request failed, returned malformed data, or just
+            // left gaps, pad the timeline so the window is fully covered.
+            fillNoDataGaps(channel->epgListings, self->minCoveredHour,
+                           self->maxCoveredHour);
+        },
+        false);
 }

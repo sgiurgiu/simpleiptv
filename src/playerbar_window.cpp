@@ -2,6 +2,7 @@
 #include "stv_utils.h"
 
 #include <boost/asio/post.hpp>
+#include <cstdint>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
@@ -306,6 +307,53 @@ void PlayerBarWindow::SetCurrentChannel(ChannelPtr channel)
 
 void PlayerBarWindow::loadEpg(int retry)
 {
+    // Prefer the locally imported guide; only when nothing is stored for this
+    // channel do we go to the network. The network retry path re-enters through
+    // loadEpgFromNetwork, so the database is only consulted on the first try.
+    if (currentChannel && !currentChannel->GetEPGChannelId().empty())
+    {
+        // The combo lists the day's programmes and highlights the current one,
+        // so query a window that brackets "now" with room on either side; the
+        // repository is keyed in UTC seconds.
+        auto now = std::chrono::system_clock::now();
+        auto toUnix = [](std::chrono::system_clock::time_point tp)
+        {
+            return static_cast<std::int64_t>(
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    tp.time_since_epoch())
+                    .count());
+        };
+        std::int64_t fromUnix = toUnix(now - std::chrono::hours{ 6 });
+        std::int64_t windowEndUnix = toUnix(now + std::chrono::hours{ 24 });
+
+        workersProvider->GetEpgRepository()->GetProgrammes(
+            currentChannel->GetXStreamServerId(),
+            currentChannel->GetEPGChannelId(), fromUnix, windowEndUnix,
+            [weak = weak_from_this(),
+             channel = currentChannel](std::vector<EpgListing> listings)
+            {
+                auto self = weak.lock();
+                if (!self)
+                    return;
+                if (self->currentChannel != channel)
+                    return;
+                if (listings.empty())
+                {
+                    // Nothing stored locally: fall back to the network.
+                    self->loadEpgFromNetwork(0);
+                    return;
+                }
+                self->epgListings = std::move(listings);
+            },
+            ui_executor);
+        return;
+    }
+
+    loadEpgFromNetwork(retry);
+}
+
+void PlayerBarWindow::loadEpgFromNetwork(int retry)
+{
     if (!currentChannel->GetEPGChannelUri().empty() && retry < 5)
     {
         spdlog::info("Loading epg for channel {}, retry {}. URL used: {}",
@@ -330,7 +378,7 @@ void PlayerBarWindow::loadEpg(int retry)
                                   channel->GetName(), retry,
                                   channel->GetEPGChannelUri(), ec.message());
                     boost::asio::post(self->ui_executor, [self, retry]()
-                                      { self->loadEpg(retry + 1); });
+                                      { self->loadEpgFromNetwork(retry + 1); });
                     return;
                 }
                 auto json = nlohmann::json::parse(body, nullptr, false, true);
@@ -343,7 +391,7 @@ void PlayerBarWindow::loadEpg(int retry)
                                   " json discarded or json is not object");
                     // bad data
                     boost::asio::post(self->ui_executor, [self, retry]()
-                                      { self->loadEpg(retry + 1); });
+                                      { self->loadEpgFromNetwork(retry + 1); });
                     return;
                 }
                 auto epg_listings = json["epg_listings"];

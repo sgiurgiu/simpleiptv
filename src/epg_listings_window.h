@@ -65,6 +65,7 @@ private:
         std::vector<EpgListing> epgListings;
     };
     using DisplayChannelPtr = std::shared_ptr<DisplayChannel>;
+    void loadEpgFromNetwork(const DisplayChannelPtr& channel);
     bool addHoursHeaderBar();
     bool addChannel(const DisplayChannelPtr& channel, std::size_t rowIndex);
 

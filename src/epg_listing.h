@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <nlohmann/json.hpp>
 #include <string>
 
@@ -29,6 +30,13 @@ public:
     LocalTime GetStartTime() const;
     LocalTime GetEndTime() const;
 
+    // Build a listing from a programme stored in the database. Times are unix
+    // seconds (UTC); the title and description are already decoded plain text.
+    static EpgListing FromProgramme(std::int64_t startUnix,
+                                    std::int64_t stopUnix,
+                                    std::string title,
+                                    std::string description);
+
     // Build a synthetic "No Data" listing spanning [start, end), used to pad
     // gaps in a channel's guide so the whole window is always covered.
     static EpgListing MakeNoData(LocalTime start, LocalTime end);
@@ -38,6 +46,9 @@ private:
     EpgListing() = default;
     std::string decode64(const std::string& val);
     std::chrono::system_clock::time_point getTimePoint(const std::string& timestamp);
+    // Derive the local times and display strings from startTime/endTime/title;
+    // shared by the JSON and database constructors.
+    void finalize();
 
 private:
     std::string id;

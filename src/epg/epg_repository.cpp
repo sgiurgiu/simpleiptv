@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "../dbconnection_pool.h"
+#include "../epg_listing.h"
 
 EpgRepository::EpgRepository(Key, const boost::asio::any_io_executor& executor)
 : executor{ executor }
@@ -89,5 +90,62 @@ void EpgRepository::InsertProgrammes(int serverId,
                 spdlog::error("Cannot insert EPG batch for server {}: {}",
                               serverId, ex.what());
             }
+        });
+}
+
+void EpgRepository::GetProgrammes(int serverId,
+                                  std::string epgChannelId,
+                                  std::int64_t fromUnix,
+                                  std::int64_t toUnix,
+                                  LoadProgrammesCallback cb,
+                                  const boost::asio::any_io_executor& cb_executor)
+{
+    boost::asio::post(
+        executor,
+        [self = shared_from_this(), serverId,
+         epgChannelId = std::move(epgChannelId), fromUnix, toUnix,
+         cb = std::move(cb), cb_executor]() mutable
+        {
+            std::vector<EpgListing> listings;
+            try
+            {
+                auto session = DatabaseConnections::GetConnection();
+
+                long long startTime = 0;
+                long long stopTime = 0;
+                std::string title;
+                std::string description;
+                // A programme overlaps the window when it stops after the start
+                // and starts before the end, so STOP_TIME/START_TIME are compared
+                // against the opposite bounds.
+                soci::statement st =
+                    (session.prepare
+                         << "SELECT START_TIME, STOP_TIME, TITLE, DESCRIPTION "
+                            "FROM EPG_PROGRAMMES WHERE XSTREAM_SERVER_ID = :sid "
+                            "AND EPG_CHANNEL_ID = :cid AND STOP_TIME > :from "
+                            "AND START_TIME < :to ORDER BY START_TIME",
+                     soci::use(serverId, "sid"),
+                     soci::use(epgChannelId, "cid"), soci::use(fromUnix, "from"),
+                     soci::use(toUnix, "to"), soci::into(startTime),
+                     soci::into(stopTime), soci::into(title),
+                     soci::into(description));
+                st.execute();
+                while (st.fetch())
+                {
+                    listings.push_back(EpgListing::FromProgramme(
+                        startTime, stopTime, title, description));
+                }
+            }
+            catch (const soci::soci_error& ex)
+            {
+                spdlog::error(
+                    "Cannot load EPG programmes for server {} channel {}: {}",
+                    serverId, epgChannelId, ex.what());
+            }
+
+            boost::asio::post(cb_executor,
+                              [listings = std::move(listings),
+                               cb = std::move(cb)]() mutable
+                              { cb(std::move(listings)); });
         });
 }
