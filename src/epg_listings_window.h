@@ -2,12 +2,15 @@
 
 #include <boost/signals2.hpp>
 #include <chrono>
+#include <cstdint>
 #include <imgui.h>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "channels/channel.h"
 #include "channels/channels_group.h"
+#include "epg/epg_repository.h"
 #include "epg_listing.h"
 #include "workers_provider.h"
 
@@ -68,6 +71,10 @@ private:
     void loadEpgFromNetwork(const DisplayChannelPtr& channel);
     bool addHoursHeaderBar();
     bool addChannel(const DisplayChannelPtr& channel, std::size_t rowIndex);
+    void showLiveEpgListing();
+    void showSearchTab();
+    void runSearch();
+    bool addSearchResultCard(const EpgSearchResult& result);
 
 private:
     boost::asio::any_io_executor ui_executor;
@@ -100,4 +107,13 @@ private:
     using ActivatedChannelSignal =
         boost::signals2::signal<void(ChannelsGroupPtr, ChannelPtr)>;
     ActivatedChannelSignal channelActivatedSignal;
+
+    static constexpr int SEARCH_RESULT_LIMIT = 300;
+    std::string searchText;
+    std::vector<EpgSearchResult> searchResults;
+    // Bumped on each search so a slow query's callback can be ignored once a
+    // newer search has been issued.
+    std::uint64_t searchGeneration = 0;
+    // Distinguishes "no search run yet" from "search returned nothing".
+    bool searchPerformed = false;
 };

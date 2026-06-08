@@ -1,13 +1,48 @@
 #include "epg_repository.h"
 
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/asio/post.hpp>
+#include <cstdint>
 #include <soci/soci.h>
 #include <soci/use.h>
 #include <spdlog/spdlog.h>
 #include <utility>
 
+#include "../channels/channel.h"
 #include "../dbconnection_pool.h"
 #include "../epg_listing.h"
+
+namespace
+{
+// Build a Channel from a search row. The column order must match the SELECT in
+// SearchProgrammes, and the mapping mirrors ChannelsRepository::loadChannel
+// (including the '#' -> U+2E30 replacement that keeps names out of ImGui's "##"
+// id syntax) so search results behave like channels loaded anywhere else.
+ChannelPtr channelFromSearchRow(const soci::row& r)
+{
+    int id = r.get<int>(0, -1);
+    auto name = r.get<std::string>(1, "");
+    auto uri = r.get<std::string>(2, "");
+    auto logoUri = r.get<std::string>(3, "");
+    auto logo = r.get<std::string>(4, "");
+    auto epgChannelUri = r.get<std::string>(5, "");
+    auto epgChannelId = r.get<std::string>(6, "");
+    int xstreamServerId = r.get<int>(7, -1);
+    int favourite = r.get<int>(8, 0);
+    std::optional<int> groupId;
+    if (r.get_indicator(9) == soci::i_ok)
+    {
+        groupId = r.get<int>(9);
+    }
+
+    boost::algorithm::replace_all(name, "#",
+                                  reinterpret_cast<const char*>(u8"⸰"));
+    return std::make_shared<Channel>(
+        id, std::move(name), std::move(uri), std::move(logoUri),
+        std::move(logo), std::move(epgChannelUri), std::move(epgChannelId),
+        xstreamServerId, favourite == 1, std::move(groupId));
+}
+} // namespace
 
 EpgRepository::EpgRepository(Key, const boost::asio::any_io_executor& executor)
 : executor{ executor }
@@ -62,8 +97,8 @@ void EpgRepository::InsertProgrammes(int serverId,
                 std::string channelId;
                 std::string title;
                 std::string description;
-                long long startTime = 0;
-                long long stopTime = 0;
+                int64_t startTime = 0;
+                int64_t stopTime = 0;
                 soci::statement st =
                     (session.prepare
                          << "INSERT INTO EPG_PROGRAMMES(XSTREAM_SERVER_ID, "
@@ -111,8 +146,8 @@ void EpgRepository::GetProgrammes(int serverId,
             {
                 auto session = DatabaseConnections::GetConnection();
 
-                long long startTime = 0;
-                long long stopTime = 0;
+                int64_t startTime = 0;
+                int64_t stopTime = 0;
                 std::string title;
                 std::string description;
                 // A programme overlaps the window when it stops after the start
@@ -147,5 +182,61 @@ void EpgRepository::GetProgrammes(int serverId,
                               [listings = std::move(listings),
                                cb = std::move(cb)]() mutable
                               { cb(std::move(listings)); });
+        });
+}
+
+void EpgRepository::SearchProgrammes(std::string query,
+                                     int limit,
+                                     SearchProgrammesCallback cb,
+                                     const boost::asio::any_io_executor& cb_executor)
+{
+    boost::asio::post(
+        executor,
+        [self = shared_from_this(), query = std::move(query), limit,
+         cb = std::move(cb), cb_executor]() mutable
+        {
+            std::vector<EpgSearchResult> results;
+            try
+            {
+                auto session = DatabaseConnections::GetConnection();
+
+                // Join each match back to the channel(s) carrying its EPG id so
+                // we can name and play the result. A programme shared by several
+                // channels yields one row per channel (capped by the limit).
+                std::string pattern = "%" + query + "%";
+                soci::rowset<soci::row> rows = { (
+                    session.prepare
+                        << "SELECT C.CHANNEL_ID, C.NAME, C.URI, C.LOGO_URI, "
+                           "C.LOGO, C.EPG_CHANNEL_URI, C.EPG_CHANNEL_ID, "
+                           "C.XSTREAM_SERVER_ID, C.FAVOURITE, C.GROUP_ID, "
+                           "P.START_TIME, P.STOP_TIME, P.TITLE, P.DESCRIPTION "
+                           "FROM EPG_PROGRAMMES P JOIN CHANNELS C ON "
+                           "C.XSTREAM_SERVER_ID = P.XSTREAM_SERVER_ID AND "
+                           "C.EPG_CHANNEL_ID = P.EPG_CHANNEL_ID "
+                           "WHERE P.TITLE LIKE :q OR P.DESCRIPTION LIKE :q "
+                           "ORDER BY P.START_TIME LIMIT :lim",
+                    soci::use(pattern, "q"), soci::use(limit, "lim")) };
+                for (const auto& r : rows)
+                {
+                    auto startTime = r.get<int>(10, 0);
+                    auto stopTime = r.get<int>(11, 0);
+                    auto title = r.get<std::string>(12, "");
+                    auto description = r.get<std::string>(13, "");
+                    results.push_back(EpgSearchResult{
+                        channelFromSearchRow(r),
+                        EpgListing::FromProgramme(startTime, stopTime,
+                                                  std::move(title),
+                                                  std::move(description)) });
+                }
+            }
+            catch (const soci::soci_error& ex)
+            {
+                spdlog::error("Cannot search EPG programmes for '{}': {}",
+                              query, ex.what());
+            }
+
+            boost::asio::post(cb_executor, [results = std::move(results),
+                                            cb = std::move(cb)]() mutable
+                              { cb(std::move(results)); });
         });
 }

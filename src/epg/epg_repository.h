@@ -7,8 +7,18 @@
 #include <string>
 #include <vector>
 
+#include "../channels/channel.h"
 #include "../epg_listing.h"
 #include "epg_programme.h"
+
+// A single text-search hit: the matched programme together with the channel it
+// belongs to (resolved by joining EPG_PROGRAMMES to CHANNELS), so the UI can
+// both label the result and activate the channel when clicked.
+struct EpgSearchResult
+{
+    ChannelPtr channel;
+    EpgListing listing;
+};
 
 class EpgRepository : public std::enable_shared_from_this<EpgRepository>
 {
@@ -40,6 +50,17 @@ public:
                        std::int64_t toUnix,
                        LoadProgrammesCallback cb,
                        const boost::asio::any_io_executor& cb_executor);
+
+    using SearchProgrammesCallback =
+        std::function<void(std::vector<EpgSearchResult>)>;
+    // Searches every stored programme whose title or description contains
+    // `query` (SQL LIKE %query%), across all servers and channels, ordered by
+    // start time and capped at `limit` rows. The query runs on the DB executor;
+    // the callback is posted to cb_executor.
+    void SearchProgrammes(std::string query,
+                          int limit,
+                          SearchProgrammesCallback cb,
+                          const boost::asio::any_io_executor& cb_executor);
 
 private:
     boost::asio::any_io_executor executor;

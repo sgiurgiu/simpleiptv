@@ -2,14 +2,17 @@
 
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <imgui_stdlib.h>
 #include <stb_image.h>
 #include <stb_image_resize2.h>
 
 #include <algorithm>
 #include <array>
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/asio/post.hpp>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 
 #include <fmt/chrono.h>
 #include <fmt/format.h>
@@ -91,6 +94,48 @@ void fillNoDataGaps(std::vector<EpgListing>& listings,
     }
 
     listings = std::move(filled);
+}
+
+// Index of the local calendar day a listing starts on (days since the epoch),
+// used to detect when consecutive search results cross into a new day.
+std::int64_t localDayIndex(EpgListing::LocalTime time)
+{
+#if __cpp_lib_chrono >= 201907L
+    return std::chrono::floor<std::chrono::days>(time).time_since_epoch().count();
+#else
+    return date::floor<date::days>(time).time_since_epoch().count();
+#endif
+}
+
+// Human-friendly heading for the day a listing starts on: relative wording for
+// the days around today, otherwise a full weekday/date.
+std::string dayHeaderLabel(EpgListing::LocalTime time)
+{
+#if __cpp_lib_chrono >= 201907L
+    using days = std::chrono::days;
+    auto day = std::chrono::floor<days>(time);
+    auto today = std::chrono::floor<days>(
+        std::chrono::current_zone()->to_local(std::chrono::system_clock::now()));
+    if (day == today)
+        return "Today";
+    if (day == today + days{ 1 })
+        return "Tomorrow";
+    if (day == today - days{ 1 })
+        return "Yesterday";
+    return fmt::format("{:%A, %b %d}", day);
+#else
+    auto day = date::floor<date::days>(time);
+    auto today = date::floor<date::days>(
+        date::make_zoned(date::current_zone(), std::chrono::system_clock::now())
+            .get_local_time());
+    if (day == today)
+        return "Today";
+    if (day == today + date::days{ 1 })
+        return "Tomorrow";
+    if (day == today - date::days{ 1 })
+        return "Yesterday";
+    return date::format("%A, %b %d", day);
+#endif
 }
 } // namespace
 
@@ -180,6 +225,203 @@ bool EpgListingWindow::ShowWindow()
         return open;
     }
 
+    if (ImGui::BeginTabBar("EPGTabBar", ImGuiTabBarFlags_None))
+    {
+        if (ImGui::BeginTabItem("Live"))
+        {
+            showLiveEpgListing();
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Search"))
+        {
+            showSearchTab();
+            ImGui::EndTabItem();
+        }
+
+        ImGui::EndTabBar();
+    }
+
+    ImGui::End();
+    return open;
+}
+
+void EpgListingWindow::showSearchTab()
+{
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
+    if (ImGui::InputTextWithHint("##epgSearch", "Search title or description",
+                                 &searchText,
+                                 ImGuiInputTextFlags_EnterReturnsTrue))
+    {
+        runSearch();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Search"))
+    {
+        runSearch();
+    }
+    ImGui::SameLine();
+    ImGui::TextDisabled("%zu results", searchResults.size());
+    ImGui::Separator();
+
+    ImGui::BeginChild("search_results");
+    if (!searchPerformed)
+    {
+        ImGui::TextDisabled("Type a title or description and press Enter.");
+    }
+    else if (searchResults.empty())
+    {
+        ImGui::TextDisabled("No matches.");
+    }
+    else
+    {
+        // Results arrive ordered by start time, so a single pass can drop a date
+        // header in whenever the local day changes.
+        std::int64_t prevDay = 0;
+        bool first = true;
+        for (const auto& result : searchResults)
+        {
+            std::int64_t day = localDayIndex(result.listing.GetStartTime());
+            if (first || day != prevDay)
+            {
+                ImGui::SeparatorText(
+                    dayHeaderLabel(result.listing.GetStartTime()).c_str());
+                prevDay = day;
+                first = false;
+            }
+            addSearchResultCard(result);
+        }
+    }
+    ImGui::EndChild();
+}
+
+void EpgListingWindow::runSearch()
+{
+    auto query = boost::algorithm::trim_copy(searchText);
+    if (query.empty())
+    {
+        searchResults.clear();
+        searchPerformed = false;
+        return;
+    }
+    searchPerformed = true;
+    auto gen = ++searchGeneration;
+    workersProvider->GetEpgRepository()->SearchProgrammes(
+        std::move(query), SEARCH_RESULT_LIMIT,
+        [weak = weak_from_this(), gen](std::vector<EpgSearchResult> results)
+        {
+            auto self = weak.lock();
+            if (!self)
+                return;
+            if (gen != self->searchGeneration)
+                return; // a newer search has since been issued; drop this one
+            self->searchResults = std::move(results);
+        },
+        ui_executor);
+}
+
+bool EpgListingWindow::addSearchResultCard(const EpgSearchResult& result)
+{
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImGuiWindow* window = ImGui::GetCurrentWindowRead();
+    float maxDisplayWidth = window->WorkRect.GetWidth();
+
+    const float fontSize = ImGui::GetFontSize();
+    // Three stacked lines (channel + time, title, description) plus padding.
+    const float rowHeight = fontSize * 3.f + ImGui::GetStyle().FramePadding.y * 6.f;
+
+    auto pos = window->DC.CursorPos;
+    const ImGuiID id = window->GetID(&result);
+    ImVec2 size =
+        ImGui::CalcItemSize(ImVec2(maxDisplayWidth, rowHeight), 0.0f, 0.0f);
+    const ImRect bb(pos, pos + size);
+    ImGui::ItemSize(size);
+    if (!ImGui::ItemAdd(bb, id, nullptr, ImGuiItemFlags_NoNav))
+    {
+        // Off-screen: ItemSize already advanced the cursor (keeping the
+        // scrollbar correct), so there is nothing to draw.
+        return false;
+    }
+
+    bool hovered = false;
+    bool held = false;
+    bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held,
+                                         ImGuiButtonFlags_PressedOnClick);
+
+    const auto& palette = listingPalette();
+    // Key the colour off the channel so every result from the same channel
+    // shares a colour, making the list easier to scan.
+    std::size_t colorIndex =
+        static_cast<std::size_t>(std::max(result.channel->GetId(), 0)) %
+        palette.size();
+    ImU32 color = hovered ? ImGui::GetColorU32(ImGuiCol_ButtonHovered)
+                          : palette[colorIndex];
+
+    drawList->PushClipRect(bb.Min, bb.Max, true);
+    drawList->AddRectFilled(bb.Min, bb.Max, color, 0);
+    drawList->AddRect(bb.Min, bb.Max, 0xFFFFFFFF, 0);
+
+    bool isNow = result.listing.isListingCurrent();
+    if (isNow)
+    {
+        // Red left edge marks a programme that is on air right now.
+        drawList->AddRectFilled(bb.Min, ImVec2(bb.Min.x + 4.f, bb.Max.y),
+                                IM_COL32(255, 70, 70, 255), 0);
+    }
+
+    const float textX = bb.Min.x + fontSize / 2.f;
+    const float lineGap = ImGui::GetStyle().FramePadding.y;
+    float lineY = bb.Min.y + lineGap;
+
+    // Line 1: channel name on the left, time range (and NOW) on the right.
+    drawList->AddText(ImVec2(textX, lineY), 0xFFFFFFFF,
+                      result.channel->GetName().c_str());
+    const auto& timeStr = result.listing.GetTime();
+    std::string rightStr = isNow ? ("NOW  " + timeStr) : timeStr;
+    float rightWidth = ImGui::CalcTextSize(rightStr.c_str()).x;
+    drawList->AddText(ImVec2(bb.Max.x - rightWidth - fontSize / 2.f, lineY),
+                      isNow ? IM_COL32(255, 120, 120, 255)
+                            : IM_COL32(220, 220, 220, 255),
+                      rightStr.c_str());
+
+    // Line 2: programme title.
+    lineY += fontSize + lineGap;
+    drawList->AddText(ImVec2(textX, lineY), 0xFFFFFFFF,
+                      result.listing.GetTitle().c_str());
+
+    // Line 3: description (clipped to the card).
+    lineY += fontSize + lineGap;
+    drawList->AddText(ImVec2(textX, lineY), IM_COL32(205, 205, 205, 255),
+                      result.listing.GetDescription().c_str());
+
+    drawList->PopClipRect();
+
+    if (hovered)
+    {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+        if (ImGui::BeginTooltip())
+        {
+            ImGui::Text("%s\n%s\n%s", result.channel->GetName().c_str(),
+                        result.listing.GetTimeAndProgram().c_str(),
+                        result.listing.GetDescription().c_str());
+            ImGui::EndTooltip();
+        }
+        if (pressed)
+        {
+            // Search has no selected group, so synthesise one matching the
+            // channel's parent group; ActivateChannelOfGroup locates the channel
+            // by group id within the channel tree.
+            auto grp = std::make_shared<ChannelsGroup>(
+                result.channel->GetParentId().value_or(-1), "",
+                std::optional<int>{});
+            open = false;
+            channelActivatedSignal(grp, result.channel);
+        }
+    }
+    return pressed;
+}
+
+void EpgListingWindow::showLiveEpgListing()
+{
     if (shouldReloadCoveredHours())
     {
         reloadCoveredHours();
@@ -270,9 +512,6 @@ bool EpgListingWindow::ShowWindow()
         addChannel(channels[row], row);
     }
     ImGui::EndChild();
-
-    ImGui::End();
-    return open;
 }
 
 bool EpgListingWindow::addChannel(const DisplayChannelPtr& channel,
