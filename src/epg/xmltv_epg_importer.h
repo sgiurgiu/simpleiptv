@@ -44,6 +44,7 @@ public:
 private:
     void onChunk(std::string body, std::error_code ec);
     void flushBatch();
+    void flushChannelBatch();
     void finish(std::error_code ec);
 
 private:
@@ -57,5 +58,6 @@ private:
     boost::asio::any_io_executor cbExecutor;
     std::unique_ptr<XmlTvParser> parser;
     std::vector<EpgProgramme> batch;
+    std::vector<EpgChannelInfo> channelBatch;
     bool finished = false;
 };

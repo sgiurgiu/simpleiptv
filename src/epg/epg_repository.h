@@ -16,7 +16,12 @@
 // both label the result and activate the channel when clicked.
 struct EpgSearchResult
 {
+    // Null when the programme's channel isn't in CHANNELS, i.e. it cannot be
+    // played directly from search.
     ChannelPtr channel;
+    // Always set: the stored channel name, else the XMLTV display-name, else the
+    // raw EPG channel id as a last resort.
+    std::string channelName;
     EpgListing listing;
 };
 
@@ -39,6 +44,13 @@ public:
     // Inserts a batch of programmes for a server in a single transaction.
     // Posted to the DB executor.
     void InsertProgrammes(int serverId, std::vector<EpgProgramme> programmes);
+
+    // Deletes all stored channel names for a server. Posted to the DB executor.
+    void ClearServerChannels(int serverId);
+
+    // Inserts a batch of channel names for a server in a single transaction.
+    // Posted to the DB executor.
+    void InsertChannels(int serverId, std::vector<EpgChannelInfo> channels);
 
     using LoadProgrammesCallback = std::function<void(std::vector<EpgListing>)>;
     // Loads the stored programmes for a server's EPG channel that overlap the

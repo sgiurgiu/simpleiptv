@@ -72,6 +72,15 @@ void DatabaseConnections::initTables()
     con << "CREATE INDEX IF NOT EXISTS IDX_EPG_LOOKUP ON "
            "EPG_PROGRAMMES(XSTREAM_SERVER_ID, EPG_CHANNEL_ID, START_TIME)";
 
+    // Display names for every channel the XMLTV guide describes, including ones
+    // we don't have in CHANNELS. Lets EPG search name a match by its channel
+    // even when that channel isn't in the user's list.
+    con << "CREATE TABLE IF NOT EXISTS EPG_CHANNELS(XSTREAM_SERVER_ID INT,"
+           "EPG_CHANNEL_ID TEXT, DISPLAY_NAME TEXT, FOREIGN KEY "
+           "(XSTREAM_SERVER_ID) REFERENCES XSTREAM_SERVERS(SERVER_ID))";
+    con << "CREATE INDEX IF NOT EXISTS IDX_EPG_CHANNELS ON "
+           "EPG_CHANNELS(XSTREAM_SERVER_ID, EPG_CHANNEL_ID)";
+
     con << "CREATE TABLE IF NOT EXISTS SETTINGS(KEY TEXT PRIMARY KEY, VALUE "
            "TEXT)";
     int version = getSchemaVersion(con);

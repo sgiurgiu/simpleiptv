@@ -28,11 +28,13 @@ void XmlTvEpgImporter::Import(ServerPtr srv,
     done = std::move(cb);
     cbExecutor = cb_executor;
     batch.reserve(kBatchSize);
+    channelBatch.reserve(kBatchSize);
 
     // Replace any existing EPG for this server before streaming in the new one.
     workersProvider->GetEpgRepository()->ClearServerProgrammes(server->GetId());
+    workersProvider->GetEpgRepository()->ClearServerChannels(server->GetId());
 
-    // The sink runs synchronously inside parser->Feed() on the strand, where the
+    // The sinks run synchronously inside parser->Feed() on the strand, where the
     // importer is alive (held by the streaming callback below), so capturing a
     // raw `this` is safe and avoids a shared_ptr cycle through the parser.
     parser = std::make_unique<XmlTvParser>(
@@ -41,6 +43,12 @@ void XmlTvEpgImporter::Import(ServerPtr srv,
             batch.push_back(std::move(p));
             if (batch.size() >= kBatchSize)
                 flushBatch();
+        },
+        [this](EpgChannelInfo&& c)
+        {
+            channelBatch.push_back(std::move(c));
+            if (channelBatch.size() >= kBatchSize)
+                flushChannelBatch();
         });
 
     boost::url url;
@@ -82,6 +90,7 @@ void XmlTvEpgImporter::onChunk(std::string body, std::error_code ec)
 
     if (isEof)
     {
+        flushChannelBatch();
         flushBatch();
 
         // Stamp freshness. Posted to the DB executor so it runs after the insert
@@ -107,6 +116,16 @@ void XmlTvEpgImporter::flushBatch()
                                                           std::move(batch));
     batch.clear();
     batch.reserve(kBatchSize);
+}
+
+void XmlTvEpgImporter::flushChannelBatch()
+{
+    if (channelBatch.empty())
+        return;
+    workersProvider->GetEpgRepository()->InsertChannels(server->GetId(),
+                                                        std::move(channelBatch));
+    channelBatch.clear();
+    channelBatch.reserve(kBatchSize);
 }
 
 void XmlTvEpgImporter::finish(std::error_code ec)

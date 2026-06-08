@@ -16,8 +16,10 @@ class XmlTvParser
 {
 public:
     using ProgrammeSink = std::function<void(EpgProgramme&&)>;
+    using ChannelSink = std::function<void(EpgChannelInfo&&)>;
 
-    explicit XmlTvParser(ProgrammeSink sink);
+    // channelSink is optional; pass an empty function to ignore <channel> data.
+    explicit XmlTvParser(ProgrammeSink sink, ChannelSink channelSink = {});
     ~XmlTvParser();
 
     XmlTvParser(const XmlTvParser&) = delete;
@@ -32,7 +34,8 @@ private:
     {
         None,
         Title,
-        Description
+        Description,
+        DisplayName
     };
 
     static void XMLCALL onStartElement(void* userData, const XML_Char* name,
@@ -48,9 +51,12 @@ private:
 private:
     XML_Parser parser = nullptr;
     ProgrammeSink sink;
+    ChannelSink channelSink;
     EpgProgramme current;
+    EpgChannelInfo currentChannel;
     Capture capture = Capture::None;
     bool inProgramme = false;
+    bool inChannel = false;
     // Total bytes fed to the parser before the current Feed() call. Used to map
     // expat's document-wide byte index back into the current chunk for logging.
     std::size_t bytesConsumed = 0;

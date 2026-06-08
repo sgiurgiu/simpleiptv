@@ -128,6 +128,68 @@ void EpgRepository::InsertProgrammes(int serverId,
         });
 }
 
+void EpgRepository::ClearServerChannels(int serverId)
+{
+    boost::asio::post(
+        executor,
+        [self = shared_from_this(), serverId]()
+        {
+            try
+            {
+                auto session = DatabaseConnections::GetConnection();
+                session
+                    << "DELETE FROM EPG_CHANNELS WHERE XSTREAM_SERVER_ID = :id",
+                    soci::use(serverId, "id");
+            }
+            catch (const soci::soci_error& ex)
+            {
+                spdlog::error("Cannot clear EPG channels for server {}: {}",
+                              serverId, ex.what());
+            }
+        });
+}
+
+void EpgRepository::InsertChannels(int serverId,
+                                   std::vector<EpgChannelInfo> channels)
+{
+    if (channels.empty())
+        return;
+    boost::asio::post(
+        executor,
+        [self = shared_from_this(), serverId,
+         channels = std::move(channels)]() mutable
+        {
+            try
+            {
+                auto session = DatabaseConnections::GetConnection();
+                soci::transaction tr(session);
+
+                std::string channelId;
+                std::string displayName;
+                soci::statement st =
+                    (session.prepare
+                         << "INSERT INTO EPG_CHANNELS(XSTREAM_SERVER_ID, "
+                            "EPG_CHANNEL_ID, DISPLAY_NAME) VALUES(:sid, :cid, "
+                            ":name)",
+                     soci::use(serverId, "sid"), soci::use(channelId, "cid"),
+                     soci::use(displayName, "name"));
+
+                for (auto& c : channels)
+                {
+                    channelId = std::move(c.channelId);
+                    displayName = std::move(c.displayName);
+                    st.execute(true);
+                }
+                tr.commit();
+            }
+            catch (const soci::soci_error& ex)
+            {
+                spdlog::error("Cannot insert EPG channel batch for server {}: {}",
+                              serverId, ex.what());
+            }
+        });
+}
+
 void EpgRepository::GetProgrammes(int serverId,
                                   std::string epgChannelId,
                                   std::int64_t fromUnix,
@@ -200,19 +262,25 @@ void EpgRepository::SearchProgrammes(std::string query,
             {
                 auto session = DatabaseConnections::GetConnection();
 
-                // Join each match back to the channel(s) carrying its EPG id so
-                // we can name and play the result. A programme shared by several
-                // channels yields one row per channel (capped by the limit).
+                // LEFT JOIN so a match surfaces even when its channel isn't in
+                // CHANNELS (then it can be named via EPG_CHANNELS but not
+                // played). A programme on several stored channels still yields
+                // one playable row per channel (capped by the limit).
                 std::string pattern = "%" + query + "%";
                 soci::rowset<soci::row> rows = { (
                     session.prepare
                         << "SELECT C.CHANNEL_ID, C.NAME, C.URI, C.LOGO_URI, "
                            "C.LOGO, C.EPG_CHANNEL_URI, C.EPG_CHANNEL_ID, "
                            "C.XSTREAM_SERVER_ID, C.FAVOURITE, C.GROUP_ID, "
-                           "P.START_TIME, P.STOP_TIME, P.TITLE, P.DESCRIPTION "
-                           "FROM EPG_PROGRAMMES P JOIN CHANNELS C ON "
+                           "P.START_TIME, P.STOP_TIME, P.TITLE, P.DESCRIPTION, "
+                           "P.EPG_CHANNEL_ID, E.DISPLAY_NAME "
+                           "FROM EPG_PROGRAMMES P "
+                           "LEFT JOIN CHANNELS C ON "
                            "C.XSTREAM_SERVER_ID = P.XSTREAM_SERVER_ID AND "
                            "C.EPG_CHANNEL_ID = P.EPG_CHANNEL_ID "
+                           "LEFT JOIN EPG_CHANNELS E ON "
+                           "E.XSTREAM_SERVER_ID = P.XSTREAM_SERVER_ID AND "
+                           "E.EPG_CHANNEL_ID = P.EPG_CHANNEL_ID "
                            "WHERE P.TITLE LIKE :q OR P.DESCRIPTION LIKE :q "
                            "ORDER BY P.START_TIME LIMIT :lim",
                     soci::use(pattern, "q"), soci::use(limit, "lim")) };
@@ -222,8 +290,29 @@ void EpgRepository::SearchProgrammes(std::string query,
                     auto stopTime = r.get<int>(11, 0);
                     auto title = r.get<std::string>(12, "");
                     auto description = r.get<std::string>(13, "");
+
+                    // A matched CHANNELS row means the result is playable; only
+                    // then build a Channel (get<>(idx, default) would otherwise
+                    // fabricate one from the NULL left-join columns).
+                    ChannelPtr channel;
+                    std::string channelName;
+                    if (r.get_indicator(0) == soci::i_ok)
+                    {
+                        channel = channelFromSearchRow(r);
+                        channelName = channel->GetName();
+                    }
+                    else if (r.get_indicator(15) == soci::i_ok &&
+                             !r.get<std::string>(15, "").empty())
+                    {
+                        channelName = r.get<std::string>(15, "");
+                    }
+                    else
+                    {
+                        channelName = r.get<std::string>(14, "");
+                    }
+
                     results.push_back(EpgSearchResult{
-                        channelFromSearchRow(r),
+                        std::move(channel), std::move(channelName),
                         EpgListing::FromProgramme(startTime, stopTime,
                                                   std::move(title),
                                                   std::move(description)) });

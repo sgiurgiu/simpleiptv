@@ -37,6 +37,7 @@ EpgListing EpgListing::FromProgramme(std::int64_t startUnix,
 
 void EpgListing::finalize()
 {
+    std::string day;
 #if __cpp_lib_chrono >= 201907L
     auto tz = std::chrono::current_zone();
     localStartTime = tz->to_local(startTime);
@@ -45,6 +46,7 @@ void EpgListing::finalize()
     endLocalHour = fmt::format("{:%H:%M}", localEndTime);
     startLocalTimeString = fmt::format("{:%c}", localStartTime);
     endLocalTimeString = fmt::format("{:%c}", localEndTime);
+    day = fmt::format("{:%F}", localStartTime);
 #else
     localStartTime =
         date::make_zoned(date::current_zone(), startTime).get_local_time();
@@ -55,9 +57,11 @@ void EpgListing::finalize()
     endLocalHour = date::format("%H:%M", localEndTime);
     startLocalTimeString = date::format("%Y-%m-%d %H:%M", localStartTime);
     endLocalTimeString = date::format("%Y-%m-%d %H:%M", localEndTime);
+    day = date::format("{:%F}", localStartTime);
 #endif
 
-    timeAndProgram = fmt::format("{}-{} {}", startLocalHour, endLocalHour, title);
+    timeAndProgram =
+        fmt::format("{} {}-{} {}", day, startLocalHour, endLocalHour, title);
     time = fmt::format("{}-{}", startLocalHour, endLocalHour);
 }
 

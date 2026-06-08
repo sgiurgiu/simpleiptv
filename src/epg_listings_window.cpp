@@ -347,12 +347,19 @@ bool EpgListingWindow::addSearchResultCard(const EpgSearchResult& result)
     bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held,
                                          ImGuiButtonFlags_PressedOnClick);
 
+    // A null channel means the programme's channel isn't in our list: it can be
+    // shown (named from XMLTV) but not played from here.
+    const bool playable = static_cast<bool>(result.channel);
+
     const auto& palette = listingPalette();
     // Key the colour off the channel so every result from the same channel
-    // shares a colour, making the list easier to scan.
+    // shares a colour, making the list easier to scan. Non-playable results key
+    // off the name instead, since they have no channel id.
     std::size_t colorIndex =
-        static_cast<std::size_t>(std::max(result.channel->GetId(), 0)) %
-        palette.size();
+        playable ? static_cast<std::size_t>(std::max(result.channel->GetId(),
+                                                     0)) %
+                       palette.size()
+                 : std::hash<std::string>{}(result.channelName) % palette.size();
     ImU32 color = hovered ? ImGui::GetColorU32(ImGuiCol_ButtonHovered)
                           : palette[colorIndex];
 
@@ -373,8 +380,12 @@ bool EpgListingWindow::addSearchResultCard(const EpgSearchResult& result)
     float lineY = bb.Min.y + lineGap;
 
     // Line 1: channel name on the left, time range (and NOW) on the right.
-    drawList->AddText(ImVec2(textX, lineY), 0xFFFFFFFF,
-                      result.channel->GetName().c_str());
+    // Non-playable channels get a lock icon so the list still flags them.
+    std::string nameLine;
+    if (!playable)
+        nameLine = reinterpret_cast<const char*>(ICON_FA_LOCK "  ");
+    nameLine += result.channelName;
+    drawList->AddText(ImVec2(textX, lineY), 0xFFFFFFFF, nameLine.c_str());
     const auto& timeStr = result.listing.GetTime();
     std::string rightStr = isNow ? ("NOW  " + timeStr) : timeStr;
     float rightWidth = ImGui::CalcTextSize(rightStr.c_str()).x;
@@ -397,15 +408,22 @@ bool EpgListingWindow::addSearchResultCard(const EpgSearchResult& result)
 
     if (hovered)
     {
-        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+        if (playable)
+            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
         if (ImGui::BeginTooltip())
         {
-            ImGui::Text("%s\n%s\n%s", result.channel->GetName().c_str(),
+            ImGui::Text("%s\n%s\n%s", result.channelName.c_str(),
                         result.listing.GetTimeAndProgram().c_str(),
                         result.listing.GetDescription().c_str());
+            if (!playable)
+            {
+                ImGui::Separator();
+                ImGui::TextDisabled(
+                    "Not in your channels — find it in the Channels list.");
+            }
             ImGui::EndTooltip();
         }
-        if (pressed)
+        if (playable && pressed)
         {
             // Search has no selected group, so synthesise one matching the
             // channel's parent group; ActivateChannelOfGroup locates the channel

@@ -57,9 +57,10 @@ int64_t parseXmltvTime(std::string_view ts)
 }
 } // namespace
 
-XmlTvParser::XmlTvParser(ProgrammeSink sink)
+XmlTvParser::XmlTvParser(ProgrammeSink sink, ChannelSink channelSink)
 : parser(XML_ParserCreate(nullptr))
 , sink(std::move(sink))
+, channelSink(std::move(channelSink))
 {
     XML_SetUserData(parser, this);
     XML_SetElementHandler(parser, &XmlTvParser::onStartElement,
@@ -146,10 +147,29 @@ void XmlTvParser::startElement(const XML_Char* name, const XML_Char** atts)
                 current.stopTime = parseXmltvTime(val);
         }
     }
+    else if (el == "channel")
+    {
+        currentChannel = EpgChannelInfo{};
+        inChannel = true;
+        capture = Capture::None;
+        for (std::size_t k = 0; atts[k] != nullptr; k += 2)
+        {
+            std::string_view key{ atts[k] };
+            const XML_Char* val = atts[k + 1];
+            if (val == nullptr)
+                break;
+            if (key == "id")
+                currentChannel.channelId = val;
+        }
+    }
     else if (inProgramme && el == "title")
         capture = Capture::Title;
     else if (inProgramme && el == "desc")
         capture = Capture::Description;
+    // Take only the first <display-name>; XMLTV may list several (languages).
+    else if (inChannel && el == "display-name" &&
+             currentChannel.displayName.empty())
+        capture = Capture::DisplayName;
 }
 
 void XmlTvParser::endElement(const XML_Char* name)
@@ -166,17 +186,31 @@ void XmlTvParser::endElement(const XML_Char* name)
             current = EpgProgramme{};
         }
     }
-    else if (el == "title" || el == "desc")
+    else if (el == "channel")
+    {
+        if (inChannel)
+        {
+            inChannel = false;
+            capture = Capture::None;
+            if (channelSink && !currentChannel.channelId.empty() &&
+                !currentChannel.displayName.empty())
+                channelSink(std::move(currentChannel));
+            currentChannel = EpgChannelInfo{};
+        }
+    }
+    else if (el == "title" || el == "desc" || el == "display-name")
         capture = Capture::None;
 }
 
 void XmlTvParser::characterData(const XML_Char* s, int len)
 {
-    if (!inProgramme || capture == Capture::None)
+    if (capture == Capture::None)
         return;
     std::string_view chunk{ s, static_cast<std::size_t>(len) };
     if (capture == Capture::Title)
         current.title.append(chunk);
-    else
+    else if (capture == Capture::Description)
         current.description.append(chunk);
+    else if (capture == Capture::DisplayName)
+        currentChannel.displayName.append(chunk);
 }
