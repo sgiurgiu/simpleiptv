@@ -81,7 +81,6 @@ private:
     void handleMpvEvents();
     bool mpvRenderFrame(pl_swapchain_frame* frame, const ImRect& desktopRect);
     static void mpvRenderUpdate(void* ctx);
-    static void onMpvEvents(void* ctx);
 
     void removeVolumeOsd(const boost::system::error_code& ec);
     void removeScreenshotOsd(const boost::system::error_code& ec);

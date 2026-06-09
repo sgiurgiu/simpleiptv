@@ -10,13 +10,23 @@ SimpleIPTVCoordinator::SimpleIPTVCoordinator(boost::asio::io_context& uiContext,
 , simpleiptv{ uiContext.get_executor(), workersProvider, vulkanInstance }
 , mpvPlayer{ uiContext.get_executor(), workersProvider, vulkanInstance }
 {
-    // The render thread builds the UI by walking the DisplayNode tree; hold
-    // uiStateMutex so a UI-thread mutation (PollUI) can't reallocate it mid-walk.
+    // The render thread builds the UI by walking the DisplayNode tree, so it
+    // must hold uiStateMutex to exclude UI-thread mutations (PollUI). But it
+    // try_locks rather than blocks: if PollUI holds the lock, skip the rebuild
+    // this frame and reuse the last layout + last ImGui draw data (valid until
+    // the next NewFrame). Video keeps rendering, so a UI-thread handler that
+    // blocks (e.g. a synchronous mpv call) can never deadlock the render thread.
+    // Either way the tree is never read while it is being mutated.
     mpvPlayer.InitializeMpv(
-        [this]()
+        [this]() -> ImRect
         {
-            std::lock_guard<std::mutex> lock(uiStateMutex);
-            return simpleiptv.RenderDesktop();
+            std::unique_lock<std::mutex> lock(uiStateMutex, std::try_to_lock);
+            if (!lock.owns_lock())
+            {
+                return lastDesktopRect;
+            }
+            lastDesktopRect = simpleiptv.RenderDesktop();
+            return lastDesktopRect;
         });
 
     simpleiptv.AddChannelActivatedListener([this](ChannelPtr channel) {

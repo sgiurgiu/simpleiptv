@@ -33,6 +33,9 @@ private:
     // tree mutations (PollUI). Declared before simpleiptv/mpvPlayer so it
     // outlives the render thread that captures it.
     std::mutex uiStateMutex;
+    // Last UI layout rect, reused when a render frame skips the rebuild because
+    // PollUI holds uiStateMutex. Touched only on the render thread.
+    ImRect lastDesktopRect{};
     SimpleIPTVUI simpleiptv;
     MpvPlayer mpvPlayer;
 #ifdef STV_UNIX

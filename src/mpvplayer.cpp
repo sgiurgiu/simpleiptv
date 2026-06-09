@@ -185,12 +185,6 @@ void MpvPlayer::InitializeMpv(UIRenderCallback uiRenderCallback)
     renderThread = std::thread([this]() { mpvRenderThread(); });
 }
 
-void MpvPlayer::onMpvEvents(void *ctx)
-{
-    auto self = reinterpret_cast<MpvPlayer *>(ctx);
-    boost::asio::post(self->ui_executor,
-                      std::bind(&MpvPlayer::handleMpvEvents, self));
-}
 void MpvPlayer::handleMpvEvents()
 {
     while (mpv)
@@ -292,30 +286,35 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
     break;
     case MPV_EVENT_FILE_LOADED:
     {
+        // Query the track list here, on the mpv events thread — NOT inside the
+        // ui_executor handler below. PollUI runs ui_executor handlers while
+        // holding uiStateMutex, and a synchronous mpv_get_property under that
+        // lock deadlocks: the render thread blocks on uiStateMutex, while mpv's
+        // advanced-control core blocks waiting for the render thread.
+        int64_t tracksCount = 0;
+        mpv_get_property(mpv, "track-list/count", MPV_FORMAT_INT64,
+                         &tracksCount);
+        std::vector<std::string> subIds;
+        for (int64_t i = 0; i < tracksCount; i++)
+        {
+            char *type = mpv_get_property_string(
+                mpv, fmt::format("track-list/{}/type", i).c_str());
+            if (type && type == std::string("sub"))
+            {
+                char *id = mpv_get_property_string(
+                    mpv, fmt::format("track-list/{}/id", i).c_str());
+                subIds.emplace_back(id);
+                mpv_free(id);
+            }
+            mpv_free(type);
+        }
         boost::asio::post(
             ui_executor,
-            [this]()
+            [this, subIds = std::move(subIds)]() mutable
             {
                 playerState = PlayerState::PLAYING;
                 workersProvider->GetSleepService()->disableComputerSleep();
                 playerStateSignal(playerState);
-                int tracksCount = 0;
-                mpv_get_property(mpv, "track-list/count", MPV_FORMAT_INT64,
-                                 &tracksCount);
-                std::vector<std::string> subIds;
-                for (int i = 0; i < tracksCount; i++)
-                {
-                    char *type = mpv_get_property_string(
-                        mpv, fmt::format("track-list/{}/type", i).c_str());
-                    if (type == std::string("sub"))
-                    {
-                        char *id = mpv_get_property_string(
-                            mpv, fmt::format("track-list/{}/id", i).c_str());
-                        subIds.emplace_back(id);
-                        mpv_free(id);
-                    }
-                    mpv_free(type);
-                }
                 subsAvailableSignal(std::move(subIds));
             });
     }
