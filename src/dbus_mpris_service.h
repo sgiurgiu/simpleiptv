@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <memory>
 
 #ifndef STV_UNIX
@@ -28,6 +29,9 @@ public:
     MprisService(Key);
     ~MprisService();
     static std::shared_ptr<MprisService> Create();
+    // Stops dispatching D-Bus method calls (idempotent). Call during shutdown
+    // before the objects wired to its signals are destroyed.
+    void Stop();
     void SetCurrentPlayerState(PlayerState state);
     void SetCurrentChannel(ChannelPtr channel);
     void SetCurrentChannelGroup(ChannelsGroupPtr group);
@@ -161,6 +165,7 @@ private:
     using VolumeSignal = boost::signals2::signal<void(double)>;
 
     std::unique_ptr<sdbus::IConnection> sessionConnection;
+    std::atomic_bool eventLoopRunning{ true };
     sdbus::ServiceName serviceName;
     std::unique_ptr<ManagerAdaptor> managerAdaptor;
     std::unique_ptr<MediaPlayer2Adaptor> mediaPlayerAdaptor;

@@ -4,6 +4,7 @@
 #include <libplacebo/colorspace.h>
 #include <libplacebo/common.h>
 #include <libplacebo/gpu.h>
+#include <libplacebo/log.h>
 #include <libplacebo/renderer.h>
 #include <libplacebo/swapchain.h>
 
@@ -97,6 +98,10 @@ SimpleIPTVVulkan::~SimpleIPTVVulkan()
     WaitForIdle();
     cleanupVulkan();
     destroyPlCache();
+    if (logger)
+    {
+        pl_log_destroy(&logger);
+    }
 }
 void SimpleIPTVVulkan::Initialize(const char** extensions,
                                   int extensions_count,

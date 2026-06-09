@@ -19,6 +19,9 @@ class WorkersProvider
 {
 public:
     WorkersProvider();
+    // Stops the D-Bus service and joins the worker pools. Call before tearing
+    // down the UI io_context so no worker/callback posts into a dead context.
+    void StopWorkers();
     std::shared_ptr<ChannelsRepository> GetChannelsRepository();
     std::shared_ptr<ProxyRepository> GetProxyRepository();
     boost::asio::any_io_executor GetNetworkExecutor();

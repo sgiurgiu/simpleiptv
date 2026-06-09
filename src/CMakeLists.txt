@@ -233,18 +233,43 @@ target_compile_definitions(${EXECUTABLE_NAME} PRIVATE "$<$<BOOL:${WIN32}>:STV_WI
 target_compile_definitions(${EXECUTABLE_NAME} PRIVATE "$<$<CONFIG:Debug>:STV_DEBUG>")
 target_compile_definitions(${EXECUTABLE_NAME} PRIVATE "$<$<CONFIG:Debug>:DEBUG>")
 target_compile_definitions(${EXECUTABLE_NAME} PRIVATE "$<$<CONFIG:Release>:NDEBUG>" "$<$<CONFIG:Release>:IMGUI_DISABLE_DEBUG_TOOLS>")
-if(ASAN_ENABLE)
-  target_compile_options(${EXECUTABLE_NAME} PUBLIC $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall -pedantic -Wextra>)
-  target_compile_options(${EXECUTABLE_NAME} PUBLIC $<$<AND:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>>:-fsanitize=undefined,address -fno-omit-frame-pointer>)
-  target_link_options(${EXECUTABLE_NAME} PUBLIC $<$<AND:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>>:-fsanitize=undefined,address>)
-else()
-  target_compile_options(${EXECUTABLE_NAME} PUBLIC $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall -pedantic -Wextra>)
-endif(ASAN_ENABLE)
+
+# Sanitizer selection. "address" => ASan+UBSan; "thread" => TSan (mutually exclusive).
+set(SIMPLEIPTV_SANITIZER "none" CACHE STRING "Sanitizer: none|address|thread")
+set_property(CACHE SIMPLEIPTV_SANITIZER PROPERTY STRINGS none address thread)
+
+# Back-compat: legacy -DASAN_ENABLE=ON still works.
+if(ASAN_ENABLE AND SIMPLEIPTV_SANITIZER STREQUAL "none")
+  set(SIMPLEIPTV_SANITIZER "address")
+endif()
+
+target_compile_options(${EXECUTABLE_NAME} PUBLIC
+  $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall -pedantic -Wextra>)
+
+if(NOT SIMPLEIPTV_SANITIZER STREQUAL "none")
+  if(SIMPLEIPTV_SANITIZER STREQUAL "address")
+    set(_stv_san "undefined,address")
+  elseif(SIMPLEIPTV_SANITIZER STREQUAL "thread")
+    set(_stv_san "thread")
+  endif()
+  set(_stv_san_flags -fsanitize=${_stv_san} -fno-omit-frame-pointer -fno-sanitize-recover=all)
+  target_compile_options(${EXECUTABLE_NAME} PUBLIC
+    $<$<AND:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>>:${_stv_san_flags}>)
+  target_link_options(${EXECUTABLE_NAME} PUBLIC
+    $<$<AND:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>>:-fsanitize=${_stv_san}>)
+
+  # Bake in sane sanitizer runtime defaults (incl. the LSan suppressions file)
+  # so devs don't need to export ASAN_OPTIONS/LSAN_OPTIONS by hand. Env wins.
+  target_sources(${EXECUTABLE_NAME} PRIVATE sanitizer_default_options.cpp)
+  target_compile_definitions(${EXECUTABLE_NAME} PRIVATE
+    STV_LSAN_SUPPRESSIONS="${CMAKE_SOURCE_DIR}/lsan.supp")
+endif()
 
 target_compile_options(${EXECUTABLE_NAME} PRIVATE
     $<$<AND:$<CXX_COMPILER_ID:GNU,Clang,AppleClang>,$<CONFIG:Release,RelWithDebInfo>>:-march=native>
     $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release,RelWithDebInfo>>:/arch:AVX2>
 )
+set_source_files_properties(stb_implementation.cpp PROPERTIES COMPILE_OPTIONS "-fno-sanitize=undefined")
 
 target_compile_definitions(${EXECUTABLE_NAME} PRIVATE "$<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>")
 target_compile_definitions(${EXECUTABLE_NAME} PRIVATE "$<$<C_COMPILER_ID:MSVC>:NOMINMAX>")

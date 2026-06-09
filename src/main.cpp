@@ -225,12 +225,21 @@ void runMainLoop(GLFWwindow* window,
             glfwSetWindowShouldClose(window, true);
         }
 
-        while (uiContext.poll_one())
-        {
-        }
+        // Run pending UI work under the coordinator's lock so the render thread
+        // never walks the DisplayNode tree while it is being mutated here.
+        coordinator.PollUI(uiContext);
 
         coordinator.Render();
     }
+
+    // Orderly shutdown. uiContext and coordinator live on this stack, but the
+    // worker pools (in workersProvider) outlive them. Stop background work first
+    // so nothing posts into a destroyed io_context, then drain any handlers the
+    // in-flight workers queued. PollUI drains under uiStateMutex, since the
+    // render thread keeps walking the tree until the coordinator is destroyed.
+    workersProvider.StopWorkers();
+    coordinator.PollUI(uiContext);
+
     work.reset();
     glfwSetWindowUserPointer(window, nullptr);
 }

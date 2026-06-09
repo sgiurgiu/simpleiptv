@@ -34,6 +34,23 @@
             }
         },
         {
+            "name": "asan",
+            "inherits": "default",
+            "cacheVariables": {
+                "ASAN_ENABLE": "ON",
+                "SIMPLEIPTV_SANITIZER":"address"
+            }
+        },
+        {
+            "name": "tsan",
+            "inherits": "default",
+            "cacheVariables": {
+                "ASAN_ENABLE": "ON",
+                "SIMPLEIPTV_SANITIZER":"thread",
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        },
+        {
             "name": "release",
             "inherits": "base",
             "binaryDir": "${sourceDir}/build-release",
@@ -72,6 +89,16 @@
         {
             "name": "default",
             "configurePreset": "default",
+            "jobs": 16
+        },
+        {
+            "name": "asan",
+            "configurePreset": "asan",
+            "jobs": 16
+        },
+        {
+            "name": "tsan",
+            "configurePreset": "tsan",
             "jobs": 16
         },
         {

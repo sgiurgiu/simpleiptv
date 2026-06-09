@@ -1,5 +1,23 @@
 #include "workers_provider.h"
 
+void WorkersProvider::StopWorkers()
+{
+#ifdef STV_UNIX
+    // Stop D-Bus dispatch first so Next()/Previous()/... can't fire into the
+    // soon-to-be-destroyed coordinator while we're tearing down.
+    if (mprisService)
+    {
+        mprisService->Stop();
+    }
+#endif
+    // stop() cancels queued work; join() waits for in-flight handlers to finish
+    // (their final posts land in the still-alive UI io_context for draining).
+    networkPool.stop();
+    dbPool.stop();
+    networkPool.join();
+    dbPool.join();
+}
+
 WorkersProvider::WorkersProvider()
 : networkPool{ 6 }
 , dbPool{ 1 }

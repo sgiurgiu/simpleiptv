@@ -2,6 +2,7 @@
 #include "stv_utils.h"
 
 #include <boost/asio/post.hpp>
+#include <cmath>
 #include <cstdint>
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -255,10 +256,20 @@ void PlayerBarWindow::loadChannelLogoData()
     int width = 0;
     int height = 0;
     int channels = 0;
+    constexpr int kChannels = 4; // STBI_rgb_alpha => always RGBA
     auto imageData = stbi_load_from_memory(
         reinterpret_cast<const stbi_uc*>(currentChannel->GetLogoData()),
         currentChannel->GetLogoSize(), &width, &height, &channels,
         STBI_rgb_alpha);
+
+    if (!imageData || width <= 0 || height <= 0)
+    {
+        // Corrupt/empty logo: bail instead of feeding null + NaN-derived
+        // dimensions into stbir (UB + heap overflow).
+        if (imageData)
+            stbi_image_free(imageData);
+        return;
+    }
 
     float ratio = (float)width / (float)height;
     ImVec2 size{ ImGui::GetFontSize() + ImGui::GetStyle().FramePadding.y * 2.f +
@@ -270,9 +281,23 @@ void PlayerBarWindow::loadChannelLogoData()
     size.y = area / size.x;
     channelLogoSize = size;
 
+    // Integer output dimensions used consistently for the resize stride and the
+    // texture upload, so the buffer size can't disagree with what's read.
+    int outW = static_cast<int>(std::lround(size.x));
+    int outH = static_cast<int>(std::lround(size.y));
+    if (outW < 1)
+        outW = 1;
+    if (outH < 1)
+        outH = 1;
+
     auto resizedImageData = stbir_resize_uint8_srgb(
-        imageData, width, height, width * channels, nullptr, size.x, size.y,
-        size.x * channels, (stbir_pixel_layout)channels);
+        imageData, width, height, width * kChannels, nullptr, outW, outH,
+        outW * kChannels, (stbir_pixel_layout)kChannels);
+
+    stbi_image_free(imageData);
+
+    if (!resizedImageData)
+        return;
 
     if (logo.tex)
     {
@@ -280,9 +305,8 @@ void PlayerBarWindow::loadChannelLogoData()
         vulkanInstance->DestroyPlayerBarImageData(logo);
     }
 
-    logo = vulkanInstance->CreatePlayerBarImageData((int)size.x, (int)size.y,
-                                                    channels, resizedImageData);
-    stbi_image_free(imageData);
+    logo = vulkanInstance->CreatePlayerBarImageData(outW, outH, kChannels,
+                                                    resizedImageData);
     stbi_image_free(resizedImageData);
 }
 

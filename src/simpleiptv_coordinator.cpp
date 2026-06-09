@@ -1,13 +1,23 @@
 #include "simpleiptv_coordinator.h"
 
+#include <boost/asio/post.hpp>
+
 SimpleIPTVCoordinator::SimpleIPTVCoordinator(boost::asio::io_context& uiContext,
                                              WorkersProvider* workersProvider,
                                              SimpleIPTVVulkan* vulkanInstance)
 : workersProvider{ workersProvider }
+, uiExecutor{ uiContext.get_executor() }
 , simpleiptv{ uiContext.get_executor(), workersProvider, vulkanInstance }
 , mpvPlayer{ uiContext.get_executor(), workersProvider, vulkanInstance }
 {
-    mpvPlayer.InitializeMpv([this]() { return simpleiptv.RenderDesktop(); });
+    // The render thread builds the UI by walking the DisplayNode tree; hold
+    // uiStateMutex so a UI-thread mutation (PollUI) can't reallocate it mid-walk.
+    mpvPlayer.InitializeMpv(
+        [this]()
+        {
+            std::lock_guard<std::mutex> lock(uiStateMutex);
+            return simpleiptv.RenderDesktop();
+        });
 
     simpleiptv.AddChannelActivatedListener([this](ChannelPtr channel) {
         mpvPlayer.Play(channel);
@@ -18,10 +28,18 @@ SimpleIPTVCoordinator::SimpleIPTVCoordinator(boost::asio::io_context& uiContext,
     });
 #ifdef STV_UNIX
     auto mprisService = workersProvider->GetMprisService();
-    mprisService->AddNextListener([this]()
-                                  { simpleiptv.ActivateNextChannel(); });
+    // MPRIS callbacks fire on the D-Bus thread; marshal tree-mutating actions
+    // onto the UI thread so they run under uiStateMutex like every other change.
+    mprisService->AddNextListener(
+        [this]() {
+            boost::asio::post(uiExecutor,
+                              [this]() { simpleiptv.ActivateNextChannel(); });
+        });
     mprisService->AddPreviousListener(
-        [this]() { simpleiptv.ActivatePreviousChannel(); });
+        [this]() {
+            boost::asio::post(uiExecutor,
+                              [this]() { simpleiptv.ActivatePreviousChannel(); });
+        });
     mprisService->AddPlayListener([this]() { mpvPlayer.Play(); });
     mprisService->AddPauseListener([this]() { mpvPlayer.Pause(); });
     mprisService->AddStopListener([this]() { mpvPlayer.Stop(); });
@@ -83,6 +101,14 @@ SimpleIPTVCoordinator::SimpleIPTVCoordinator(boost::asio::io_context& uiContext,
 void SimpleIPTVCoordinator::Render()
 {
     mpvPlayer.Render();
+}
+
+void SimpleIPTVCoordinator::PollUI(boost::asio::io_context& uiContext)
+{
+    std::lock_guard<std::mutex> lock(uiStateMutex);
+    while (uiContext.poll_one())
+    {
+    }
 }
 
 void SimpleIPTVCoordinator::SetSize(int width, int height)

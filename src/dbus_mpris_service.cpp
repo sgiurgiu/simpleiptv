@@ -19,7 +19,16 @@ MprisService::MprisService(Key)
 MprisService::~MprisService()
 {
     sessionConnection->releaseName(serviceName);
-    sessionConnection->leaveEventLoop();
+    Stop();
+}
+void MprisService::Stop()
+{
+    // leaveEventLoop() is what stops Next()/Previous()/... from being dispatched.
+    // Guard so it runs once whether called at shutdown or from the destructor.
+    if (eventLoopRunning.exchange(false))
+    {
+        sessionConnection->leaveEventLoop();
+    }
 }
 std::shared_ptr<MprisService> MprisService::Create()
 {

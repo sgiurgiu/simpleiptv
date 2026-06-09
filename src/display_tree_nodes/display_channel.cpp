@@ -4,6 +4,7 @@
 #include <boost/asio/post.hpp>
 
 #include <cassert>
+#include <cmath>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <spdlog/spdlog.h>
@@ -76,10 +77,21 @@ void DisplayChannel::decodeLogoImage()
     int width = 0;
     int height = 0;
     int channels = 0;
+    constexpr int kChannels = 4; // STBI_rgb_alpha => always RGBA
+
+    if (!channel->GetLogoData())
+        return;
+
     auto imageData = stbi_load_from_memory(
         reinterpret_cast<const stbi_uc*>(channel->GetLogoData()),
         channel->GetLogoSize(), &width, &height, &channels, STBI_rgb_alpha);
 
+    if (!imageData || width <= 0 || height <= 0)
+    {
+        if (imageData)
+            stbi_image_free(imageData);
+        return;
+    }
     float ratio = (float)width / (float)height;
     ImVec2 size = displayLogoSize;
     float area = size.x * size.y;
@@ -87,18 +99,33 @@ void DisplayChannel::decodeLogoImage()
     size.y = area / size.x;
     displayLogoSize = size;
 
+    // Use integer output dimensions consistently for the resize stride and the
+    // stored size, so float->int truncation can't desync the buffer stride from
+    // what the texture upload later reads.
+    int outW = static_cast<int>(std::lround(size.x));
+    int outH = static_cast<int>(std::lround(size.y));
+    if (outW < 1)
+        outW = 1;
+    if (outH < 1)
+        outH = 1;
+
     auto resizedImageData = stbir_resize_uint8_srgb(
-        imageData, width, height, width * channels, nullptr, size.x, size.y,
-        size.x * channels, (stbir_pixel_layout)channels);
+        imageData, width, height, width * kChannels, nullptr, outW, outH,
+        outW * kChannels, (stbir_pixel_layout)kChannels);
 
     stbi_image_free(imageData);
 
-    // Utils::EnhanceLogo(resizedImageData, size.x, size.y, channels);
+    if (!resizedImageData)
+        return;
 
-    logoWidth = size.x;
-    logoHeight = size.y;
+    // logoData/logoWidth/... are atomics; the render thread reads them directly.
+    // Publish the dimensions first and store logoData last, since loadLogoTexture
+    // gates on logoData being non-null — so when it sees it, the dimensions are
+    // already visible.
+    logoWidth = outW;
+    logoHeight = outH;
+    logoChannels = kChannels;
     logoData = resizedImageData;
-    logoChannels = channels;
 }
 void DisplayChannel::downloadLogoImage(WorkersProvider* workersProvider,
                                        const boost::asio::any_io_executor& ui_executor)
