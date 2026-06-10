@@ -44,6 +44,11 @@ struct DisplayServer : public DisplayChannelsGroup
 
     void showInfoDialog();
 
+    using EditServerSignal = boost::signals2::signal<void(ServerPtr)>;
+    EditServerSignal editServerSignal;
+    using RemoveServerSignal = boost::signals2::signal<void(ServerPtr)>;
+    RemoveServerSignal removeServerSignal;
+
     ServerPtr server;
     struct UserInfo
     {

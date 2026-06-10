@@ -17,6 +17,7 @@
 #include "settings/colorspace_dialog.h"
 #include "settings/http_proxy_dialog.h"
 #include "settings/screenshot_dialog.h"
+#include "settings/server_dialog.h"
 #include "workers_provider.h"
 
 class ChannelsWindow : public std::enable_shared_from_this<ChannelsWindow>
@@ -104,6 +105,7 @@ private:
     ColorspaceDialog colorspaceDialog;
     std::shared_ptr<HTTPProxyDialog> httpProxyDialog;
     std::shared_ptr<ScreenshotDialog> screenshotDialog;
+    std::shared_ptr<ServerDialog> serverDialog;
     std::optional<int> width;
     AboutWindow aboutWindow;
 

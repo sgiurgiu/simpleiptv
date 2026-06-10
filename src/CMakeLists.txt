@@ -171,6 +171,7 @@ set(STV_SRCS main.cpp
     settings/colorspace_dialog.cpp
     settings/http_proxy_dialog.cpp
     settings/screenshot_dialog.cpp
+    settings/server_dialog.cpp
     display_tree_nodes/common.cpp
     display_tree_nodes/display_node.cpp
     display_tree_nodes/display_channel.cpp

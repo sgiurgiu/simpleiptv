@@ -46,6 +46,7 @@ ChannelsWindow::ChannelsWindow(Key,
 , rootNode{ DisplayRootChannelsGroup::Create(workersProvider, ui_executor) }
 , httpProxyDialog{ HTTPProxyDialog::Create(ui_executor, workersProvider) }
 , screenshotDialog{ ScreenshotDialog::Create(workersProvider) }
+, serverDialog{ ServerDialog::Create(ui_executor, workersProvider) }
 , aboutWindow{ vulkanInstance }
 {
     width = workersProvider->GetSettingsRepository()->GetChannelsWindowWidth(300);
@@ -76,6 +77,15 @@ void ChannelsWindow::initialize()
             self->activatedChannel->isActivated = true;
             self->channelActivatedSignal(channel->channel);
         });
+    serverDialog->AddServersChangedListener(
+        [weak = weak_from_this()]()
+        {
+            auto self = weak.lock();
+            if (!self)
+                return;
+            self->loadSavedServers();
+        });
+
     loadLocalChannels();
     loadSavedServers();
 }
@@ -261,6 +271,7 @@ ImVec2 ChannelsWindow::ShowWindow(float playerBarHeight)
 
     httpProxyDialog->ShowDialog();
     screenshotDialog->ShowDialog();
+    serverDialog->ShowDialog();
     colorspaceDialog.ShowColorspaceDialog();
     aboutWindow.ShowAboutWindow();
     if (width != (int)std::floor(ImGui::GetWindowSize().x))
@@ -339,6 +350,7 @@ void ChannelsWindow::showMenu()
         {
             if (ImGui::MenuItem("Add Server"))
             {
+                serverDialog->SetShowAddServerDialog();
             }
             ImGui::SetNextItemShortcut(ImGuiKey_S, ImGuiInputFlags_RouteGlobal |
                                                        ImGuiInputFlags_Tooltip);
@@ -406,10 +418,27 @@ void ChannelsWindow::loadSavedServers()
             if (!self)
                 return;
 
+            self->servers.clear();
             for (const auto& s : servers)
             {
                 auto server = DisplayServer::Create(self->workersProvider,
                                                     self->ui_executor, s);
+                server->editServerSignal.connect(
+                    [weak = self->weak_from_this()](ServerPtr server)
+                    {
+                        auto self = weak.lock();
+                        if (!self)
+                            return;
+                        self->serverDialog->SetShowEditServerDialog(server);
+                    });
+                server->removeServerSignal.connect(
+                    [weak = self->weak_from_this()](ServerPtr server)
+                    {
+                        auto self = weak.lock();
+                        if (!self)
+                            return;
+                        self->serverDialog->SetShowRemoveServerDialog(server);
+                    });
                 server->activatedChannelSignal.connect(
                     [weak = self->weak_from_this()](DisplayChannel* channel)
                     {

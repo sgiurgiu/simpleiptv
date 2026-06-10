@@ -2,8 +2,11 @@
 
 #include <boost/asio/post.hpp>
 #include <boost/url.hpp>
+#include <charconv>
 #include <chrono>
+#include <cstdint>
 #include <spdlog/spdlog.h>
+#include <system_error>
 #include <utility>
 
 #include "../workers_provider.h"
@@ -54,7 +57,25 @@ void XmlTvEpgImporter::Import(ServerPtr srv,
     boost::url url;
     url.set_scheme(server->GetUrlScheme());
     url.set_host(server->GetHost());
-    url.set_port(server->GetPort());
+    uint16_t port;
+    auto [_, ec] = std::from_chars(
+        server->GetPort().data(),
+        server->GetPort().data() + server->GetPort().size(), port);
+    if (ec == std::errc{})
+    {
+        url.set_port_number(port);
+    }
+    else
+    {
+        if ("https" == server->GetUrlScheme())
+        {
+            url.set_port_number(443);
+        }
+        else
+        {
+            url.set_port_number(80);
+        }
+    }
     url.set_path("/xmltv.php");
     auto params = url.params();
     params.set("username", server->GetUsername());

@@ -37,13 +37,36 @@ void DisplayServer::render(std::unordered_set<DisplayNode*>& selectedNodes,
     {
         if (ImGui::BeginPopupContextItem())
         {
+            if (ImGui::Selectable("Edit server"))
+            {
+                editServerSignal(server);
+            }
             if (ImGui::Selectable("Show server info"))
             {
                 openServerInfo = true;
                 boost::url url;
                 url.set_scheme(server->GetUrlScheme());
                 url.set_host(server->GetHost());
-                url.set_port(server->GetPort());
+                uint16_t port;
+                auto [_, ec] = std::from_chars(
+                    server->GetPort().data(),
+                    server->GetPort().data() + server->GetPort().size(), port);
+                if (ec == std::errc{})
+                {
+                    url.set_port_number(port);
+                }
+                else
+                {
+                    if ("https" == server->GetUrlScheme())
+                    {
+                        url.set_port_number(443);
+                    }
+                    else
+                    {
+                        url.set_port_number(80);
+                    }
+                }
+
                 url.set_path("/player_api.php");
                 auto params = url.params();
                 params.set("username", server->GetUsername());
@@ -77,6 +100,10 @@ void DisplayServer::render(std::unordered_set<DisplayNode*>& selectedNodes,
                         }
                     },
                     false);
+            }
+            if (ImGui::Selectable("Remove Server"))
+            {
+                removeServerSignal(server);
             }
             ImGui::EndPopup();
         }
@@ -381,7 +408,26 @@ DisplayServer::DisplayServer(DisplayNodeKey key,
     boost::url url;
     url.set_scheme(server->GetUrlScheme());
     url.set_host(server->GetHost());
-    url.set_port(server->GetPort());
+    uint16_t port;
+    auto [_, ec] = std::from_chars(
+        server->GetPort().data(),
+        server->GetPort().data() + server->GetPort().size(), port);
+    if (ec == std::errc{})
+    {
+        url.set_port_number(port);
+    }
+    else
+    {
+        if ("https" == server->GetUrlScheme())
+        {
+            url.set_port_number(443);
+        }
+        else
+        {
+            url.set_port_number(80);
+        }
+    }
+
     url.set_path("/player_api.php");
     auto params = url.params();
     params.set("username", server->GetUsername());

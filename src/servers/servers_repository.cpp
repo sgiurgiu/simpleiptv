@@ -38,7 +38,7 @@ void ServersRepository::LoadServers(LoadServersCallback cb,
                     session.prepare
                     << "SELECT SERVER_ID, HOST, PORT, "
                        "SERVER_URL_SCHEMA, USERNAME, "
-                       "PASSWORD, TIMEZONE, IS_TRIAL, MAX_CONNECTIONS, "
+                       "PASSWORD, TIMEZONE, MAX_CONNECTIONS, "
                        "CREATED_AT, RTMP_PORT, HTTPS_PORT,"
                        "STATUS, EXPIRY_DATE, XMLTV_UPDATED_AT FROM "
                        "XSTREAM_SERVERS ORDER BY HOST") };
@@ -51,14 +51,13 @@ void ServersRepository::LoadServers(LoadServersCallback cb,
                     auto username = r.get<std::string>(4, "");
                     auto password = r.get<std::string>(5, "");
                     auto timezone = r.get<std::string>(6, "");
-                    bool trial = r.get<bool>(7, true);
-                    int maxConnections = r.get<int>(8, 0);
-                    int64_t createdAt = r.get<int64_t>(9, 0);
-                    auto rtmpPort = r.get<std::string>(10, "");
-                    auto httpsPort = r.get<std::string>(11, "");
-                    auto status = r.get<std::string>(12, "");
-                    int64_t expiryDate = r.get<int64_t>(13, 0);
-                    std::string strXmltvUpdatedAt = r.get<std::string>(14, "");
+                    int maxConnections = r.get<int>(7, 0);
+                    int createdAt = r.get<int>(8, 0);
+                    auto rtmpPort = r.get<std::string>(9, "");
+                    auto httpsPort = r.get<std::string>(10, "");
+                    auto status = r.get<std::string>(11, "");
+                    int expiryDate = r.get<int>(12, 0);
+                    std::string strXmltvUpdatedAt = r.get<std::string>(13, "");
 
                     soci::rowset<soci::row> formatRows = { (
                         session.prepare << "SELECT FORMAT FROM "
@@ -89,7 +88,7 @@ void ServersRepository::LoadServers(LoadServersCallback cb,
 
                     servers.push_back(std::make_shared<Server>(
                         id, host, port, urlScheme, username, password, timezone,
-                        status, expiryDate, createdAt, trial, maxConnections,
+                        status, expiryDate, createdAt, false, maxConnections,
                         rtmpPort, httpsPort, outputFormats, xmlTvUpdatedAt));
                 }
             }
@@ -125,17 +124,16 @@ void ServersRepository::AddServer(const Server& server,
                 std::string status = server.GetStatus();
                 int expiryDate = server.GetExpiryDate();
                 int createdAt = server.GetCreatedAt();
-                int trial = server.IsTrial() ? 1 : 0;
                 int maxConnections = server.GetMaxConnections();
                 std::string rtmpPort = server.GetRTMPPort();
                 std::string httpsPort = server.GetHTTPSPort();
 
                 session << "INSERT INTO XSTREAM_SERVERS(HOST, PORT, "
                            "SERVER_URL_SCHEMA, USERNAME, PASSWORD, TIMEZONE, "
-                           "STATUS, EXPIRY_DATE, IS_TRIAL, MAX_CONNECTIONS, "
+                           "STATUS, EXPIRY_DATE, MAX_CONNECTIONS, "
                            "CREATED_AT, RTMP_PORT, HTTPS_PORT) VALUES(:host, "
                            ":port, :schema, :username, :password, :timezone, "
-                           ":status, :exp_date, :trial, :max_con, :created, "
+                           ":status, :exp_date, :max_con, :created, "
                            ":rtmp_port, :https_port) RETURNING SERVER_ID",
                     soci::use(host, "host"), soci::use(port, "port"),
                     soci::use(urlScheme, "schema"),
@@ -146,8 +144,7 @@ void ServersRepository::AddServer(const Server& server,
                     soci::use(maxConnections, "max_con"),
                     soci::use(createdAt, "created"),
                     soci::use(rtmpPort, "rtmp_port"),
-                    soci::use(httpsPort, "https_port"),
-                    soci::use(trial, "trial"), soci::into(id);
+                    soci::use(httpsPort, "https_port"), soci::into(id);
                 for (const auto& f : server.GetOutputFormats())
                 {
                     session << "INSERT INTO "
@@ -172,6 +169,81 @@ void ServersRepository::AddServer(const Server& server,
             boost::asio::post(cb_executor, [serverPtr = std::move(serverPtr),
                                             cb = std::move(cb)]() mutable
                               { cb(std::move(serverPtr)); });
+        });
+}
+void ServersRepository::UpdateServer(const Server& server,
+                                     UpdateServerCallback cb,
+                                     const boost::asio::any_io_executor& cb_executor)
+{
+    boost::asio::post(
+        executor,
+        [self = shared_from_this(), cb = std::move(cb), cb_executor, server]() mutable
+        {
+            try
+            {
+                auto session = DatabaseConnections::GetConnection();
+                std::string host = server.GetHost();
+                std::string port = server.GetPort();
+                std::string urlScheme = server.GetUrlScheme();
+                std::string username = server.GetUsername();
+                std::string password = server.GetPassword();
+                int id = server.GetId();
+
+                session << "UPDATE XSTREAM_SERVERS SET HOST=:host, PORT=:port, "
+                           "SERVER_URL_SCHEMA=:schema, USERNAME=:username, "
+                           "PASSWORD=:password WHERE SERVER_ID=:id",
+                    soci::use(host, "host"), soci::use(port, "port"),
+                    soci::use(urlScheme, "schema"),
+                    soci::use(username, "username"),
+                    soci::use(password, "password"), soci::use(id, "id");
+            }
+            catch (const soci::soci_error& ex)
+            {
+                spdlog::error("Cannot update server '{}': {}", server.GetHost(),
+                              ex.what());
+            }
+            boost::asio::post(cb_executor,
+                              [cb = std::move(cb)]() mutable { cb(); });
+        });
+}
+void ServersRepository::RemoveServer(
+    int serverId,
+    RemoveServerCallback cb,
+    const boost::asio::any_io_executor& cb_executor)
+{
+    boost::asio::post(
+        executor,
+        [self = shared_from_this(), cb = std::move(cb), cb_executor,
+         serverId]() mutable
+        {
+            try
+            {
+                auto session = DatabaseConnections::GetConnection();
+                soci::transaction tr{ session };
+                // Foreign keys are enforced without ON DELETE CASCADE, so the
+                // rows referencing this server must be removed first.
+                session << "DELETE FROM SERVER_OUTPUT_FORMATS WHERE "
+                           "XSTREAM_SERVER_ID = :id",
+                    soci::use(serverId);
+                session << "DELETE FROM EPG_PROGRAMMES WHERE "
+                           "XSTREAM_SERVER_ID = :id",
+                    soci::use(serverId);
+                session << "DELETE FROM EPG_CHANNELS WHERE "
+                           "XSTREAM_SERVER_ID = :id",
+                    soci::use(serverId);
+                session << "DELETE FROM CHANNELS WHERE XSTREAM_SERVER_ID = :id",
+                    soci::use(serverId);
+                session << "DELETE FROM XSTREAM_SERVERS WHERE SERVER_ID = :id",
+                    soci::use(serverId);
+                tr.commit();
+            }
+            catch (const soci::soci_error& ex)
+            {
+                spdlog::error("Cannot remove server {}: {}", serverId,
+                              ex.what());
+            }
+            boost::asio::post(cb_executor,
+                              [cb = std::move(cb)]() mutable { cb(); });
         });
 }
 void ServersRepository::UpdateServerXmlTvUpdatedAt(const Server& server)

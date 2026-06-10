@@ -22,12 +22,20 @@ public:
 
     using LoadServersCallback = std::function<void(std::vector<ServerPtr>)>;
     using LoadServerCallback = std::function<void(ServerPtr)>;
+    using UpdateServerCallback = std::function<void()>;
+    using RemoveServerCallback = std::function<void()>;
     // the callback will be called on the cb_executor provided
     void LoadServers(LoadServersCallback cb,
                      const boost::asio::any_io_executor& cb_executor);
     void AddServer(const Server& server,
                    LoadServerCallback cb,
                    const boost::asio::any_io_executor& cb_executor);
+    void UpdateServer(const Server& server,
+                      UpdateServerCallback cb,
+                      const boost::asio::any_io_executor& cb_executor);
+    void RemoveServer(int serverId,
+                      RemoveServerCallback cb,
+                      const boost::asio::any_io_executor& cb_executor);
     void UpdateServerXmlTvUpdatedAt(const Server& server);
 
 private:
