@@ -14,4 +14,3 @@ leak:_glfwCreateWindowSurfaceWayland
 leak:_glfwCreateWindowWayland
 leak:pl_vulkan_create
 leak:_glfwInitVulkan
-leak:<unknown module>

@@ -8,14 +8,38 @@
 
 EpgListing::EpgListing(const nlohmann::json& json)
 {
-    id = json["id"].get<std::string>();
-    epgId = json["epg_id"].get<std::string>();
-    channelId = json["channel_id"].get<std::string>();
-    streamId = json["stream_id"].get<std::string>();
-    title = decode64(json["title"].get<std::string>());
-    description = decode64(json["description"].get<std::string>());
-    startTime = getTimePoint(json["start_timestamp"].get<std::string>());
-    endTime = getTimePoint(json["stop_timestamp"].get<std::string>());
+    if (json.contains("id"))
+    {
+        id = json["id"].get<std::string>();
+    }
+    if (json.contains("epg_id"))
+    {
+        epgId = json["epg_id"].get<std::string>();
+    }
+    if (json.contains("channel_id"))
+    {
+        channelId = json["channel_id"].get<std::string>();
+    }
+    if (json.contains("stream_id"))
+    {
+        streamId = json["stream_id"].get<std::string>();
+    }
+    if (json.contains("title"))
+    {
+        title = decode64(json["title"].get<std::string>());
+    }
+    if (json.contains("description"))
+    {
+        description = decode64(json["description"].get<std::string>());
+    }
+    if (json.contains("start_timestamp"))
+    {
+        startTime = getTimePoint(json["start_timestamp"].get<std::string>());
+    }
+    if (json.contains("stop_timestamp"))
+    {
+        endTime = getTimePoint(json["stop_timestamp"].get<std::string>());
+    }
     finalize();
 }
 
