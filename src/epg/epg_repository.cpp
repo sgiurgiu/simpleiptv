@@ -249,12 +249,14 @@ void EpgRepository::GetProgrammes(int serverId,
 
 void EpgRepository::SearchProgrammes(std::string query,
                                      int limit,
+                                     int start,
+                                     int end,
                                      SearchProgrammesCallback cb,
                                      const boost::asio::any_io_executor& cb_executor)
 {
     boost::asio::post(
         executor,
-        [self = shared_from_this(), query = std::move(query), limit,
+        [self = shared_from_this(), query = std::move(query), start, end, limit,
          cb = std::move(cb), cb_executor]() mutable
         {
             std::vector<EpgSearchResult> results;
@@ -281,9 +283,12 @@ void EpgRepository::SearchProgrammes(std::string query,
                            "LEFT JOIN EPG_CHANNELS E ON "
                            "E.XSTREAM_SERVER_ID = P.XSTREAM_SERVER_ID AND "
                            "E.EPG_CHANNEL_ID = P.EPG_CHANNEL_ID "
-                           "WHERE P.TITLE LIKE :q OR P.DESCRIPTION LIKE :q "
+                           "WHERE (P.TITLE LIKE :q OR P.DESCRIPTION LIKE :q) "
+                           "AND P.START_TIME >= :start "
+                           "AND P.STOP_TIME <= :end "
                            "ORDER BY P.START_TIME LIMIT :lim",
-                    soci::use(pattern, "q"), soci::use(limit, "lim")) };
+                    soci::use(pattern, "q"), soci::use(limit, "lim"),
+                    soci::use(start, "start"), soci::use(end, "end")) };
                 for (const auto& r : rows)
                 {
                     auto startTime = r.get<int>(10, 0);

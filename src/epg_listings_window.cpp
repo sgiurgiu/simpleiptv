@@ -260,6 +260,28 @@ void EpgListingWindow::showSearchTab()
         runSearch();
     }
     ImGui::SameLine();
+    // Time-range filters. Index 0 is "Anytime"; index N is N hours
+    // before/after now. The values are read back in runSearch().
+    static const char* startItems =
+        "Anytime\0Last 1 hour\0Last 2 hours\0Last 3 hours\0Last 4 hours\0"
+        "Last 5 hours\0Last 6 hours\0Last 7 hours\0Last 8 hours\0Last 9 hours\0"
+        "Last 10 hours\0";
+    static const char* endItems =
+        "Anytime\0Next 1 hour\0Next 2 hours\0Next 3 hours\0Next 4 hours\0"
+        "Next 5 hours\0Next 6 hours\0Next 7 hours\0Next 8 hours\0Next 9 hours\0"
+        "Next 10 hours\0";
+    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.f);
+    if (ImGui::Combo("Start", &startChoice, startItems))
+    {
+        runSearch();
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.f);
+    if (ImGui::Combo("End", &endChoice, endItems))
+    {
+        runSearch();
+    }
+    ImGui::SameLine();
     ImGui::TextDisabled("%zu results", searchResults.size());
     ImGui::Separator();
 
@@ -303,10 +325,23 @@ void EpgListingWindow::runSearch()
         searchPerformed = false;
         return;
     }
+    auto now = std::chrono::system_clock::now();
+    auto toUnix = [](std::chrono::system_clock::time_point tp)
+    {
+        return static_cast<int>(
+            std::chrono::duration_cast<std::chrono::seconds>(tp.time_since_epoch())
+                .count());
+    };
+    // Combo index 0 is "Anytime"; index N means N hours before/after now.
+    start = (startChoice == 0)
+                ? 0
+                : toUnix(now - std::chrono::hours(startChoice));
+    end = (endChoice == 0) ? INT32_MAX
+                           : toUnix(now + std::chrono::hours(endChoice));
     searchPerformed = true;
     auto gen = ++searchGeneration;
     workersProvider->GetEpgRepository()->SearchProgrammes(
-        std::move(query), SEARCH_RESULT_LIMIT,
+        std::move(query), SEARCH_RESULT_LIMIT, start, end,
         [weak = weak_from_this(), gen](std::vector<EpgSearchResult> results)
         {
             auto self = weak.lock();

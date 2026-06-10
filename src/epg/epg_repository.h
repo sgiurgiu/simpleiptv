@@ -71,6 +71,8 @@ public:
     // the callback is posted to cb_executor.
     void SearchProgrammes(std::string query,
                           int limit,
+                          int start,
+                          int end,
                           SearchProgrammesCallback cb,
                           const boost::asio::any_io_executor& cb_executor);
 
