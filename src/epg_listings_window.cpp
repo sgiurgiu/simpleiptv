@@ -333,11 +333,10 @@ void EpgListingWindow::runSearch()
                 .count());
     };
     // Combo index 0 is "Anytime"; index N means N hours before/after now.
-    start = (startChoice == 0)
-                ? 0
-                : toUnix(now - std::chrono::hours(startChoice));
-    end = (endChoice == 0) ? INT32_MAX
-                           : toUnix(now + std::chrono::hours(endChoice));
+    auto start =
+        (startChoice == 0) ? 0 : toUnix(now - std::chrono::hours(startChoice));
+    auto end = (endChoice == 0) ? INT32_MAX
+                                : toUnix(now + std::chrono::hours(endChoice));
     searchPerformed = true;
     auto gen = ++searchGeneration;
     workersProvider->GetEpgRepository()->SearchProgrammes(

@@ -116,8 +116,6 @@ private:
     std::uint64_t searchGeneration = 0;
     // Distinguishes "no search run yet" from "search returned nothing".
     bool searchPerformed = false;
-    int start = 0;
-    int end = INT32_MAX;
     // Selected entry in the Start/End time-range combos. Index 0 is "Anytime";
     // index N means N hours before/after now (see runSearch()).
     int startChoice = 0;
