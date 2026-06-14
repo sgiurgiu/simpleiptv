@@ -247,6 +247,9 @@ bool EpgListingWindow::ShowWindow()
 
 void EpgListingWindow::showSearchTab()
 {
+    ImGui::Text("%s", reinterpret_cast<const char*>(ICON_FA_INFO_CIRCLE));
+    ImGui::SetItemTooltip("%s", serverLastProgramGuideRefresh.c_str());
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
     if (ImGui::InputTextWithHint("##epgSearch", "Search title or description",
                                  &searchText,
@@ -924,4 +927,40 @@ void EpgListingWindow::loadEpgFromNetwork(const DisplayChannelPtr& channel)
                            self->maxCoveredHour);
         },
         false);
+}
+
+void EpgListingWindow::loadRemoteServers()
+{
+    workersProvider->GetServersRepository()->LoadServers(
+        [weak = weak_from_this()](std::vector<ServerPtr> servers)
+        {
+            auto self = weak.lock();
+            if (!self)
+                return;
+            self->serverLastProgramGuideRefresh = "EPG data refresh:\n";
+            for (const auto& s : servers)
+            {
+                auto epgUpdatedAt = s->GetXmlTvUpdatedAt();
+                if (epgUpdatedAt)
+                {
+#if __cpp_lib_chrono >= 201907L
+                    auto tz = std::chrono::current_zone();
+                    auto localTime = tz->to_local(*epgUpdatedAt);
+#else
+                    localTime =
+                        date::make_zoned(date::current_zone(), *epgUpdatedAt)
+                            .get_local_time();
+#endif
+
+                    self->serverLastProgramGuideRefresh.append(fmt::format(
+                        "{} - {:%F %H:%M}\n", s->GetHost(), localTime));
+                }
+                else
+                {
+                    self->serverLastProgramGuideRefresh.append(
+                        fmt::format("{}: Never\n", s->GetHost()));
+                }
+            }
+        },
+        ui_executor);
 }

@@ -46,6 +46,7 @@ public:
         if (open)
         {
             loadEpgs();
+            loadRemoteServers();
         }
     }
     template <typename S>
@@ -55,6 +56,7 @@ public:
     }
 
 private:
+    void loadRemoteServers();
     void loadEpgs();
     void groupsLoaded(std::vector<ChannelsGroupPtr> groupPtrs);
     void loadChannelsOfSelectedGroup();
@@ -120,4 +122,5 @@ private:
     // index N means N hours before/after now (see runSearch()).
     int startChoice = 0;
     int endChoice = 0;
+    std::string serverLastProgramGuideRefresh = "EPG data refresh:\n";
 };
