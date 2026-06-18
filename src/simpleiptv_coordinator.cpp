@@ -126,6 +126,11 @@ void SimpleIPTVCoordinator::SetSize(int width, int height)
     mpvPlayer.SetSize(width, height);
 }
 
+void SimpleIPTVCoordinator::SetIdlePresentRate(int hz)
+{
+    mpvPlayer.SetIdlePresentRate(hz);
+}
+
 bool SimpleIPTVCoordinator::ShouldQuit() const
 {
     return simpleiptv.ShouldQuit();

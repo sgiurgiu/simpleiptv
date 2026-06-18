@@ -20,6 +20,7 @@ public:
                           SimpleIPTVVulkan* vulkanInstance);
     void Render();
     void SetSize(int width, int height);
+    void SetIdlePresentRate(int hz);
     bool ShouldQuit() const;
 
     // Drains pending UI-thread work while holding uiStateMutex, so the

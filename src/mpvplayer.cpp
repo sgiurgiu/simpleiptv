@@ -10,6 +10,7 @@
 #include <mpv/client.h>
 #include <mpv/render_placebo.h>
 
+#include <chrono>
 #include <stdexcept>
 
 #include <fmt/format.h>
@@ -439,6 +440,23 @@ void MpvPlayer::mpvRenderThread()
             shouldRender = false;
         }
 
+        // Pace presents to the display refresh while idle. During playback mpv
+        // blocks for each frame's target time, so presents already land one per
+        // vblank; without video nothing throttles us and a resize would commit
+        // buffers at ~300fps, which makes the compositor's interactive resize
+        // stutter. Coalesced wakeups (renderInProgress above) accumulate during
+        // the sleep, so we still render the latest size when we wake.
+        if (playerState != PlayerState::PLAYING)
+        {
+            const auto interval =
+                std::chrono::nanoseconds(idlePresentIntervalNs.load());
+            const auto elapsed = std::chrono::steady_clock::now() - lastPresentTime;
+            if (elapsed < interval)
+            {
+                std::this_thread::sleep_for(interval - elapsed);
+            }
+        }
+
         // rendering UI
         auto windowBottomLeftPoint = uiRenderCallback();
 
@@ -474,6 +492,7 @@ void MpvPlayer::mpvRenderThread()
         pl_swapchain_submit_frame(vulkanInstance->GetPlSwapchain());
         pl_swapchain_swap_buffers(vulkanInstance->GetPlSwapchain());
         mpv_render_context_report_swap(mpvRenderContext);
+        lastPresentTime = std::chrono::steady_clock::now();
         renderInProgress = false;
     }
 }
@@ -512,6 +531,14 @@ void MpvPlayer::Render()
     renderWakeupCondition.notify_one();
 }
 
+void MpvPlayer::SetIdlePresentRate(int hz)
+{
+    if (hz > 0)
+    {
+        idlePresentIntervalNs = 1'000'000'000LL / hz;
+    }
+}
+
 void MpvPlayer::SetSize(int width, int height)
 {
     if (width == this->width && height == this->height)
@@ -519,6 +546,7 @@ void MpvPlayer::SetSize(int width, int height)
     needsResize = true;
     this->width = width;
     this->height = height;
+    Render();
 }
 void MpvPlayer::Play()
 {

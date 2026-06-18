@@ -185,6 +185,13 @@ void runMainLoop(GLFWwindow* window,
     SimpleIPTVCoordinator coordinator{ uiContext, &workersProvider,
                                        vulkanInstance };
     glfwSetWindowUserPointer(window, &coordinator);
+    // Cap idle (no-video) rendering to the monitor refresh rate so a resize
+    // doesn't flood the compositor with unsynced buffers. Falls back to 60Hz if
+    // the refresh rate can't be queried.
+    if (const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor()))
+    {
+        coordinator.SetIdlePresentRate(mode->refreshRate);
+    }
     {
         int width;
         int height;

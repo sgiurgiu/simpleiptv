@@ -18,6 +18,7 @@
 #include <condition_variable>
 #include <functional>
 #include <mutex>
+#include <chrono>
 #include <thread>
 
 struct mpv_handle;
@@ -35,6 +36,12 @@ public:
     void InitializeMpv(UIRenderCallback uiRenderCallback);
     void Render();
     void SetSize(int width, int height);
+    // Cap the render thread's present rate while no video is playing. Without
+    // this, a resize floods the compositor with unsynced buffers (~300fps),
+    // which KWin handles far worse than one buffer per vblank. During playback
+    // mpv already paces frames, so this only applies when idle. hz <= 0 is
+    // ignored.
+    void SetIdlePresentRate(int hz);
     void Play(ChannelPtr channel);
     void Play();
     void Stop();
@@ -124,6 +131,12 @@ private:
     std::atomic_bool needsResize = false;
     std::mutex renderWakeupMutex;
     std::condition_variable renderWakeupCondition;
+
+    // Idle present pacing (see SetIdlePresentRate). Interval defaults to 60Hz
+    // until the real monitor refresh rate is supplied. lastPresentTime is
+    // touched only by the render thread.
+    std::atomic_int64_t idlePresentIntervalNs = 1'000'000'000LL / 60;
+    std::chrono::steady_clock::time_point lastPresentTime;
     std::atomic_bool renderThreadQuit = false;
     std::atomic_bool shouldRender = false;
 
