@@ -10,6 +10,7 @@
 #include <boost/beast/ssl.hpp>
 #include <boost/system/system_error.hpp>
 #include <boost/url.hpp>
+#include <charconv>
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 #include <system_error>
@@ -50,10 +51,11 @@ void add_windows_root_certs(boost::asio::ssl::context& ctx)
     SSL_CTX_set_cert_store(ctx.native_handle(), store);
 }
 #endif
-template <typename ResponseBody>
-class RequestSessionBase
+template <typename Derived, typename ResponseBody>
+class RequestSessionBase : public std::enable_shared_from_this<Derived>
 {
 protected:
+    static constexpr int kMaxRedirects = 10;
     using response_parser_t = boost::beast::http::response_parser<ResponseBody>;
     using request_t = boost::beast::http::request<boost::beast::http::empty_body>;
     using stream_t = boost::beast::ssl_stream<boost::beast::tcp_stream>;
@@ -191,10 +193,19 @@ private:
         }
         else
         {
-            std::string readData;
+            std::string statusLine;
             std::istream str(&streambuf);
-            std::getline(str, readData);
-            if (readData.find("HTTP/1.1 2") == std::string::npos)
+            std::getline(str, statusLine);
+            // Status line is "HTTP/x.y <code> <reason>". Accept any 2xx
+            // tunnel reply regardless of the proxy's HTTP version.
+            int statusCode = 0;
+            if (auto sp = statusLine.find(' '); sp != std::string::npos)
+            {
+                std::from_chars(statusLine.data() + sp + 1,
+                                statusLine.data() + statusLine.size(),
+                                statusCode);
+            }
+            if (statusCode < 200 || statusCode >= 300)
             {
                 handleError(boost::system::errc::make_error_code(
                     boost::system::errc::host_unreachable));
@@ -207,7 +218,7 @@ private:
     }
     void onConnect()
     {
-        isSsl = !(scheme == "http" || port == "80" || port == "8080");
+        isSsl = (scheme == "https");
         // Set SNI Hostname (many hosts need this to handshake successfully)
         if (isSsl &&
             !SSL_set_tlsext_host_name(stream.native_handle(), host.c_str()))
@@ -335,10 +346,42 @@ protected:
     }
 
 protected:
-    virtual void onLocationChanged(std::string location) = 0;
+    // Close this session and start a fresh one for the redirect target.
+    // The Location header may be relative, so resolve it against the URL we
+    // originally requested. Bail out once we have followed too many hops.
+    void onLocationChanged(std::string location)
+    {
+        boost::asio::post(
+            executor,
+            [self = this->shared_from_this(), location = std::move(location)]() mutable
+            {
+                if (self->redirects >= kMaxRedirects)
+                {
+                    self->handleError(boost::system::errc::make_error_code(
+                        boost::system::errc::too_many_links));
+                    return;
+                }
+                auto base = boost::urls::parse_uri(self->url);
+                auto ref = boost::urls::parse_uri_reference(location);
+                if (base && ref)
+                {
+                    boost::urls::url resolved;
+                    if (boost::urls::resolve(base.value(), ref.value(), resolved))
+                    {
+                        location = resolved.buffer();
+                    }
+                }
+                auto session = std::make_shared<Derived>(
+                    self->sslContext, self->executor, self->proxy,
+                    std::move(location), std::move(self->cb));
+                session->redirects = self->redirects + 1;
+                session->PerformRequest();
+            });
+    }
     virtual void readBody() = 0;
 
 protected:
+    int redirects = 0;
     boost::asio::ssl::context& sslContext;
     boost::asio::any_io_executor executor;
     boost::asio::strand<boost::asio::any_io_executor> strand;
@@ -359,34 +402,13 @@ protected:
 };
 
 class RequestSession
-: public RequestSessionBase<boost::beast::http::string_body>,
-  std::enable_shared_from_this<RequestSession>
+: public RequestSessionBase<RequestSession, boost::beast::http::string_body>
 {
 public:
-    RequestSession(boost::asio::ssl::context& sslContext,
-                   const boost::asio::any_io_executor& executor,
-                   const HttpProxy& proxy,
-                   const std::string& url,
-                   NetworkResourceProvider::ResourceLoadedCallback cb)
-    : RequestSessionBase{ sslContext, executor, proxy, url, cb }
-    {
-    }
+    using RequestSessionBase::RequestSessionBase;
 
 private:
-    virtual void onLocationChanged(std::string location) override
-    {
-        // close this, make a new request session for the new location
-        boost::asio::post(executor,
-                          [self = shared_from_this(),
-                           location = std::move(location)]() mutable
-                          {
-                              auto session = std::make_shared<RequestSession>(
-                                  self->sslContext, self->executor, self->proxy,
-                                  std::move(location), std::move(self->cb));
-                              session->PerformRequest();
-                          });
-    }
-    virtual void readBody() override
+    void readBody() override
     {
         boost::beast::get_lowest_layer(stream).expires_after(streamTimeout);
         boost::system::error_code errorCode;
@@ -413,34 +435,13 @@ private:
 };
 
 class RequestSessionStream
-: public RequestSessionBase<boost::beast::http::buffer_body>,
-  std::enable_shared_from_this<RequestSessionStream>
+: public RequestSessionBase<RequestSessionStream, boost::beast::http::buffer_body>
 {
 public:
-    RequestSessionStream(boost::asio::ssl::context& sslContext,
-                         const boost::asio::any_io_executor& executor,
-                         const HttpProxy& proxy,
-                         const std::string& url,
-                         NetworkResourceProvider::ResourceLoadedCallback cb)
-    : RequestSessionBase{ sslContext, executor, proxy, url, cb }
-    {
-    }
+    using RequestSessionBase::RequestSessionBase;
 
 private:
-    virtual void onLocationChanged(std::string location) override
-    {
-        // close this, make a new request session for the new location
-        boost::asio::post(
-            executor,
-            [self = shared_from_this(), location = std::move(location)]() mutable
-            {
-                auto session = std::make_shared<RequestSessionStream>(
-                    self->sslContext, self->executor, self->proxy,
-                    std::move(location), std::move(self->cb));
-                session->PerformRequest();
-            });
-    }
-    virtual void readBody() override
+    void readBody() override
     {
         responseParser.body_limit(boost::none);
         while (!responseParser.is_done())
@@ -605,12 +606,9 @@ void NetworkResourceProvider::getResourceStreaming(
         spdlog::debug("Downloading {}", url);
         auto request = std::make_shared<RequestSessionStream>(
             sslContext, executor, proxy, url,
-            [weak = weak_from_this(), url, cb_executor,
-             cb = std::move(cb)](std::string body, std::error_code ec) mutable
+            [url, cb_executor, cb = std::move(cb)](std::string body,
+                                                   std::error_code ec) mutable
             {
-                auto self = weak.lock();
-                if (!self)
-                    return;
                 auto func = std::bind(cb, std::move(body), ec);
                 boost::asio::post(cb_executor, func);
             });

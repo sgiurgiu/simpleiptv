@@ -115,15 +115,17 @@ int DatabaseConnections::getSchemaVersion(soci::session& con)
     }
     return version;
 }
-void DatabaseConnections::incrementSchemaVersion(soci::session& con, int version)
+void DatabaseConnections::incrementSchemaVersion(soci::session& con, int& version)
 {
     if (version == 0)
     {
         con << "INSERT INTO SCHEMA_VERSION (VERSION) VALUES(1)";
+        version = 1;
     }
     else
     {
         con << "UPDATE SCHEMA_VERSION SET VERSION=:ver",
             soci::use(version + 1, "ver");
+        version++;
     }
 }
