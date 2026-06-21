@@ -67,7 +67,21 @@ void DisplayRemoteChannelsGroup::render(
     {
         showPopup();
         isOpen = true;
-        if (!areChildrenLoaded)
+        if (error)
+        {
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextColored({ 1.f, 0.f, 0.f, 1.f }, "Error loading: %s",
+                               error->c_str());
+            ImGui::PopTextWrapPos();
+            if (ImGui::Button("Retry"))
+            {
+                error.reset();
+                areChildrenLoaded = false;
+                areChildrenLoading = true;
+                loadRemoteChildren();
+            }
+        }
+        else if (!areChildrenLoaded)
         {
             ImGui::Text("Loading...");
             if (!areChildrenLoading)
@@ -123,6 +137,8 @@ void DisplayRemoteChannelsGroup::loadRemoteChildren()
                 std::static_pointer_cast<DisplayRemoteChannelsGroup>(selfNode);
             if (ec)
             {
+                self->error = ec.message();
+                self->areChildrenLoading = false;
                 return;
             }
 
@@ -144,41 +160,53 @@ void DisplayRemoteChannelsGroup::loadRemoteChildren()
             DisplayServer* server = static_cast<DisplayServer*>(node);
             int server_id = server->getUnderlyingID();
 
-            nlohmann::json json = nlohmann::json::parse(body);
-            for (const auto& ch : json)
+            try
             {
-                auto streamId = ch["stream_id"].get<int>();
-                auto streamType = ch["stream_type"].get<std::string>();
-                auto name = ch["name"].get<std::string>();
-                auto icon = ch["stream_icon"].get<std::string>();
-                auto epgStreamId = ch["epg_channel_id"].get<std::string>();
+                nlohmann::json json = nlohmann::json::parse(body);
+                for (const auto& ch : json)
+                {
+                    auto streamId = ch["stream_id"].get<int>();
+                    auto streamType = ch["stream_type"].get<std::string>();
+                    auto name = ch["name"].get<std::string>();
+                    auto icon = ch["stream_icon"].get<std::string>();
+                    auto epgStreamId = ch["epg_channel_id"].get<std::string>();
 
-                boost::url channelUrl = boost::urls::parse_uri(self->url).value();
-                boost::url epgUrl = channelUrl;
+                    boost::url channelUrl =
+                        boost::urls::parse_uri(self->url).value();
+                    boost::url epgUrl = channelUrl;
 
-                auto channelParams = channelUrl.params();
-                auto username = (*channelParams.find("username"))->value;
-                auto password = (*channelParams.find("password"))->value;
-                channelParams.clear();
+                    auto channelParams = channelUrl.params();
+                    auto username = (*channelParams.find("username"))->value;
+                    auto password = (*channelParams.find("password"))->value;
+                    channelParams.clear();
 
-                channelUrl.set_path(fmt::format("/{}/{}/{}/{}.ts", streamType,
-                                                username, password, streamId));
-                auto epgParams = epgUrl.params();
-                epgParams.replace(epgParams.find("action"),
-                                  { "action", "get_simple_data_table" });
-                epgParams.set("stream_id", std::to_string(streamId));
+                    channelUrl.set_path(fmt::format("/{}/{}/{}/{}.ts",
+                                                    streamType, username,
+                                                    password, streamId));
+                    auto epgParams = epgUrl.params();
+                    epgParams.replace(epgParams.find("action"),
+                                      { "action", "get_simple_data_table" });
+                    epgParams.set("stream_id", std::to_string(streamId));
 
-                auto channel = std::make_shared<Channel>(
-                    -1, name, channelUrl.buffer(), icon, "", epgUrl.buffer(),
-                    epgStreamId, server_id, false, -1);
+                    auto channel = std::make_shared<Channel>(
+                        -1, name, channelUrl.buffer(), icon, "",
+                        epgUrl.buffer(), epgStreamId, server_id, false, -1);
 
-                auto displayChannel = DisplayChannel::Create(
-                    channel, self->workersProvider, nullptr, self->ui_executor,
-                    self.get());
-                displayChannel->reloadLocalChannelsSignal.connect(
-                    std::ref(self->reloadLocalChannelsSignal));
-                self->children.push_back(std::move(displayChannel));
+                    auto displayChannel = DisplayChannel::Create(
+                        channel, self->workersProvider, nullptr,
+                        self->ui_executor, self.get());
+                    displayChannel->reloadLocalChannelsSignal.connect(
+                        std::ref(self->reloadLocalChannelsSignal));
+                    self->children.push_back(std::move(displayChannel));
+                }
             }
+            catch (const std::exception& ex)
+            {
+                self->error = ex.what();
+                self->areChildrenLoading = false;
+                return;
+            }
+            self->error.reset();
             self->areChildrenLoaded = true;
             self->areChildrenLoading = false;
             for (const auto& f : self->saveGroupCallbacks)

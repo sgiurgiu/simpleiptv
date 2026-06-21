@@ -5,6 +5,7 @@
 
 #include <fmt/format.h>
 #include <functional>
+#include <optional>
 #include <vector>
 
 struct DisplayRemoteChannelsGroup : public DisplayChannelsGroup
@@ -53,6 +54,7 @@ struct DisplayRemoteChannelsGroup : public DisplayChannelsGroup
     std::string eraserFilterLabel;
     bool areChildrenLoading = false;
     bool areChildrenLoaded = false;
+    std::optional<std::string> error;
     using SaveGroupFunction = std::function<void()>;
     std::vector<SaveGroupFunction> saveGroupCallbacks;
 };

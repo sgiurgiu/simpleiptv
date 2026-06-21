@@ -3,6 +3,8 @@
 #include "display_channel_group.h"
 #include "display_server_node.h"
 
+#include <optional>
+
 struct DisplayServerCategory : public DisplayChannelsGroup
 {
     DisplayServerCategory(DisplayNodeKey key,
@@ -46,6 +48,8 @@ struct DisplayServerCategory : public DisplayChannelsGroup
     DisplayServer* displayServer;
     std::string url;
     bool areChildrenLoading = false;
+    bool areChildrenLoaded = false;
+    std::optional<std::string> error;
     std::string groupsFilter;
     std::string groupsFilterLabel;
     std::string eraserLabel;

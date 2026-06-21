@@ -45,7 +45,22 @@ void DisplayServerCategory::render(std::unordered_set<DisplayNode*>& selectedNod
     if (ImGui::TreeNodeEx(name.c_str(), tree_node_flags))
     {
         isOpen = true;
-        if (children.empty())
+        if (error)
+        {
+            ImGui::PushID(this);
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextColored({ 1.f, 0.f, 0.f, 1.f }, "Error loading: %s",
+                               error->c_str());
+            ImGui::PopTextWrapPos();
+            if (ImGui::Button("Retry"))
+            {
+                error.reset();
+                areChildrenLoading = true;
+                loadRemoteChildren();
+            }
+            ImGui::PopID();
+        }
+        else if (!areChildrenLoaded)
         {
             ImGui::Text("Loading...");
             if (!areChildrenLoading)
@@ -53,6 +68,10 @@ void DisplayServerCategory::render(std::unordered_set<DisplayNode*>& selectedNod
                 areChildrenLoading = true;
                 loadRemoteChildren();
             }
+        }
+        else if (children.empty())
+        {
+            ImGui::Text("No categories");
         }
         else
         {
@@ -98,31 +117,46 @@ void DisplayServerCategory::loadRemoteChildren()
             auto self = std::static_pointer_cast<DisplayServerCategory>(selfNode);
             if (ec)
             {
+                self->error = ec.message();
+                self->areChildrenLoading = false;
                 return;
             }
 
-            nlohmann::json json = nlohmann::json::parse(body);
-            for (const auto& cat : json)
+            try
             {
-                auto catId = cat["category_id"].get<std::string>();
-                auto catName = cat["category_name"].get<std::string>();
-                boost::url url = boost::urls::parse_uri(self->url).value();
-                auto params = url.params();
-                auto actionIt = params.find("action");
-                std::string action = "get_live_streams";
-                if ((*actionIt)->value == "get_vod_categories")
+                nlohmann::json json = nlohmann::json::parse(body);
+                for (const auto& cat : json)
                 {
-                    action = "get_vod_streams";
+                    auto catId = cat["category_id"].get<std::string>();
+                    auto catName = cat["category_name"].get<std::string>();
+                    boost::url url = boost::urls::parse_uri(self->url).value();
+                    auto params = url.params();
+                    auto actionIt = params.find("action");
+                    std::string action = "get_live_streams";
+                    if ((*actionIt)->value == "get_vod_categories")
+                    {
+                        action = "get_vod_streams";
+                    }
+                    params.replace(actionIt, { "action", action });
+                    params.set("category_id", catId);
+                    auto group = DisplayRemoteChannelsGroup::Create(
+                        catName, url.buffer(), self->workersProvider,
+                        self->ui_executor, self.get());
+                    group->reloadLocalChannelsSignal.connect(
+                        std::ref(self->reloadLocalChannelsSignal));
+                    self->children.push_back(std::move(group));
                 }
-                params.replace(actionIt, { "action", action });
-                params.set("category_id", catId);
-                auto group = DisplayRemoteChannelsGroup::Create(
-                    catName, url.buffer(), self->workersProvider,
-                    self->ui_executor, self.get());
-                group->reloadLocalChannelsSignal.connect(
-                    std::ref(self->reloadLocalChannelsSignal));
-                self->children.push_back(std::move(group));
             }
+            catch (const std::exception& ex)
+            {
+                self->error = ex.what();
+                self->areChildrenLoading = false;
+                return;
+            }
+
+            self->error.reset();
+            self->areChildrenLoaded = true;
+            self->areChildrenLoading = false;
         },
         false);
 }
