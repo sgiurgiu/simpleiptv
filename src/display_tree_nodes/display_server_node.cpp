@@ -35,79 +35,7 @@ void DisplayServer::render(std::unordered_set<DisplayNode*>& selectedNodes,
 
     if (ImGui::TreeNodeEx(name.c_str(), tree_node_flags))
     {
-        if (ImGui::BeginPopupContextItem())
-        {
-            if (ImGui::Selectable("Edit server"))
-            {
-                editServerSignal(server);
-            }
-            if (ImGui::Selectable("Show server info"))
-            {
-                openServerInfo = true;
-                boost::url url;
-                url.set_scheme(server->GetUrlScheme());
-                url.set_host(server->GetHost());
-                uint16_t port;
-                auto [_, ec] = std::from_chars(
-                    server->GetPort().data(),
-                    server->GetPort().data() + server->GetPort().size(), port);
-                if (ec == std::errc{})
-                {
-                    url.set_port_number(port);
-                }
-                else
-                {
-                    if ("https" == server->GetUrlScheme())
-                    {
-                        url.set_port_number(443);
-                    }
-                    else
-                    {
-                        url.set_port_number(80);
-                    }
-                }
-
-                url.set_path("/player_api.php");
-                auto params = url.params();
-                params.set("username", server->GetUsername());
-                params.set("password", server->GetPassword());
-
-                workersProvider->GetNetworkResourceProvider()->GetResource(
-                    url.buffer(), ui_executor,
-                    [weak = weak_from_this()](std::string body, std::error_code ec)
-                    {
-                        auto selfNode = weak.lock();
-                        if (!selfNode)
-                            return;
-                        auto self =
-                            std::static_pointer_cast<DisplayServer>(selfNode);
-                        if (ec)
-                        {
-                            self->error = ec.message();
-                            return;
-                        }
-
-                        nlohmann::json json = nlohmann::json::parse(body);
-                        if (json.contains("user_info") &&
-                            json["user_info"].is_object())
-                        {
-                            self->userInfo.emplace(json["user_info"]);
-                        }
-                        if (json.contains("server_info") &&
-                            json["server_info"].is_object())
-                        {
-                            self->serverInfo.emplace(json["server_info"]);
-                        }
-                    },
-                    false);
-            }
-            if (ImGui::Selectable("Remove Server"))
-            {
-                removeServerSignal(server);
-            }
-            ImGui::EndPopup();
-        }
-
+        showPopup(name.c_str(), openServerInfo);
         isOpen = true;
         for (auto& c : children)
         {
@@ -121,6 +49,8 @@ void DisplayServer::render(std::unordered_set<DisplayNode*>& selectedNodes,
         clearSelectedChildren(this, selectedNodes);
     }
 
+    showPopup(name.c_str(), openServerInfo);
+
     if (openServerInfo)
     {
         ImGui::OpenPopup("Server Info");
@@ -128,6 +58,80 @@ void DisplayServer::render(std::unordered_set<DisplayNode*>& selectedNodes,
     showInfoDialog();
 }
 
+void DisplayServer::showPopup(const char* id, bool& openServerInfo)
+{
+    if (ImGui::BeginPopupContextItem(id))
+    {
+        if (ImGui::Selectable("Edit server"))
+        {
+            editServerSignal(server);
+        }
+        if (ImGui::Selectable("Show server info"))
+        {
+            openServerInfo = true;
+            boost::url url;
+            url.set_scheme(server->GetUrlScheme());
+            url.set_host(server->GetHost());
+            uint16_t port;
+            auto [_, ec] = std::from_chars(
+                server->GetPort().data(),
+                server->GetPort().data() + server->GetPort().size(), port);
+            if (ec == std::errc{})
+            {
+                url.set_port_number(port);
+            }
+            else
+            {
+                if ("https" == server->GetUrlScheme())
+                {
+                    url.set_port_number(443);
+                }
+                else
+                {
+                    url.set_port_number(80);
+                }
+            }
+
+            url.set_path("/player_api.php");
+            auto params = url.params();
+            params.set("username", server->GetUsername());
+            params.set("password", server->GetPassword());
+
+            workersProvider->GetNetworkResourceProvider()->GetResource(
+                url.buffer(), ui_executor,
+                [weak = weak_from_this()](std::string body, std::error_code ec)
+                {
+                    auto selfNode = weak.lock();
+                    if (!selfNode)
+                        return;
+                    auto self = std::static_pointer_cast<DisplayServer>(selfNode);
+                    if (ec)
+                    {
+                        self->error = ec.message();
+                        return;
+                    }
+
+                    nlohmann::json json = nlohmann::json::parse(body);
+                    if (json.contains("user_info") &&
+                        json["user_info"].is_object())
+                    {
+                        self->userInfo.emplace(json["user_info"]);
+                    }
+                    if (json.contains("server_info") &&
+                        json["server_info"].is_object())
+                    {
+                        self->serverInfo.emplace(json["server_info"]);
+                    }
+                },
+                false);
+        }
+        if (ImGui::Selectable("Remove Server"))
+        {
+            removeServerSignal(server);
+        }
+        ImGui::EndPopup();
+    }
+}
 void DisplayServer::showInfoDialog()
 {
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();

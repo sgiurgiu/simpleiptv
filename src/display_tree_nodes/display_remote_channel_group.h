@@ -2,6 +2,7 @@
 
 #include "display_channel_group.h"
 #include "display_server_category.h"
+#include "imgui.h"
 
 #include <fmt/format.h>
 #include <functional>
@@ -43,7 +44,7 @@ struct DisplayRemoteChannelsGroup : public DisplayChannelsGroup
     {
     }
     virtual bool shouldRender(const std::string&) const override;
-    void showPopup();
+    void showPopup(const char* id);
     // we have another one because we want to control here how we load our children
     void loadRemoteChildren();
     void saveGroupLocally();

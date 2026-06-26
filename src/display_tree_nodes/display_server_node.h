@@ -43,6 +43,7 @@ struct DisplayServer : public DisplayChannelsGroup
     }
 
     void showInfoDialog();
+    void showPopup(const char* id, bool& openServerInfo);
 
     using EditServerSignal = boost::signals2::signal<void(ServerPtr)>;
     EditServerSignal editServerSignal;

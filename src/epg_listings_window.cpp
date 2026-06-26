@@ -946,14 +946,16 @@ void EpgListingWindow::loadRemoteServers()
 #if __cpp_lib_chrono >= 201907L
                     auto tz = std::chrono::current_zone();
                     auto localTime = tz->to_local(*epgUpdatedAt);
-#else
-                    localTime =
-                        date::make_zoned(date::current_zone(), *epgUpdatedAt)
-                            .get_local_time();
-#endif
-
                     self->serverLastProgramGuideRefresh.append(fmt::format(
                         "{} - {:%F %H:%M}\n", s->GetHost(), localTime));
+#else
+                    auto localTime =
+                        date::make_zoned(date::current_zone(), *epgUpdatedAt)
+                            .get_local_time();
+                    self->serverLastProgramGuideRefresh.append(
+                        fmt::format("{} - {}\n", s->GetHost(),
+                                    date::format("%F %H:%M", localTime)));
+#endif
                 }
                 else
                 {

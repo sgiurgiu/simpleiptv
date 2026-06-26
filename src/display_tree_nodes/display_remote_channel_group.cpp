@@ -15,6 +15,7 @@
 #include "display_channel.h"
 #include "display_node.h"
 #include "display_server_node.h"
+#include "imgui_internal.h"
 
 DisplayRemoteChannelsGroup::DisplayRemoteChannelsGroup(
     DisplayNodeKey key,
@@ -62,10 +63,9 @@ void DisplayRemoteChannelsGroup::render(
     ImGui::PushID(this);
 
     ImGui::SetNextItemOpen(isOpen);
-
     if (ImGui::TreeNodeEx(name.c_str(), tree_node_flags))
     {
-        showPopup();
+        showPopup(name.c_str());
         isOpen = true;
         if (error)
         {
@@ -120,6 +120,7 @@ void DisplayRemoteChannelsGroup::render(
         isOpen = false;
         clearSelectedChildren(this, selectedNodes);
     }
+    showPopup(name.c_str());
     ImGui::PopID();
 }
 void DisplayRemoteChannelsGroup::loadRemoteChildren()
@@ -218,9 +219,9 @@ void DisplayRemoteChannelsGroup::loadRemoteChildren()
         false);
 }
 
-void DisplayRemoteChannelsGroup::showPopup()
+void DisplayRemoteChannelsGroup::showPopup(const char* id)
 {
-    if (ImGui::BeginPopupContextItem())
+    if (ImGui::BeginPopupContextItem(id))
     {
         if (ImGui::Selectable("Save/Update Group"))
         {

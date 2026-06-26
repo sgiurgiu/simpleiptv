@@ -26,7 +26,7 @@ experience that idles quietly when you're not interacting with it.
 - **Screenshots, colorspace and player settings** built in.
 - **Desktop integration on Linux** — MPRIS media-key control over D-Bus and
   screensaver inhibition while a stream is playing.
-- **Cross-platform** — Linux (RPM, DEB, AppImage, Arch, FreeBSD) and Windows (MSI).
+- **Cross-platform** — Linux (RPM, DEB, AppImage) and Windows (MSI).
 
 ## Screenshots
 
@@ -49,7 +49,7 @@ your system:
 
 - **Fedora / RHEL** — `simpleiptv-<version>.fc<ver>.x86_64.rpm`
 - **Linux (portable)** — `SimpleIPTV-<version>-x86_64.AppImage` (`chmod +x` and run)
-- **Arch Linux** — build from the `scripts/arch/PKGBUILD`
+- **Debian** — `simpleiptv_<ver>+deb<rel>_amd64.deb`
 - **Windows** — the WIX-generated `.msi` installer
 
 > The mpv/FFmpeg backend is linked into the application, so no separate media
@@ -88,24 +88,16 @@ presets are:
 ```sh
 # Debug build with tests
 cmake --preset default
-cmake --build build
+cmake --build --preset default
 
 # Optimized release build
 cmake --preset release
-cmake --build build-release
+cmake --build --preset release
 ```
 
 Convenience build scripts for packaging live in [`scripts/`](scripts/)
 (`build_linux.sh`, `build_linux_app.sh` for the AppImage, and
 `build_windows.ps1`).
-
-### Tests
-
-Tests are built by default (`ENABLE_TESTS=ON`) and use GoogleTest:
-
-```sh
-ctest --test-dir build
-```
 
 ## Usage
 
@@ -120,20 +112,6 @@ ctest --test-dir build
 Servers, settings and cached data are stored in a local SQLite database in the
 OS-standard application configuration folder.
 
-## Architecture
-
-A quick map of the source tree under [`src/`](src/):
-
-- `main.cpp`, `simpleiptv_coordinator.*` — GLFW window, main loop and the
-  coordinator that owns UI state and the render thread.
-- `simpleiptv_vulkan.*`, `simpleiptv_ui.*` — Vulkan renderer and ImGui UI host.
-- `mpvplayer.*` — libmpv playback integration.
-- `network_resource_provider.*`, `servers/`, `channels/` — Xtream Codes API
-  client, server and channel models and repositories.
-- `epg/` — XMLTV parsing/import and EPG storage.
-- `display_tree_nodes/` — the channel/category tree shown in the side panel.
-- `dbus/`, `dbus_mpris_service.*`, `sleep_service.*` — Linux desktop integration
-  (MPRIS, screensaver inhibition).
 
 ## License
 

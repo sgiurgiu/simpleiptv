@@ -23,7 +23,7 @@ if [ -z ${SIMPLEIPTV_VERSION} ]; then
 fi
 
 if [ -z $1 ]; then
-    distros=("fedora")
+    distros=("fedora" "appimage" "debian")
 else
     distros=($1)
 fi
