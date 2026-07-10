@@ -22,6 +22,9 @@ public:
     void SetSize(int width, int height);
     void SetIdlePresentRate(int hz);
     bool ShouldQuit() const;
+    // Desired fullscreen state set by the UI; the main loop polls this and
+    // applies the actual GLFW window change.
+    bool IsFullscreen() const;
 
     // Drains pending UI-thread work while holding uiStateMutex, so the
     // DisplayNode tree is never mutated while the render thread walks it.

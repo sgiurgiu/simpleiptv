@@ -1,0 +1,29 @@
+Wayland: fullscreen on the monitor the window is currently on.
+
+GLFW's API requires naming a monitor for fullscreen, but on Wayland a
+client cannot know which output a window is on (window positions are
+hidden from clients), so any explicit choice is a guess — typically the
+output at the layout origin. The Wayland protocol handles this natively:
+xdg_toplevel_set_fullscreen(NULL) lets the compositor pick the output the
+window is currently on (this is what mpv does). Pass NULL instead of the
+requested monitor's output for runtime fullscreen toggles
+(glfwSetWindowMonitor -> acquireMonitor); the monitor argument still
+selects the video mode reported to the app.
+
+--- a/src/wl_window.c
++++ b/src/wl_window.c
+@@ -503,12 +503,12 @@
+     if (window->wl.libdecor.frame)
+     {
+         libdecor_frame_set_fullscreen(window->wl.libdecor.frame,
+-                                      window->monitor->wl.output);
++                                      NULL);
+     }
+     else if (window->wl.xdg.toplevel)
+     {
+         xdg_toplevel_set_fullscreen(window->wl.xdg.toplevel,
+-                                    window->monitor->wl.output);
++                                    NULL);
+     }
+ 
+     setIdleInhibitor(window, GLFW_TRUE);

@@ -175,6 +175,44 @@ void startGraphicalInterface()
     glfwDestroyWindow(window);
 }
 
+// Picks the monitor whose area contains the window center, falling back to
+// the primary monitor. On Wayland window positions are always (0,0), so this
+// degrades to the monitor at the origin; the compositor decides fullscreen
+// placement there anyway.
+static GLFWmonitor* pickMonitorForWindow(GLFWwindow* window)
+{
+    int monitorCount = 0;
+    GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
+    if (monitors && monitorCount > 0)
+    {
+        int wx = 0;
+        int wy = 0;
+        int ww = 0;
+        int wh = 0;
+        glfwGetWindowPos(window, &wx, &wy);
+        glfwGetWindowSize(window, &ww, &wh);
+        const int cx = wx + ww / 2;
+        const int cy = wy + wh / 2;
+        for (int i = 0; i < monitorCount; ++i)
+        {
+            const GLFWvidmode* mode = glfwGetVideoMode(monitors[i]);
+            if (!mode)
+            {
+                continue;
+            }
+            int mx = 0;
+            int my = 0;
+            glfwGetMonitorPos(monitors[i], &mx, &my);
+            if (cx >= mx && cx < mx + mode->width && cy >= my &&
+                cy < my + mode->height)
+            {
+                return monitors[i];
+            }
+        }
+    }
+    return glfwGetPrimaryMonitor();
+}
+
 void runMainLoop(GLFWwindow* window,
                  WorkersProvider& workersProvider,
                  SimpleIPTVVulkan* vulkanInstance)
@@ -213,6 +251,17 @@ void runMainLoop(GLFWwindow* window,
             coordinator->SetSize(width, height);
         });
 
+    // Windowed geometry saved when entering fullscreen, restored on exit.
+    struct
+    {
+        int x = 0;
+        int y = 0;
+        int w = 1280;
+        int h = 720;
+    } windowedGeometry;
+    bool fullscreenApplied = false;
+    const bool isWayland = glfwGetPlatform() == GLFW_PLATFORM_WAYLAND;
+
     // Main loop
     bool done = false;
     // Idle UI refresh interval (seconds). glfwWaitEventsTimeout blocks until an
@@ -236,7 +285,56 @@ void runMainLoop(GLFWwindow* window,
         // never walks the DisplayNode tree while it is being mutated here.
         coordinator.PollUI(uiContext);
 
+        // Fullscreen intent is set on the render thread (key handling in the
+        // UI), but the GLFW window can only be changed from this thread.
+        const bool wantFullscreen = coordinator.IsFullscreen();
+        if (wantFullscreen != fullscreenApplied)
+        {
+            if (wantFullscreen)
+            {
+                if (!isWayland)
+                {
+                    // Not available on Wayland (and would spam the GLFW error
+                    // callback); the compositor restores placement there.
+                    glfwGetWindowPos(window, &windowedGeometry.x,
+                                     &windowedGeometry.y);
+                }
+                glfwGetWindowSize(window, &windowedGeometry.w,
+                                  &windowedGeometry.h);
+                // On Wayland the patched GLFW passes a NULL output so the
+                // compositor picks the monitor the window is on; the monitor
+                // choice only matters on X11.
+                GLFWmonitor* monitor = isWayland ? glfwGetPrimaryMonitor()
+                                                 : pickMonitorForWindow(window);
+                if (const GLFWvidmode* mode = glfwGetVideoMode(monitor))
+                {
+                    glfwSetWindowMonitor(window, monitor, 0, 0, mode->width,
+                                         mode->height, mode->refreshRate);
+                }
+            }
+            else
+            {
+                glfwSetWindowMonitor(window, nullptr, windowedGeometry.x,
+                                     windowedGeometry.y, windowedGeometry.w,
+                                     windowedGeometry.h, 0);
+            }
+            fullscreenApplied = wantFullscreen;
+#ifdef STV_UNIX
+            workersProvider.GetMprisService()->SetCurrentFullscreen(
+                wantFullscreen);
+#endif
+        }
+
         coordinator.Render();
+    }
+
+    // Leave fullscreen before shutdown so the window size persisted by
+    // startGraphicalInterface is the windowed one, not the monitor's.
+    if (fullscreenApplied)
+    {
+        glfwSetWindowMonitor(window, nullptr, windowedGeometry.x,
+                             windowedGeometry.y, windowedGeometry.w,
+                             windowedGeometry.h, 0);
     }
 
     // Orderly shutdown. uiContext and coordinator live on this stack, but the

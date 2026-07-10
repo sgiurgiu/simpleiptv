@@ -55,6 +55,13 @@ SimpleIPTVCoordinator::SimpleIPTVCoordinator(boost::asio::io_context& uiContext,
     mprisService->AddStopListener([this]() { mpvPlayer.Stop(); });
     mprisService->AddPlayPauseListener([]() { /*player.PlayPause();*/ });
     mprisService->AddQuitListener([this]() { simpleiptv.SetQuit(true); });
+    mprisService->AddFullscreenListener(
+        [this](bool fullscreen)
+        {
+            boost::asio::post(uiExecutor,
+                              [this, fullscreen]()
+                              { simpleiptv.SetFullscreen(fullscreen); });
+        });
     mpvPlayer.AddPlayerStateListener(
         [mprisService](PlayerState state)
         { mprisService->SetCurrentPlayerState(state); });
@@ -134,4 +141,9 @@ void SimpleIPTVCoordinator::SetIdlePresentRate(int hz)
 bool SimpleIPTVCoordinator::ShouldQuit() const
 {
     return simpleiptv.ShouldQuit();
+}
+
+bool SimpleIPTVCoordinator::IsFullscreen() const
+{
+    return simpleiptv.IsFullscreen();
 }

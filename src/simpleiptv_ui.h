@@ -9,6 +9,8 @@
 #include <imgui_internal.h>
 #include <boost/asio/any_io_executor.hpp>
 
+#include <atomic>
+
 class SimpleIPTVUI
 {
 public:
@@ -25,6 +27,13 @@ public:
     {
         this->quit = quit;
     }
+    bool IsFullscreen() const
+    {
+        return fullscreen;
+    }
+    // Remote (MPRIS) fullscreen request; unlike the F key this is not gated
+    // on the player state. Call on the UI thread.
+    void SetFullscreen(bool fullscreen);
     template <typename S>
     void AddChannelActivatedListener(S slot)
     {
@@ -125,6 +134,10 @@ private:
     GetPlayerSignal getPlayerSignal;
     bool quit = false;
     bool showChannels = true;
+    // Desired fullscreen state. Written on the render thread (key handling in
+    // showDesktop), polled by the main loop which applies the actual GLFW
+    // window change (glfwSetWindowMonitor is main-thread only).
+    std::atomic<bool> fullscreen = false;
 #ifdef STV_DEBUG
     bool showDemoWindow = true;
 #endif

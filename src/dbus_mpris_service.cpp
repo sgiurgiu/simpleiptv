@@ -51,6 +51,25 @@ void MprisService::SetCurrentPlayerState(PlayerState state)
         spdlog::error(error.getMessage());
     }
 }
+void MprisService::SetCurrentFullscreen(bool fullscreen)
+{
+    if (currentFullscreen == fullscreen)
+    {
+        return;
+    }
+    currentFullscreen = fullscreen;
+    try
+    {
+        mediaPlayerAdaptor->emitPropertiesChangedSignal(
+            org::mpris::MediaPlayer2_adaptor::INTERFACE_NAME,
+            std::vector<sdbus::PropertyName>{
+                sdbus::PropertyName{ "Fullscreen" } });
+    }
+    catch (const sdbus::Error& error)
+    {
+        spdlog::error(error.getMessage());
+    }
+}
 void MprisService::SetCurrentChannel(ChannelPtr channel)
 {
     this->currentChannel = channel;
@@ -123,10 +142,11 @@ bool MprisService::MediaPlayer2Adaptor::CanQuit()
 }
 bool MprisService::MediaPlayer2Adaptor::Fullscreen()
 {
-    return false;
+    return service->currentFullscreen;
 }
-void MprisService::MediaPlayer2Adaptor::Fullscreen(const bool&)
+void MprisService::MediaPlayer2Adaptor::Fullscreen(const bool& fullscreen)
 {
+    service->fullscreenSignal(fullscreen);
 }
 bool MprisService::MediaPlayer2Adaptor::CanSetFullscreen()
 {

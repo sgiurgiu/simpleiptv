@@ -100,6 +100,10 @@ public:
     {
         playerState = state;
     }
+    PlayerState GetCurrentPlayerState() const
+    {
+        return playerState;
+    }
 
 private:
     void loadChannelLogoData();

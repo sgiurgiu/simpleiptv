@@ -36,6 +36,7 @@ public:
     void SetCurrentChannel(ChannelPtr channel);
     void SetCurrentChannelGroup(ChannelsGroupPtr group);
     void SetVolume(double vol);
+    void SetCurrentFullscreen(bool fullscreen);
     template <typename S>
     void AddNextListener(S slot)
     {
@@ -75,6 +76,11 @@ public:
     void AddVolumeListener(S slot)
     {
         volumeSignal.connect(slot);
+    }
+    template <typename S>
+    void AddFullscreenListener(S slot)
+    {
+        fullscreenSignal.connect(slot);
     }
 
 private:
@@ -163,6 +169,7 @@ private:
 
     using PlayerControlSignal = boost::signals2::signal<void()>;
     using VolumeSignal = boost::signals2::signal<void(double)>;
+    using FullscreenSignal = boost::signals2::signal<void(bool)>;
 
     std::unique_ptr<sdbus::IConnection> sessionConnection;
     std::atomic_bool eventLoopRunning{ true };
@@ -170,6 +177,7 @@ private:
     std::unique_ptr<ManagerAdaptor> managerAdaptor;
     std::unique_ptr<MediaPlayer2Adaptor> mediaPlayerAdaptor;
     PlayerState currentPlayerState = PlayerState::STOPPED;
+    bool currentFullscreen = false;
     PlayerControlSignal nextSignal;
     PlayerControlSignal previousSignal;
     PlayerControlSignal pauseSignal;
@@ -178,6 +186,7 @@ private:
     PlayerControlSignal playSignal;
     PlayerControlSignal quitSignal;
     VolumeSignal volumeSignal;
+    FullscreenSignal fullscreenSignal;
     ChannelPtr currentChannel;
     ChannelsGroupPtr currentGroup;
     double volume = 0.0;
