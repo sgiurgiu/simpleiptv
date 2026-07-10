@@ -80,6 +80,9 @@ int main(int /*argc*/, char** /*argv*/)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    // Don't iconify the fullscreen window when it loses focus (e.g. alt-tab);
+    // stay fullscreen like every other video player.
+    glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
 
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
