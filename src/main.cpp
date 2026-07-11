@@ -8,6 +8,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <boost/asio/io_context.hpp>
+#include <chrono>
 #include <iostream>
 #include <spdlog/spdlog.h>
 #include <stb_image.h>
@@ -265,6 +266,18 @@ void runMainLoop(GLFWwindow* window,
     bool fullscreenApplied = false;
     const bool isWayland = glfwGetPlatform() == GLFW_PLATFORM_WAYLAND;
 
+    // Cursor auto-hide while fullscreen: hidden on entry, shown on movement,
+    // hidden again after the delay. The UI sets
+    // ImGuiConfigFlags_NoMouseCursorChange while fullscreen so the ImGui
+    // backend doesn't re-assert a visible cursor each frame over these calls.
+    constexpr std::chrono::seconds cursorAutoHideDelay{ 5 };
+    constexpr std::chrono::milliseconds cursorSettleGrace{ 500 };
+    double lastCursorX = 0.0;
+    double lastCursorY = 0.0;
+    auto lastCursorMove = std::chrono::steady_clock::now();
+    auto fullscreenEnteredAt = lastCursorMove;
+    bool cursorHidden = false;
+
     // Main loop
     bool done = false;
     // Idle UI refresh interval (seconds). glfwWaitEventsTimeout blocks until an
@@ -314,18 +327,55 @@ void runMainLoop(GLFWwindow* window,
                     glfwSetWindowMonitor(window, monitor, 0, 0, mode->width,
                                          mode->height, mode->refreshRate);
                 }
+                glfwGetCursorPos(window, &lastCursorX, &lastCursorY);
+                fullscreenEnteredAt = std::chrono::steady_clock::now();
+                // Hide immediately: pretend the last move was long ago.
+                lastCursorMove = fullscreenEnteredAt - cursorAutoHideDelay;
             }
             else
             {
                 glfwSetWindowMonitor(window, nullptr, windowedGeometry.x,
                                      windowedGeometry.y, windowedGeometry.w,
                                      windowedGeometry.h, 0);
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                cursorHidden = false;
             }
             fullscreenApplied = wantFullscreen;
 #ifdef STV_UNIX
             workersProvider.GetMprisService()->SetCurrentFullscreen(
                 wantFullscreen);
 #endif
+        }
+
+        if (fullscreenApplied)
+        {
+            double cx = 0.0;
+            double cy = 0.0;
+            glfwGetCursorPos(window, &cx, &cy);
+            const auto now = std::chrono::steady_clock::now();
+            if (cx != lastCursorX || cy != lastCursorY)
+            {
+                lastCursorX = cx;
+                lastCursorY = cy;
+                // The fullscreen resize shifts the window-relative cursor
+                // coordinates; don't count that as user movement.
+                if (now - fullscreenEnteredAt > cursorSettleGrace)
+                {
+                    lastCursorMove = now;
+                }
+            }
+            const bool hide = now - lastCursorMove >= cursorAutoHideDelay;
+            if (hide != cursorHidden)
+            {
+                cursorHidden = hide;
+                spdlog::debug("fullscreen cursor {}", hide ? "hidden" : "shown");
+            }
+
+            // Re-issued every tick: a no-op while the mode is unchanged, and
+            // it recovers from any cursor write the render thread made during
+            // the transition frames.
+            glfwSetInputMode(window, GLFW_CURSOR,
+                             hide ? GLFW_CURSOR_HIDDEN : GLFW_CURSOR_NORMAL);
         }
 
         coordinator.Render();

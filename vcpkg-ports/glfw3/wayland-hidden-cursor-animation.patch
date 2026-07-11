@@ -1,0 +1,26 @@
+Wayland: keep a hidden cursor hidden while the cursor is animated.
+
+incrementCursorImage runs on the cursor animation timer (cursorTimerfd) and
+unconditionally re-sends the current cursor image. With an animated cursor
+theme (frame delay > 0) this re-asserts a visible cursor every animation
+tick, overriding the wl_pointer_set_cursor(..., NULL, ...) issued for
+GLFW_CURSOR_HIDDEN / GLFW_CURSOR_DISABLED - the cursor can never be hidden.
+Bail out unless the cursor mode actually shows a cursor, matching the
+visibility condition in _glfwSetCursorWayland.
+
+--- a/src/wl_window.c
++++ b/src/wl_window.c
+@@ -1128,6 +1128,13 @@
+     if (!window || !window->wl.hovered)
+         return;
+ 
++    // A hidden cursor must stay hidden: don't let the cursor animation
++    // timer re-set a visible cursor image while the mode is HIDDEN or
++    // DISABLED (matches the visibility condition in _glfwSetCursorWayland).
++    if (window->cursorMode != GLFW_CURSOR_NORMAL &&
++        window->cursorMode != GLFW_CURSOR_CAPTURED)
++        return;
++
+     cursor = window->wl.currentCursor;
+     if (cursor && cursor->wl.cursor)
+     {
