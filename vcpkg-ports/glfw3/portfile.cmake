@@ -14,7 +14,7 @@ vcpkg_from_github(
     HEAD_REF master
     PATCHES
         wayland-fullscreen-current-monitor.patch
-        wayland-hidden-cursor-animation.patch
+#        wayland-hidden-cursor-animation.patch
 )
 
 if(VCPKG_TARGET_IS_LINUX)

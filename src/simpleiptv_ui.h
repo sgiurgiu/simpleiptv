@@ -31,6 +31,7 @@ public:
     {
         return fullscreen;
     }
+
     // Remote (MPRIS) fullscreen request; unlike the F key this is not gated
     // on the player state. Call on the UI thread.
     void SetFullscreen(bool fullscreen);

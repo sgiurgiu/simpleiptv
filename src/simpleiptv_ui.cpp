@@ -53,19 +53,16 @@ void SimpleIPTVUI::SetFullscreen(bool fullscreen)
 
 ImRect SimpleIPTVUI::RenderDesktop()
 {
-    // In fullscreen the main loop owns the cursor (auto-hide); stop the ImGui
-    // backend from re-asserting a visible cursor every frame. Must be set
-    // before ImGui_ImplGlfw_NewFrame — that is where the backend applies it.
-    if (fullscreen)
-    {
-        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-    }
-    else
-    {
-        ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
-    }
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+
+    if (fullscreen)
+    {
+        ImGui::SetMouseCursor(ImGui::GetCurrentContext()->MouseStationaryTimer >= 5.f
+                                  ? ImGuiMouseCursor_None
+                                  : ImGuiMouseCursor_Arrow);
+    }
+
 #ifdef STV_DEBUG
     if (showDemoWindow && !fullscreen)
         ImGui::ShowDemoWindow(&showDemoWindow);
