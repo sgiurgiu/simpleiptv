@@ -9,12 +9,11 @@ endif()
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO glfw/glfw
-    REF ${VERSION}
-    SHA512 39ad7a4521267fbebc35d2ff0c389a56236ead5fa4bdff33db113bd302f70f5f2869ff4e6db1979512e1542813292dff5a482e94dfce231750f0746c301ae9ed
+    REF ed6452b13c76f7b4da216a9952bc7837aeb0f031
+    SHA512 8c6a833061d8d8c32f14f8f42d81de55c2d004964d9b1491bbf10b2a5f492317ca3270497b3d094fd98bfa29919fac15648c1c46f9867bf9fbccc50837655661
     HEAD_REF master
     PATCHES
         wayland-fullscreen-current-monitor.patch
-#        wayland-hidden-cursor-animation.patch
 )
 
 if(VCPKG_TARGET_IS_LINUX)
