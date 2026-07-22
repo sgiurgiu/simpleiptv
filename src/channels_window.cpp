@@ -47,6 +47,7 @@ ChannelsWindow::ChannelsWindow(Key,
 , httpProxyDialog{ HTTPProxyDialog::Create(ui_executor, workersProvider) }
 , screenshotDialog{ ScreenshotDialog::Create(workersProvider) }
 , serverDialog{ ServerDialog::Create(ui_executor, workersProvider) }
+, channelDialog{ ChannelDialog::Create(ui_executor, workersProvider) }
 , aboutWindow{ vulkanInstance }
 {
     width = workersProvider->GetSettingsRepository()->GetChannelsWindowWidth(300);
@@ -84,6 +85,14 @@ void ChannelsWindow::initialize()
             if (!self)
                 return;
             self->loadSavedServers();
+        });
+    channelDialog->AddChannelsChangedListener(
+        [weak = weak_from_this()]()
+        {
+            auto self = weak.lock();
+            if (!self)
+                return;
+            self->loadLocalChannels();
         });
 
     loadLocalChannels();
@@ -272,6 +281,7 @@ ImVec2 ChannelsWindow::ShowWindow(float playerBarHeight)
     httpProxyDialog->ShowDialog();
     screenshotDialog->ShowDialog();
     serverDialog->ShowDialog();
+    channelDialog->ShowDialog();
     colorspaceDialog.ShowColorspaceDialog();
     aboutWindow.ShowAboutWindow();
     if (width != (int)std::floor(ImGui::GetWindowSize().x))
@@ -352,6 +362,11 @@ void ChannelsWindow::showMenu()
             {
                 serverDialog->SetShowAddServerDialog();
             }
+            if (ImGui::MenuItem("Add Single Channel"))
+            {
+                channelDialog->SetShowAddChannelDialog();
+            }
+
             ImGui::SetNextItemShortcut(ImGuiKey_S, ImGuiInputFlags_RouteGlobal |
                                                        ImGuiInputFlags_Tooltip);
             if (ImGui::MenuItem("Take Screenshot", "S"))

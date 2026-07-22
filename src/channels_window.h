@@ -14,6 +14,7 @@
 #include "aboutwindow.h"
 #include "serverpopup.h"
 #include "servers/server.h"
+#include "settings/channel_dialog.h"
 #include "settings/colorspace_dialog.h"
 #include "settings/http_proxy_dialog.h"
 #include "settings/screenshot_dialog.h"
@@ -106,6 +107,7 @@ private:
     std::shared_ptr<HTTPProxyDialog> httpProxyDialog;
     std::shared_ptr<ScreenshotDialog> screenshotDialog;
     std::shared_ptr<ServerDialog> serverDialog;
+    std::shared_ptr<ChannelDialog> channelDialog;
     std::optional<int> width;
     AboutWindow aboutWindow;
 

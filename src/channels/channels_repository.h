@@ -60,7 +60,13 @@ public:
     void UpsertGroup(ChannelsGroupPtr group,
                      SaveGroupCallback cb,
                      const boost::asio::any_io_executor& cb_executor);
-    void UpsertChannel();
+    using SaveChannelCallback = std::function<void(ChannelPtr)>;
+    // insert a single channel; if groupName is set and non-empty the group is
+    // found-or-created, otherwise the channel is added with no group
+    void AddChannel(ChannelPtr channel,
+                    std::optional<std::string> groupName,
+                    SaveChannelCallback cb,
+                    const boost::asio::any_io_executor& cb_executor);
 
 private:
     RootChannelsGroupPtr loadChannelsData();

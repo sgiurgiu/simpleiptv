@@ -168,6 +168,7 @@ set(STV_SRCS main.cpp
     sanitize_url.cpp
     servers/server.cpp
     servers/servers_repository.cpp
+    settings/channel_dialog.cpp
     settings/colorspace_dialog.cpp
     settings/http_proxy_dialog.cpp
     settings/screenshot_dialog.cpp

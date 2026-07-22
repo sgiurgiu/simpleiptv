@@ -25,7 +25,12 @@ void DatabaseConnections::Initialize()
     {
         for (size_t i = 0; i < poolSize; i++)
         {
-            pool.at(i).open(soci::sqlite3, dbFile.string());
+            auto& session = pool.at(i);
+            session.open(soci::sqlite3, dbFile.string());
+            // PRAGMAs are per-connection in SQLite, so they must be applied to
+            // every connection in the pool, not just one.
+            session << "PRAGMA foreign_keys = ON";
+            session << "PRAGMA synchronous = NORMAL";
         }
         initTables();
     }
@@ -42,8 +47,6 @@ soci::session DatabaseConnections::GetConnection()
 void DatabaseConnections::initTables()
 {
     auto con = GetConnection();
-    con << "PRAGMA foreign_keys = ON";
-    con << "PRAGMA synchronous = NORMAL";
     con << "CREATE TABLE IF NOT EXISTS SCHEMA_VERSION(VERSION INT)";
     con << "CREATE TABLE IF NOT EXISTS CHANNEL_GROUPS(GROUP_ID "
            "INTEGER NOT NULL PRIMARY KEY, "

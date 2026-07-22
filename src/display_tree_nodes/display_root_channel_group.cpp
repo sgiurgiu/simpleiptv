@@ -36,6 +36,18 @@ void DisplayRootChannelsGroup::setRoot(RootChannelsGroupPtr root,
     favouritesGroup->indexInParent = 0;
     children.push_back(favouritesGroup);
     loadChildren(workersProvider, vulkanInstance, ui_executor);
+
+    // channels without a group are shown directly under the root, after all
+    // the groups have been loaded
+    root->IterateChannels(
+        [this, workersProvider, vulkanInstance, ui_executor](ChannelPtr channel)
+        {
+            auto dchannel = DisplayChannel::Create(
+                channel, workersProvider, vulkanInstance, ui_executor, this);
+            dchannel->loadLogo();
+            dchannel->indexInParent = children.size();
+            children.push_back(std::move(dchannel));
+        });
 }
 
 void DisplayRootChannelsGroup::loadChildren(

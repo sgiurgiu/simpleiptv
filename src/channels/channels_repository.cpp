@@ -493,6 +493,86 @@ void ChannelsRepository::UpsertGroup(ChannelsGroupPtr group,
                       });
 }
 
+void ChannelsRepository::AddChannel(
+    ChannelPtr channel,
+    std::optional<std::string> groupName,
+    SaveChannelCallback cb,
+    const boost::asio::any_io_executor& cb_executor)
+{
+    boost::asio::post(
+        executor,
+        [self = shared_from_this(), channel = std::move(channel),
+         groupName = std::move(groupName), cb = std::move(cb), cb_executor]() mutable
+        {
+            ChannelPtr saved;
+            try
+            {
+                // resolve the group id: find-or-create when a name is given,
+                // otherwise the channel stays ungrouped (GROUP_ID NULL)
+                std::optional<int> groupId;
+                if (groupName && !groupName->empty())
+                {
+                    auto group = self->findGroup(*groupName);
+                    if (group)
+                    {
+                        groupId = group->GetId();
+                    }
+                    else
+                    {
+                        auto session = DatabaseConnections::GetConnection();
+                        soci::rowset<soci::row> rows = { (
+                            session.prepare
+                                << "INSERT INTO CHANNEL_GROUPS(NAME) VALUES(:name) "
+                                   "RETURNING GROUP_ID ",
+                            soci::use(*groupName, "name")) };
+                        for (const auto& r : rows)
+                        {
+                            groupId = r.get<int>(0);
+                            break;
+                        }
+                    }
+                }
+
+                auto session = DatabaseConnections::GetConnection();
+                int groupIdValue = groupId.value_or(0);
+                auto groupInd = groupId ? soci::i_ok : soci::i_null;
+                int favourite = channel->IsFavourite() ? 1 : 0;
+                // XSTREAM_SERVER_ID is intentionally omitted so it defaults to
+                // NULL: a locally-added channel has no backing server, and the
+                // column is an FK into XSTREAM_SERVERS.
+                std::optional<int> newId;
+                soci::rowset<soci::row> rows = { (
+                    session.prepare
+                        << "INSERT INTO CHANNELS (NAME, URI, LOGO_URI, "
+                           "EPG_CHANNEL_URI, EPG_CHANNEL_ID, GROUP_ID, FAVOURITE) "
+                           "VALUES(:name, :uri, '', '', '', :group_id, :favourite) "
+                           "RETURNING CHANNEL_ID",
+                    soci::use(channel->GetName(), "name"),
+                    soci::use(channel->GetUri(), "uri"),
+                    soci::use(groupIdValue, groupInd, "group_id"),
+                    soci::use(favourite, "favourite")) };
+                for (const auto& r : rows)
+                {
+                    newId = r.get<int>(0);
+                    break;
+                }
+
+                saved = std::make_shared<Channel>(
+                    newId.value_or(0), channel->GetName(), channel->GetUri(), "",
+                    "", "", "", 0, channel->IsFavourite(), groupId);
+            }
+            catch (const soci::soci_error& ex)
+            {
+                spdlog::error("Cannot add channel '{}': {}",
+                              channel ? channel->GetName() : std::string{},
+                              ex.what());
+            }
+            boost::asio::post(cb_executor, [saved = std::move(saved),
+                                            cb = std::move(cb)]() mutable
+                              { cb(std::move(saved)); });
+        });
+}
+
 ChannelPtr ChannelsRepository::upsertChannel(ChannelPtr channel,
                                              ChannelsGroupPtr parent)
 {
