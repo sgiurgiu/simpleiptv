@@ -271,6 +271,19 @@ target_compile_options(${EXECUTABLE_NAME} PRIVATE
     $<$<AND:$<CXX_COMPILER_ID:GNU,Clang,AppleClang>,$<CONFIG:Release,RelWithDebInfo>>:-march=native>
     $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release,RelWithDebInfo>>:/arch:AVX2>
 )
+# Debug symbols for the RPM -debuginfo subpackage. Deliberately not done by switching to
+# RelWithDebInfo: Release is the only config that defines IMGUI_DISABLE_DEBUG_TOOLS,
+# RelWithDebInfo is one of the two configs that enable the sanitizers, and it is -O2.
+if(SIMPLEIPTV_DEBUGINFO)
+  target_compile_options(${EXECUTABLE_NAME} PRIVATE
+    $<$<AND:$<CXX_COMPILER_ID:GNU,Clang,AppleClang>,$<CONFIG:Release>>:-g>)
+  # rpm's find-debuginfo runs with --strict-build-id, so a missing build-id note fails
+  # packaging outright. Fedora's gcc adds --build-id via its link spec, but the release
+  # preset pins no compiler.
+  target_link_options(${EXECUTABLE_NAME} PRIVATE
+    $<$<AND:$<CXX_COMPILER_ID:GNU,Clang>,$<PLATFORM_ID:Linux>>:-Wl,--build-id=sha1>)
+endif()
+
 set_source_files_properties(stb_implementation.cpp PROPERTIES COMPILE_OPTIONS "-fno-sanitize=undefined")
 
 target_compile_definitions(${EXECUTABLE_NAME} PRIVATE "$<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>")

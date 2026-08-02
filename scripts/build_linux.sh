@@ -28,6 +28,11 @@ else
     distros=($1)
 fi
 
+# Long enough that CPack/debugedit can rewrite DWARF source paths in place for the
+# -debuginfo RPM: the source dir must be at least as long as "/usr/src/debug/src_0"
+# (20 chars). "/tmp/simpleiptv-workspace" is 25.
+workspace=/tmp/simpleiptv-workspace
+
 for distro in "${distros[@]}"
 do
     echo "Running podman to build for distribution ${distro}"
@@ -35,8 +40,8 @@ do
     # This is a prebuilt container that has installed and compiled the require vcpkg packages
     podman pull $container
     podman run --rm --privileged=true --name simpleiptv_build \
-            -v "${root}":/tmp/simpleiptv/:Z \
+            -v "${root}":"${workspace}"/:Z \
             -e SIMPLEIPTV_VERSION="${SIMPLEIPTV_VERSION}" \
             $container \
-            /tmp/simpleiptv/scripts/build_linux_app.sh $distro
+            "${workspace}"/scripts/build_linux_app.sh $distro
 done

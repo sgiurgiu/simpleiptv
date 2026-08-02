@@ -58,12 +58,21 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "ENABLE_TESTS": "OFF",
-                "CMAKE_INSTALL_PREFIX": "/usr"
+                "CMAKE_INSTALL_PREFIX": "/usr",
+                "SIMPLEIPTV_DEBUGINFO": "OFF"
             },
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
                 "rhs": "Linux"
+            }
+        },
+        {
+            "name": "release-debuginfo",
+            "inherits": "release",
+            "description": "Release build carrying DWARF for the project's own sources; the RPM gets a -debuginfo subpackage",
+            "cacheVariables": {
+                "SIMPLEIPTV_DEBUGINFO": "ON"
             }
         },
         {
@@ -108,6 +117,12 @@
             "jobs": 16
         },
         {
+            "name": "release-debuginfo",
+            "configurePreset": "release-debuginfo",
+            "cleanFirst": true,
+            "jobs": 8
+        },
+        {
             "name": "release-windows",
             "configurePreset": "release-windows",
             "cleanFirst": true,
@@ -125,6 +140,13 @@
         {
             "name": "release",
             "configurePreset": "release",
+            "generators": [
+                "RPM"
+            ]
+        },
+        {
+            "name": "release-debuginfo",
+            "configurePreset": "release-debuginfo",
             "generators": [
                 "RPM"
             ]
@@ -200,6 +222,23 @@
                 {
                     "type": "package",
                     "name": "release"
+                }
+            ]
+        },
+        {
+            "name": "release-debuginfo",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "release-debuginfo"
+                },
+                {
+                    "type": "build",
+                    "name": "release-debuginfo"
+                },
+                {
+                    "type": "package",
+                    "name": "release-debuginfo"
                 }
             ]
         },

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.30)
 
 option(ENABLE_TESTS "Build tests" ON)
 option(ASAN_ENABLE "Build with sanitization on" OFF)
+option(SIMPLEIPTV_DEBUGINFO "Emit DWARF for the project's own sources and build an RPM -debuginfo subpackage" OFF)
 
 if(ENABLE_TESTS)
   list(APPEND VCPKG_MANIFEST_FEATURES "tests")
@@ -76,6 +77,29 @@ if(DEFINED ENV{OS_DIST_TAG})
   set(CPACK_DEBIAN_PACKAGE_RELEASE "1+$ENV{OS_DIST_TAG}")
 else()
   set(CPACK_DEBIAN_PACKAGE_RELEASE "1")
+endif()
+
+if(SIMPLEIPTV_DEBUGINFO AND UNIX AND NOT APPLE)
+  # CPack rewrites DWARF source paths with debugedit, which can only shorten strings
+  # in place. CPackRPM therefore fails unless every entry of CPACK_BUILD_SOURCE_DIRS
+  # (auto-set to "<source dir>;<binary dir>") is at least as long as "<prefix>/src_<n>",
+  # so the prefix has to stay short.
+  #
+  # /usr/src/debug is also exactly what CPACK_RPM_DEBUGINFO_EXCLUDE_DIRS excludes by
+  # default, so the debuginfo package owns /usr/src/debug/src_0 and nothing above it.
+  set(CPACK_RPM_BUILD_SOURCE_DIRS_PREFIX "/usr/src/debug")
+
+  string(LENGTH "${CPACK_RPM_BUILD_SOURCE_DIRS_PREFIX}/src_0" _stv_di_min_len)
+  string(LENGTH "${CMAKE_SOURCE_DIR}" _stv_src_len)
+  if(_stv_src_len LESS _stv_di_min_len)
+    message(FATAL_ERROR
+      "SIMPLEIPTV_DEBUGINFO=ON needs the source directory path to be at least "
+      "${_stv_di_min_len} characters long, because debugedit can only shorten paths "
+      "in place.\n  CMAKE_SOURCE_DIR = ${CMAKE_SOURCE_DIR} (${_stv_src_len} characters)\n"
+      "Move the checkout to a longer path (CI mounts it at /tmp/simpleiptv-workspace).")
+  endif()
+
+  set(CPACK_RPM_DEBUGINFO_PACKAGE ON)
 endif()
 
 # FreeBSD revision: bump only when rebuilding the same version

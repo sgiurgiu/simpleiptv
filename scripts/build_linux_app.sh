@@ -2,7 +2,11 @@
 
 set -x
 
-cd /tmp/simpleiptv
+# Derive the workspace from the script's own location so the podman mount path is
+# defined in exactly one place (scripts/build_linux.sh).
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+workspace=$(cd "${script_dir}/.." && pwd)
+cd "${workspace}"
 export VCPKG_ROOT=/opt/vcpkg
 CMAKE_PRESET=""
 distro=""
@@ -24,7 +28,7 @@ then
     if [[ "${distro}" == "fedora" ]]
     then
         echo "Building an rpm package"
-        CMAKE_PRESET="release"
+        CMAKE_PRESET="release-debuginfo"
         export OS_FAMILY=fedora
         export OS_VERSION=$(rpm --eval '%{fedora}')
         export OS_DIST_TAG="fc${OS_VERSION}"
@@ -49,16 +53,29 @@ fi
 rm -rf build-release
 ${cmake_exe}  --workflow --preset=${CMAKE_PRESET}
 
-mkdir -p /tmp/simpleiptv/packages
+mkdir -p "${workspace}"/packages
 if [[ "${distro}" == "appimage" ]]
 then
     export NO_STRIP=true
-    rm -rf /tmp/simpleiptv/AppDir
-    mkdir -p /tmp/simpleiptv/AppDir/usr
-    tar -xvf /tmp/simpleiptv/build-release/simpleiptv-${SIMPLEIPTV_VERSION}*.tar.gz -C /tmp/simpleiptv/AppDir/usr
-    cp -f /tmp/simpleiptv/simpleiptv_appimage.desktop /tmp/simpleiptv/AppDir/usr/share/applications/simpleiptv.desktop
+    rm -rf "${workspace}"/AppDir
+    mkdir -p "${workspace}"/AppDir/usr
+    tar -xvf "${workspace}"/build-release/simpleiptv-${SIMPLEIPTV_VERSION}*.tar.gz -C "${workspace}"/AppDir/usr
+    cp -f "${workspace}"/simpleiptv_appimage.desktop "${workspace}"/AppDir/usr/share/applications/simpleiptv.desktop
     /opt/linuxdeployqt-continuous-x86_64.AppImage ./AppDir/usr/share/applications/simpleiptv.desktop -appimage
-    cp SimpleIPTV*.AppImage /tmp/simpleiptv/packages/
+    cp SimpleIPTV*.AppImage "${workspace}"/packages/
 else
-    cp /tmp/simpleiptv/build-release/simpleiptv* /tmp/simpleiptv/packages/
+    cp "${workspace}"/build-release/simpleiptv* "${workspace}"/packages/
+fi
+
+if [[ "${distro}" == "fedora" ]]
+then
+    # CPack downgrades a failed debuginfo extraction to a warning and still exits 0,
+    # so check the subpackage actually exists rather than shipping a silent no-op.
+    shopt -s nullglob
+    debuginfo_rpms=("${workspace}"/packages/simpleiptv-debuginfo-*.rpm)
+    if [ ${#debuginfo_rpms[@]} -eq 0 ]
+    then
+        echo "FATAL: the -debuginfo RPM was not produced."
+        exit 1
+    fi
 fi
