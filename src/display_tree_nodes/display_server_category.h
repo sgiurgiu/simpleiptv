@@ -32,7 +32,7 @@ struct DisplayServerCategory : public DisplayChannelsGroup
     {
         return DisplayNodeType::SERVER_CATEGORY;
     }
-    virtual void render(std::unordered_set<DisplayNode*>& selectedNodes,
+    virtual void render(SelectionSet& selectedNodes,
                         const std::string&) override;
     virtual void loadChildren(WorkersProvider*,
                               SimpleIPTVVulkan*,

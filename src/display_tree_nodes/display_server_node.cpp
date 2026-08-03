@@ -19,7 +19,7 @@
 #include <date/tz.h>
 #endif
 
-void DisplayServer::render(std::unordered_set<DisplayNode*>& selectedNodes,
+void DisplayServer::render(SelectionSet& selectedNodes,
                            const std::string& filter)
 {
     ImGuiTreeNodeFlags tree_node_flags = ImGuiTreeNodeFlags_SpanAvailWidth |

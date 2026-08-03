@@ -3,8 +3,8 @@
 #include "display_channel.h"
 #include "display_favourite_channel_group.h"
 
-void DisplayRootChannelsGroup::renderGroup(
-    std::unordered_set<DisplayNode*>& selectedNodes, const std::string& filter)
+void DisplayRootChannelsGroup::renderGroup(SelectionSet& selectedNodes,
+                                           const std::string& filter)
 {
     // loadChildren();
     for (auto& g : children)

@@ -45,10 +45,18 @@ public:
         std::lock_guard<std::mutex> _{ logoMutex };
         return logo.size();
     }
-    const char* GetLogoData() const
+    /**
+     * A snapshot of the encoded logo, taken under the lock.
+     *
+     * Deliberately a copy: SetLogo() runs on the download/DB thread while
+     * decoders read the logo on the network pool or the render thread, so
+     * handing out a pointer (or a reference) into the live string would dangle
+     * as soon as the assignment reallocates it.
+     */
+    std::string GetLogoCopy() const
     {
         std::lock_guard<std::mutex> _{ logoMutex };
-        return logo.data();
+        return logo;
     }
 
     void SetLogo(const std::string& logo)

@@ -32,8 +32,8 @@ bool DisplayChannelsGroup::shouldRender(const std::string& filter) const
     }
     return shouldRender;
 }
-void DisplayChannelsGroup::renderGroup(
-    std::unordered_set<DisplayNode*>& selectedNodes, const std::string& filter)
+void DisplayChannelsGroup::renderGroup(SelectionSet& selectedNodes,
+                                       const std::string& filter)
 {
     if (!shouldRender(filter))
         return;
@@ -84,6 +84,12 @@ void DisplayChannelsGroup::removeChannel(std::shared_ptr<DisplayChannel> channel
         group->RemoveChannel(channel->channel->GetId());
     }
     std::erase(children, channel);
+    // indexInParent is what getNextNode()/getPreviousNode() navigate by, so it
+    // has to be renumbered for everything after the erased channel.
+    for (std::size_t i = 0; i < children.size(); ++i)
+    {
+        children[i]->indexInParent = static_cast<int>(i);
+    }
 }
 void DisplayChannelsGroup::addChannel(ChannelPtr channel,
                                       SimpleIPTVVulkan* vulkanInstance)

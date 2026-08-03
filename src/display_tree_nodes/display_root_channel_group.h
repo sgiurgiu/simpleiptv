@@ -19,7 +19,7 @@ struct DisplayRootChannelsGroup : public DisplayChannelsGroup
         return std::make_shared<DisplayRootChannelsGroup>(
             DisplayNodeKey{}, workersProvider, ui_executor);
     }
-    void renderGroup(std::unordered_set<DisplayNode*>& selectedNodes,
+    void renderGroup(SelectionSet& selectedNodes,
                      const std::string& filter) override;
     void setRoot(RootChannelsGroupPtr root,
                  WorkersProvider* workersProvider,

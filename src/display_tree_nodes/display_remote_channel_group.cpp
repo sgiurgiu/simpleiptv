@@ -46,8 +46,8 @@ bool DisplayRemoteChannelsGroup::shouldRender(const std::string& filter) const
     return it != name.cend();
 }
 
-void DisplayRemoteChannelsGroup::render(
-    std::unordered_set<DisplayNode*>& selectedNodes, const std::string& filter)
+void DisplayRemoteChannelsGroup::render(SelectionSet& selectedNodes,
+                                        const std::string& filter)
 {
     if (!shouldRender(filter))
     {

@@ -20,6 +20,17 @@ DisplayNode::DisplayNode(DisplayNodeKey,
     }
 }
 
+DisplayNode::~DisplayNode()
+{
+    // Leave no dangling pointer behind in the selection: nodes are routinely
+    // destroyed while selected (channels reload, "Remove Favourite", server
+    // refresh).
+    if (selectionSet)
+    {
+        selectionSet->erase(this);
+    }
+}
+
 DisplayNode* DisplayNode::getNextNode(WorkersProvider* workersProvider,
                                       SimpleIPTVVulkan* vulkanInstance,
                                       const boost::asio::any_io_executor& ui_executor)

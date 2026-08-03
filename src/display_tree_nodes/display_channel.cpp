@@ -16,18 +16,6 @@
 #include "display_node.h"
 #include "display_root_channel_group.h"
 
-namespace
-{
-void clearSelectedNodes(std::unordered_set<DisplayNode*>& selectedNodes)
-{
-    for (DisplayNode* node : selectedNodes)
-    {
-        node->selected = false;
-    }
-    selectedNodes.clear();
-}
-} // namespace
-
 DisplayChannel::DisplayChannel(DisplayNodeKey key,
                                ChannelPtr channel,
                                WorkersProvider* workersProvider,
@@ -79,12 +67,16 @@ void DisplayChannel::decodeLogoImage()
     int channels = 0;
     constexpr int kChannels = 4; // STBI_rgb_alpha => always RGBA
 
-    if (!channel->GetLogoData())
+    // Take a snapshot under Channel's lock: the encoded logo can be replaced by
+    // the download callback on another thread while we are decoding here, and
+    // pointing stb at the live buffer would be a use-after-free.
+    const std::string encodedLogo = channel->GetLogoCopy();
+    if (encodedLogo.empty())
         return;
 
     auto imageData = stbi_load_from_memory(
-        reinterpret_cast<const stbi_uc*>(channel->GetLogoData()),
-        channel->GetLogoSize(), &width, &height, &channels, STBI_rgb_alpha);
+        reinterpret_cast<const stbi_uc*>(encodedLogo.data()), encodedLogo.size(),
+        &width, &height, &channels, STBI_rgb_alpha);
 
     if (!imageData || width <= 0 || height <= 0)
     {
@@ -163,7 +155,7 @@ void DisplayChannel::downloadLogoImage(WorkersProvider* workersProvider,
             }
             spdlog::debug("Downloaded logo for {}, from {}",
                           self->channel->GetName(), self->channel->GetLogoUri());
-            // Logo Get<thing>/Set is protected by a mutex in Channel
+            // Logo Get/Set is protected by a mutex in Channel
             self->channel->SetLogo(logo);
             workersProvider->GetChannelsRepository()->UpdateChannelLogoSync(
                 self->channel->GetId(), std::move(logo));
@@ -186,7 +178,7 @@ DisplayChannel::~DisplayChannel()
 
 void DisplayChannel::activate()
 {
-    activatedChannelSignal(this);
+    activatedChannelSignal(shared_from_base<DisplayChannel>());
     isActivated = true;
     shouldScrollToChannel = true;
     spdlog::debug("activated {} - {}", name, channel->GetUri());
@@ -202,7 +194,7 @@ bool DisplayChannel::shouldRender(const std::string& filter) const
     return it != name.cend();
 }
 
-void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNodes,
+void DisplayChannel::renderChannel(SelectionSet& selectedNodes,
                                    const std::string& filter)
 {
     if (!shouldRender(filter))
@@ -258,7 +250,7 @@ void DisplayChannel::renderChannel(std::unordered_set<DisplayNode*>& selectedNod
 
             if (selected)
             {
-                clearSelectedNodes(selectedNodes);
+                selectedNodes.clear();
                 selectedNodes.insert(this);
                 selected = true;
             }
@@ -315,11 +307,11 @@ void DisplayChannel::loadLogoTexture()
     }
 }
 
-void DisplayChannel::showPopup(std::unordered_set<DisplayNode*>& selectedNodes)
+void DisplayChannel::showPopup(SelectionSet& selectedNodes)
 {
     if (ImGui::BeginPopupContextItem())
     {
-        clearSelectedNodes(selectedNodes);
+        selectedNodes.clear();
         selectedNodes.insert(this);
         selected = true;
         bool favourite = parent->getType() == DisplayNodeType::FAVOURITES &&
@@ -343,13 +335,15 @@ void DisplayChannel::showPopup(std::unordered_set<DisplayNode*>& selectedNodes)
         {
             workersProvider->GetChannelsRepository()->UpdateChannelFavourite(
                 channel->GetId(), false);
-            clearSelectedNodes(selectedNodes);
-            boost::asio::post(ui_executor,
-                              [self = shared_from_base<DisplayChannel>()]()
-                              {
-                                  auto p = self->parent;
-                                  p->removeChannel(self);
-                              });
+            selectedNodes.clear();
+            // Keep the group alive too: `self` alone would not stop a channels
+            // reload from freeing the parent before this handler runs, and
+            // self->parent would then dangle.
+            boost::asio::post(
+                ui_executor,
+                [self = shared_from_base<DisplayChannel>(),
+                 group = parent->shared_from_base<DisplayChannelsGroup>()]()
+                { group->removeChannel(self); });
         }
         ImGui::EndPopup();
     }

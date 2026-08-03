@@ -3,10 +3,10 @@
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/signals2.hpp>
 #include <memory>
-#include <unordered_set>
 #include <vector>
 
 #include "../simpleiptv_vulkan.h"
+#include "common.h"
 
 enum class DisplayNodeType
 {
@@ -31,18 +31,22 @@ protected:
     };
 
 public:
-    using ActivatedChannelSignal = boost::signals2::signal<void(DisplayChannel*)>;
+    // The activated channel is passed as a shared_ptr so that whoever holds on
+    // to it (ChannelsWindow keeps the currently playing one) cannot end up with
+    // a raw pointer into a node the next tree reload frees.
+    using ActivatedChannelSignal =
+        boost::signals2::signal<void(std::shared_ptr<DisplayChannel>)>;
     using ReloadLocalChannelsSignal = boost::signals2::signal<void()>;
     DisplayNode(DisplayNodeKey);
     DisplayNode(DisplayNodeKey, DisplayChannelsGroup* parent);
     DisplayNode(DisplayNodeKey,
                 const std::string& name,
                 DisplayChannelsGroup* parent);
-    virtual ~DisplayNode() = default;
+    virtual ~DisplayNode();
 
     virtual int getUnderlyingID() const = 0;
     virtual DisplayNodeType getType() const = 0;
-    virtual void render(std::unordered_set<DisplayNode*>& selectedNodes,
+    virtual void render(SelectionSet& selectedNodes,
                         const std::string& filter) = 0;
     virtual void loadChildren(WorkersProvider* workersProvider,
                               SimpleIPTVVulkan* vulkanInstance,
@@ -66,6 +70,9 @@ public:
     std::string name;
     bool selected = false;
     bool isOpen = false;
+    // The set this node is currently selected in, if any. Maintained by
+    // SelectionSet so ~DisplayNode can deregister itself.
+    SelectionSet* selectionSet = nullptr;
     std::vector<std::shared_ptr<DisplayNode>> children;
     ActivatedChannelSignal activatedChannelSignal;
     ReloadLocalChannelsSignal reloadLocalChannelsSignal;

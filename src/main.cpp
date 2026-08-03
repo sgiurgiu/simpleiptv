@@ -107,6 +107,12 @@ int main(int /*argc*/, char** /*argv*/)
 
 void startGraphicalInterface()
 {
+    // Declared before workersProvider so it is destroyed *after* it: the worker
+    // pools destroy their still-queued handlers in ~WorkersProvider, and such a
+    // handler can hold the last reference to a DisplayChannel, whose destructor
+    // frees its texture through this instance.
+    std::unique_ptr<SimpleIPTVVulkan> vulkanInstance;
+
     WorkersProvider workersProvider;
     auto settingsRepository = workersProvider.GetSettingsRepository();
     // Create window with graphics context
@@ -148,7 +154,7 @@ void startGraphicalInterface()
         stbi_image_free(imageData);
     }
 
-    auto vulkanInstance = std::make_unique<SimpleIPTVVulkan>();
+    vulkanInstance = std::make_unique<SimpleIPTVVulkan>();
     {
         uint32_t extensions_count = 0;
         const char** glfwExtensions =

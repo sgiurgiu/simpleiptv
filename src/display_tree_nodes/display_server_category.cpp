@@ -29,7 +29,7 @@ DisplayServerCategory::DisplayServerCategory(
 {
 }
 
-void DisplayServerCategory::render(std::unordered_set<DisplayNode*>& selectedNodes,
+void DisplayServerCategory::render(SelectionSet& selectedNodes,
                                    const std::string&)
 {
     ImGuiTreeNodeFlags tree_node_flags = ImGuiTreeNodeFlags_SpanAvailWidth |

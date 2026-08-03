@@ -48,12 +48,11 @@ struct DisplayChannelsGroup : public DisplayNode
     }
 
     virtual ~DisplayChannelsGroup() = default;
-    void render(std::unordered_set<DisplayNode*>& selectedNodes,
-                const std::string& filter) override
+    void render(SelectionSet& selectedNodes, const std::string& filter) override
     {
         renderGroup(selectedNodes, filter);
     }
-    virtual void renderGroup(std::unordered_set<DisplayNode*>& selectedNodes,
+    virtual void renderGroup(SelectionSet& selectedNodes,
                              const std::string& filter);
     void loadChildren(WorkersProvider* workersProvider,
                       SimpleIPTVVulkan* vulkanInstance,

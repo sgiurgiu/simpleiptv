@@ -79,6 +79,7 @@ public:
 
 private:
     void initialize();
+    void setActivatedChannel(std::shared_ptr<DisplayChannel> channel);
     void loadLocalChannels();
     void loadSavedServers();
     void showLocalChannelsTab();
@@ -92,6 +93,11 @@ private:
     SimpleIPTVVulkan* vulkanInstance;
     float bgAlpha = 0.f;
     bool quit = false;
+    // Declared before the trees they point into: members are destroyed in
+    // reverse order, so the sets outlive the nodes that deregister from them in
+    // ~DisplayNode.
+    SelectionSet localSelectedNodes;
+    SelectionSet remoteSelectedNodes;
     std::shared_ptr<DisplayRootChannelsGroup> rootNode;
     std::vector<std::shared_ptr<DisplayServer>> servers;
     std::string channelsFilter;
@@ -101,7 +107,9 @@ private:
     ScreenshotSettingsChangedSignal screenshotSettingsChangedSignal;
     using TakeScreenshotSignal = boost::signals2::signal<void()>;
     TakeScreenshotSignal takeScreenshotSignal;
-    DisplayChannel* activatedChannel = nullptr;
+    // Weak, not raw: the activated channel is destroyed out from under us by a
+    // channels reload, a "Remove Favourite", or a server refresh.
+    std::weak_ptr<DisplayChannel> activatedChannel;
     bool pinned = false;
     ColorspaceDialog colorspaceDialog;
     std::shared_ptr<HTTPProxyDialog> httpProxyDialog;

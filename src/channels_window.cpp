@@ -8,7 +8,6 @@
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
 #include <spdlog/spdlog.h>
-#include <unordered_set>
 
 #include "aboutwindow.h"
 #include "display_tree_nodes/display_channel.h"
@@ -20,8 +19,36 @@ namespace
 {
 // constexpr float MAX_TIMEOUT = 5.f;
 constexpr float INITIAL_BG_ALPHA = 0.6f;
-static std::unordered_set<DisplayNode*> localSelectedNodes;
-static std::unordered_set<DisplayNode*> remoteSelectedNodes;
+
+std::shared_ptr<DisplayChannel> asDisplayChannel(DisplayNode* node)
+{
+    if (!dynamic_cast<DisplayChannel*>(node))
+    {
+        return nullptr;
+    }
+    return node->shared_from_base<DisplayChannel>();
+}
+
+/**
+ * Wrap-around helper: opens `node` and returns its first (or last) child if
+ * that child is a channel.
+ */
+std::shared_ptr<DisplayChannel>
+openEdgeChannel(DisplayNode* node,
+                WorkersProvider* workersProvider,
+                SimpleIPTVVulkan* vulkanInstance,
+                const boost::asio::any_io_executor& ui_executor,
+                bool fromFront)
+{
+    node->loadChildren(workersProvider, vulkanInstance, ui_executor);
+    if (node->children.empty())
+    {
+        return nullptr;
+    }
+    node->isOpen = true;
+    return asDisplayChannel(fromFront ? node->children.front().get()
+                                      : node->children.back().get());
+}
 } // namespace
 
 std::shared_ptr<ChannelsWindow>
@@ -65,18 +92,12 @@ void ChannelsWindow::initialize()
         });
 
     rootNode->activatedChannelSignal.connect(
-        [weak = weak_from_this()](DisplayChannel* channel)
+        [weak = weak_from_this()](std::shared_ptr<DisplayChannel> channel)
         {
             auto self = weak.lock();
-            if (!self)
+            if (!self || !channel)
                 return;
-            if (self->activatedChannel)
-            {
-                self->activatedChannel->isActivated = false;
-            }
-            self->activatedChannel = channel;
-            self->activatedChannel->isActivated = true;
-            self->channelActivatedSignal(channel->channel);
+            self->setActivatedChannel(std::move(channel));
         });
     serverDialog->AddServersChangedListener(
         [weak = weak_from_this()]()
@@ -99,62 +120,64 @@ void ChannelsWindow::initialize()
     loadSavedServers();
 }
 
+void ChannelsWindow::setActivatedChannel(std::shared_ptr<DisplayChannel> channel)
+{
+    if (auto previous = activatedChannel.lock())
+    {
+        previous->isActivated = false;
+    }
+    activatedChannel = channel;
+    channel->isActivated = true;
+    channelActivatedSignal(channel->channel);
+}
+
 void ChannelsWindow::ActivateNextChannel()
 {
     if (!rootNode || rootNode->children.empty())
     {
         return;
     }
-    if (activatedChannel)
+    std::shared_ptr<DisplayChannel> channel;
+    if (auto current = activatedChannel.lock())
     {
-        auto next = activatedChannel->getNextNode(workersProvider,
-                                                  vulkanInstance, ui_executor);
-        activatedChannel->isActivated = false;
+        auto next = current->getNextNode(workersProvider, vulkanInstance,
+                                         ui_executor);
+        current->isActivated = false;
         if (next)
         {
-            DisplayChannel* channel = nullptr;
-            while (next && channel == nullptr)
+            while (next && !channel)
             {
-                channel = dynamic_cast<DisplayChannel*>(next);
-                if (channel)
-                {
-                    activatedChannel = channel;
-                }
-                else
+                channel = asDisplayChannel(next);
+                if (!channel)
                 {
                     next = next->getNextNode(workersProvider, vulkanInstance,
                                              ui_executor);
                 }
             }
+            // Ran off the end without finding a channel: stay where we are.
+            if (!channel)
+            {
+                channel = std::move(current);
+            }
         }
         else
         {
-            auto* firstNode = rootNode->children.begin()->get();
-            firstNode->loadChildren(workersProvider, vulkanInstance, ui_executor);
-            if (!firstNode->children.empty())
-            {
-                firstNode->isOpen = true;
-                activatedChannel = dynamic_cast<DisplayChannel*>(
-                    firstNode->children.begin()->get());
-            }
+            channel =
+                openEdgeChannel(rootNode->children.front().get(),
+                                workersProvider, vulkanInstance, ui_executor,
+                                true);
         }
     }
     else
     {
-        auto* firstNode = rootNode->children.begin()->get();
-        firstNode->loadChildren(workersProvider, vulkanInstance, ui_executor);
-        if (!firstNode->children.empty())
-        {
-            firstNode->isOpen = true;
-            activatedChannel =
-                dynamic_cast<DisplayChannel*>(firstNode->children.begin()->get());
-        }
+        channel = openEdgeChannel(rootNode->children.front().get(),
+                                  workersProvider, vulkanInstance, ui_executor,
+                                  true);
     }
 
-    if (activatedChannel)
+    if (channel)
     {
-        activatedChannel->isActivated = true;
-        channelActivatedSignal(activatedChannel->channel);
+        setActivatedChannel(std::move(channel));
     }
 }
 void ChannelsWindow::ActivatePreviousChannel()
@@ -163,56 +186,46 @@ void ChannelsWindow::ActivatePreviousChannel()
     {
         return;
     }
-    if (activatedChannel)
+    std::shared_ptr<DisplayChannel> channel;
+    if (auto current = activatedChannel.lock())
     {
-        auto next = activatedChannel->getPreviousNode(
-            workersProvider, vulkanInstance, ui_executor);
-        activatedChannel->isActivated = false;
-        if (next)
+        auto previous = current->getPreviousNode(workersProvider, vulkanInstance,
+                                                 ui_executor);
+        current->isActivated = false;
+        if (previous)
         {
-            DisplayChannel* channel = nullptr;
-            while (next && channel == nullptr)
+            while (previous && !channel)
             {
-                channel = dynamic_cast<DisplayChannel*>(next);
-                if (channel)
+                channel = asDisplayChannel(previous);
+                if (!channel)
                 {
-                    activatedChannel = channel;
+                    previous = previous->getPreviousNode(
+                        workersProvider, vulkanInstance, ui_executor);
                 }
-                else
-                {
-                    next = next->getPreviousNode(workersProvider,
-                                                 vulkanInstance, ui_executor);
-                }
+            }
+            if (!channel)
+            {
+                channel = std::move(current);
             }
         }
         else
         {
-            auto* lastNode = rootNode->children.rbegin()->get();
-            lastNode->loadChildren(workersProvider, vulkanInstance, ui_executor);
-            if (!lastNode->children.empty())
-            {
-                lastNode->isOpen = true;
-                activatedChannel = dynamic_cast<DisplayChannel*>(
-                    lastNode->children.rbegin()->get());
-            }
+            channel =
+                openEdgeChannel(rootNode->children.back().get(),
+                                workersProvider, vulkanInstance, ui_executor,
+                                false);
         }
     }
     else
     {
-        auto* lastNode = rootNode->children.rbegin()->get();
-        lastNode->loadChildren(workersProvider, vulkanInstance, ui_executor);
-        if (!lastNode->children.empty())
-        {
-            lastNode->isOpen = true;
-            activatedChannel =
-                dynamic_cast<DisplayChannel*>(lastNode->children.rbegin()->get());
-        }
+        channel = openEdgeChannel(rootNode->children.back().get(),
+                                  workersProvider, vulkanInstance, ui_executor,
+                                  false);
     }
 
-    if (activatedChannel)
+    if (channel)
     {
-        activatedChannel->isActivated = true;
-        channelActivatedSignal(activatedChannel->channel);
+        setActivatedChannel(std::move(channel));
     }
 }
 
@@ -455,18 +468,13 @@ void ChannelsWindow::loadSavedServers()
                         self->serverDialog->SetShowRemoveServerDialog(server);
                     });
                 server->activatedChannelSignal.connect(
-                    [weak = self->weak_from_this()](DisplayChannel* channel)
+                    [weak = self->weak_from_this()](
+                        std::shared_ptr<DisplayChannel> channel)
                     {
                         auto self = weak.lock();
-                        if (!self)
+                        if (!self || !channel)
                             return;
-                        if (self->activatedChannel)
-                        {
-                            self->activatedChannel->isActivated = false;
-                        }
-                        self->activatedChannel = channel;
-                        self->activatedChannel->isActivated = true;
-                        self->channelActivatedSignal(channel->channel);
+                        self->setActivatedChannel(std::move(channel));
                     });
                 server->reloadLocalChannelsSignal.connect(
                     [weak = self->weak_from_this()]()

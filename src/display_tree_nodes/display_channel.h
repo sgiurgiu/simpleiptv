@@ -25,15 +25,13 @@ struct DisplayChannel : public DisplayNode
                                                 workersProvider, vulkanInstance,
                                                 ui_executor, parent);
     }
-    void render(std::unordered_set<DisplayNode*>& selectedNodes,
-                const std::string& filter) override
+    void render(SelectionSet& selectedNodes, const std::string& filter) override
     {
         renderChannel(selectedNodes, filter);
     }
     ~DisplayChannel();
     void loadLogo();
-    void renderChannel(std::unordered_set<DisplayNode*>& selectedNodes,
-                       const std::string& filter);
+    void renderChannel(SelectionSet& selectedNodes, const std::string& filter);
     void loadChildren(WorkersProvider*,
                       SimpleIPTVVulkan*,
                       const boost::asio::any_io_executor&) override
@@ -55,7 +53,7 @@ struct DisplayChannel : public DisplayNode
         return DisplayNodeType::CHANNEL;
     }
     void activate();
-    void showPopup(std::unordered_set<DisplayNode*>& selectedNodes);
+    void showPopup(SelectionSet& selectedNodes);
 
     ChannelPtr channel;
     WorkersProvider* workersProvider;

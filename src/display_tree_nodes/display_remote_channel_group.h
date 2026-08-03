@@ -36,7 +36,7 @@ struct DisplayRemoteChannelsGroup : public DisplayChannelsGroup
     {
         return DisplayNodeType::REMOTE_GROUP;
     }
-    virtual void render(std::unordered_set<DisplayNode*>& selectedNodes,
+    virtual void render(SelectionSet& selectedNodes,
                         const std::string& filter) override;
     virtual void loadChildren(WorkersProvider*,
                               SimpleIPTVVulkan*,

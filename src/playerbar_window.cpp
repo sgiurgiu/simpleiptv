@@ -251,16 +251,18 @@ ImVec2 PlayerBarWindow::ShowWindow()
 
 void PlayerBarWindow::loadChannelLogoData()
 {
-    if (currentChannel->IsLogoEmpty())
+    // Snapshot under Channel's lock; the logo can be replaced by the download
+    // callback on another thread while we decode.
+    const std::string encodedLogo = currentChannel->GetLogoCopy();
+    if (encodedLogo.empty())
         return;
     int width = 0;
     int height = 0;
     int channels = 0;
     constexpr int kChannels = 4; // STBI_rgb_alpha => always RGBA
     auto imageData = stbi_load_from_memory(
-        reinterpret_cast<const stbi_uc*>(currentChannel->GetLogoData()),
-        currentChannel->GetLogoSize(), &width, &height, &channels,
-        STBI_rgb_alpha);
+        reinterpret_cast<const stbi_uc*>(encodedLogo.data()), encodedLogo.size(),
+        &width, &height, &channels, STBI_rgb_alpha);
 
     if (!imageData || width <= 0 || height <= 0)
     {
