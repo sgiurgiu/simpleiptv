@@ -4,6 +4,10 @@ option(ENABLE_TESTS "Build tests" ON)
 option(ASAN_ENABLE "Build with sanitization on" OFF)
 option(SIMPLEIPTV_DEBUGINFO "Emit DWARF for the project's own sources and build an RPM -debuginfo subpackage" OFF)
 
+set(SIMPLEIPTV_ARCH "native" CACHE STRING
+  "Target ISA passed to -march: native | x86-64-v2 | x86-64-v3 | x86-64-v4 | none")
+set_property(CACHE SIMPLEIPTV_ARCH PROPERTY STRINGS native x86-64-v2 x86-64-v3 x86-64-v4 none)
+
 if(ENABLE_TESTS)
   list(APPEND VCPKG_MANIFEST_FEATURES "tests")
 endif()

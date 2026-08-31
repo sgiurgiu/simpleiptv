@@ -24,8 +24,8 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "ENABLE_TESTS": "ON",
-                "CMAKE_C_COMPILER":"/usr/bin/clang",
-                "CMAKE_CXX_COMPILER":"/usr/bin/clang++"
+                "CMAKE_C_COMPILER": "/usr/bin/clang",
+                "CMAKE_CXX_COMPILER": "/usr/bin/clang++"
             },
             "condition": {
                 "type": "equals",
@@ -38,7 +38,7 @@
             "inherits": "default",
             "cacheVariables": {
                 "ASAN_ENABLE": "ON",
-                "SIMPLEIPTV_SANITIZER":"address"
+                "SIMPLEIPTV_SANITIZER": "address"
             }
         },
         {
@@ -46,7 +46,7 @@
             "inherits": "default",
             "cacheVariables": {
                 "ASAN_ENABLE": "ON",
-                "SIMPLEIPTV_SANITIZER":"thread",
+                "SIMPLEIPTV_SANITIZER": "thread",
                 "CMAKE_BUILD_TYPE": "RelWithDebInfo"
             }
         },
@@ -59,7 +59,8 @@
                 "CMAKE_BUILD_TYPE": "Release",
                 "ENABLE_TESTS": "OFF",
                 "CMAKE_INSTALL_PREFIX": "/usr",
-                "SIMPLEIPTV_DEBUGINFO": "OFF"
+                "SIMPLEIPTV_DEBUGINFO": "OFF",
+                "SIMPLEIPTV_ARCH": "x86-64-v3"
             },
             "condition": {
                 "type": "equals",
@@ -83,9 +84,9 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "ENABLE_TESTS": "OFF",
-				"VCPKG_TARGET_TRIPLET" : "x64-windows-static",
-				"CMAKE_TOOLCHAIN_FILE" : "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-                "CMAKE_MAKE_PROGRAM" : "C:/ninja-win/ninja.exe"
+                "VCPKG_TARGET_TRIPLET": "x64-windows-static",
+                "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+                "CMAKE_MAKE_PROGRAM": "C:/ninja-win/ninja.exe"
             },
             "condition": {
                 "type": "equals",

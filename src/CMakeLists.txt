@@ -267,10 +267,29 @@ if(NOT SIMPLEIPTV_SANITIZER STREQUAL "none")
     STV_LSAN_SUPPRESSIONS="${CMAKE_SOURCE_DIR}/lsan.supp")
 endif()
 
-target_compile_options(${EXECUTABLE_NAME} PRIVATE
-    $<$<AND:$<CXX_COMPILER_ID:GNU,Clang,AppleClang>,$<CONFIG:Release,RelWithDebInfo>>:-march=native>
-    $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release,RelWithDebInfo>>:/arch:AVX2>
-)
+# SIMPLEIPTV_ARCH (declared in the top-level CMakeLists) picks the -march level.
+# Checked rather than passed blind: the release presets pin no compiler, and an
+# -march the toolchain doesn't know is a hard error at the first source file with
+# no hint as to which cache variable caused it.
+if(NOT SIMPLEIPTV_ARCH STREQUAL "none")
+  include(CheckCXXCompilerFlag)
+  # The flag name is part of the cache key, so a changed SIMPLEIPTV_ARCH is re-checked.
+  string(MAKE_C_IDENTIFIER "STV_HAVE_MARCH_${SIMPLEIPTV_ARCH}" _stv_march_ok)
+  check_cxx_compiler_flag("-march=${SIMPLEIPTV_ARCH}" ${_stv_march_ok})
+  if(NOT ${_stv_march_ok} AND NOT MSVC)
+    message(FATAL_ERROR
+      "SIMPLEIPTV_ARCH=${SIMPLEIPTV_ARCH} is not accepted by "
+      "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}.\n"
+      "The x86-64-v2/v3/v4 microarchitecture levels need GCC 11+ or Clang 12+; "
+      "set -DSIMPLEIPTV_ARCH=native for a machine-local build, or =none to skip -march.")
+  endif()
+
+  target_compile_options(${EXECUTABLE_NAME} PRIVATE
+      $<$<AND:$<CXX_COMPILER_ID:GNU,Clang,AppleClang>,$<CONFIG:Release,RelWithDebInfo>>:-march=${SIMPLEIPTV_ARCH}>
+      # MSVC has no -march equivalent; /arch:AVX2 is roughly the x86-64-v3 baseline.
+      $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Release,RelWithDebInfo>>:/arch:AVX2>
+  )
+endif()
 # Debug symbols for the RPM -debuginfo subpackage. Deliberately not done by switching to
 # RelWithDebInfo: Release is the only config that defines IMGUI_DISABLE_DEBUG_TOOLS,
 # RelWithDebInfo is one of the two configs that enable the sanitizers, and it is -O2.
