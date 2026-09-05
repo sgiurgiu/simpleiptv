@@ -66,7 +66,9 @@ public:
     }
     void ActivateNextChannel();
     void ActivatePreviousChannel();
-    void ActivateChannelOfGroup(ChannelsGroupPtr group, ChannelPtr channel);
+    // Returns whether the channel was found in the local channels tree and
+    // activated; channels of a server subtree are not found.
+    bool ActivateChannelOfGroup(ChannelsGroupPtr group, ChannelPtr channel);
     template <typename S>
     void AddGetPlayerListener(S slot)
     {

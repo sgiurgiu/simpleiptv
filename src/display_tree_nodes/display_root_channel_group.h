@@ -28,7 +28,10 @@ struct DisplayRootChannelsGroup : public DisplayChannelsGroup
     void loadChildren(WorkersProvider* workersProvider,
                       SimpleIPTVVulkan* vulkanInstance,
                       const boost::asio::any_io_executor& ui_executor) override;
-    void ActivateChannelOfGroup(ChannelsGroupPtr group, ChannelPtr channel);
+    // Returns whether the channel was found in this tree and activated. It only
+    // ever finds channels of the local tree, so callers that also deal with
+    // server channels need a fallback.
+    bool ActivateChannelOfGroup(ChannelsGroupPtr group, ChannelPtr channel);
     virtual int getUnderlyingID() const override
     {
         return -1;

@@ -431,10 +431,10 @@ void ChannelsWindow::showMenu()
     }
 }
 
-void ChannelsWindow::ActivateChannelOfGroup(ChannelsGroupPtr group,
+bool ChannelsWindow::ActivateChannelOfGroup(ChannelsGroupPtr group,
                                             ChannelPtr channel)
 {
-    rootNode->ActivateChannelOfGroup(group, channel);
+    return rootNode->ActivateChannelOfGroup(group, channel);
 }
 
 void ChannelsWindow::loadSavedServers()

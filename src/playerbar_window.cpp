@@ -160,7 +160,33 @@ ImVec2 PlayerBarWindow::ShowWindow()
             ImGui::Image(texture, channelLogoSize);
             ImGui::SameLine();
         }
-        ImGui::Text("%s", currentChannel->GetName().c_str());
+        ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, 0x00000000);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0x00000000);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, 0x00000000);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, 0x00000000);
+        if (ImGui::BeginCombo("##Channel_History_Combo",
+                              currentChannel->GetName().c_str(),
+                              ImGuiComboFlags_WidthFitPreview))
+        {
+            for (std::size_t i = 0; i < channelHistory.size(); ++i)
+            {
+                // Channel names repeat across groups and servers, so the index
+                // is what keeps the entries apart as far as ImGui ids go.
+                ImGui::PushID(static_cast<int>(i));
+                if (ImGui::Selectable(channelHistory[i]->GetName().c_str(),
+                                      i == historyIndex))
+                {
+                    // Acted on after End(): switching channels destroys and
+                    // recreates the logo texture, which must not happen while
+                    // the combo popup is still open.
+                    pendingHistorySelection = i;
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::PopStyleColor(5);
         if (!epgListings.empty())
         {
             auto currentEpgIt =
@@ -246,6 +272,13 @@ ImVec2 PlayerBarWindow::ShowWindow()
     ImGui::PopStyleColor(3);
 
     ImGui::End();
+
+    if (pendingHistorySelection)
+    {
+        auto index = *pendingHistorySelection;
+        pendingHistorySelection.reset();
+        selectHistoryEntry(index, true);
+    }
     return size;
 }
 
@@ -312,8 +345,77 @@ void PlayerBarWindow::loadChannelLogoData()
     stbi_image_free(resizedImageData);
 }
 
+void PlayerBarWindow::recordChannelInHistory(const ChannelPtr& channel)
+{
+    if (!channel)
+    {
+        return;
+    }
+    // Match on the identity of the channel rather than on the pointer: a
+    // channels reload or a server refresh hands us a fresh Channel object for
+    // the same channel, and pointer comparison would pile up duplicates.
+    std::erase_if(channelHistory,
+                  [id = channel->GetId(),
+                   serverId = channel->GetXStreamServerId()](const auto& c)
+                  {
+                      return c->GetId() == id &&
+                             c->GetXStreamServerId() == serverId;
+                  });
+    channelHistory.insert(channelHistory.begin(), channel);
+    if (channelHistory.size() > kMaxChannelHistory)
+    {
+        channelHistory.resize(kMaxChannelHistory);
+    }
+    historyIndex = 0;
+}
+
+void PlayerBarWindow::selectHistoryEntry(std::size_t index, bool moveToFront)
+{
+    if (index >= channelHistory.size())
+    {
+        return;
+    }
+    // A copy: activating the channel runs back through SetCurrentChannel, which
+    // can rewrite the vector we are indexing into.
+    auto channel = channelHistory[index];
+    preserveHistoryOrder = !moveToFront;
+    if (!moveToFront)
+    {
+        historyIndex = index;
+    }
+    historyChannelSelectedSignal(channel);
+    preserveHistoryOrder = false;
+}
+
+void PlayerBarWindow::MoveBackInHistory()
+{
+    if (channelHistory.size() < 2)
+    {
+        return;
+    }
+    selectHistoryEntry((historyIndex + 1) % channelHistory.size(), false);
+}
+
+void PlayerBarWindow::MoveForwardInHistory()
+{
+    if (channelHistory.size() < 2)
+    {
+        return;
+    }
+    selectHistoryEntry(
+        (historyIndex + channelHistory.size() - 1) % channelHistory.size(),
+        false);
+}
+
 void PlayerBarWindow::SetCurrentChannel(ChannelPtr channel)
 {
+    // A back/forward move keeps the list as it is: selectHistoryEntry has
+    // already placed the cursor. Anything else - the channel list, the EPG, the
+    // prev/next buttons, a combo pick - promotes the channel to the front.
+    if (!preserveHistoryOrder)
+    {
+        recordChannelInHistory(channel);
+    }
     currentChannel = channel;
     fileLoadingError = "";
     epgListings.clear();

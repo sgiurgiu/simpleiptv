@@ -26,7 +26,9 @@ SimpleIPTVUI::SimpleIPTVUI(boost::asio::any_io_executor ui_executor,
         [this]() { channelsWindow->ActivateNextChannel(); });
     playerBarWindow->AddPreviousChannelListener(
         [this]() { channelsWindow->ActivatePreviousChannel(); });
-    
+    playerBarWindow->AddHistoryChannelSelectedListener(
+        [this](ChannelPtr channel) { activateHistoryChannel(channel); });
+
     playerBarWindow->AddEpgListingButtonChangedListener(
         [this](bool pressed) { epgListingWindow->SetClosed(!pressed); });
     epgListingWindow->AddChannelActivatedListener(
@@ -139,6 +141,18 @@ ImRect SimpleIPTVUI::showDesktop()
         }
     }
 
+    // The extra mouse buttons walk the player bar's channel history. GLFW's
+    // buttons 4 and 5 arrive as ImGui buttons 3 and 4. Deliberately outside the
+    // hover gate below: these work over the windows and in fullscreen too.
+    if (ImGui::IsMouseClicked(3))
+    {
+        playerBarWindow->MoveBackInHistory();
+    }
+    if (ImGui::IsMouseClicked(4))
+    {
+        playerBarWindow->MoveForwardInHistory();
+    }
+
     if (!ImGui::IsAnyItemHovered() &&
         !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
     {
@@ -167,4 +181,21 @@ void SimpleIPTVUI::channelActivated(ChannelPtr channel)
     spdlog::debug("{} activated", channel->GetName());
     playerBarWindow->SetCurrentChannel(channel);
     channelActivatedSignal(channel);
+}
+
+void SimpleIPTVUI::activateHistoryChannel(ChannelPtr channel)
+{
+    // Go through the channels tree so the highlight - and with it the prev/next
+    // buttons - follows the channel we picked out of the history. The history
+    // has no group of its own, so synthesise one from the channel's parent, the
+    // same way the EPG search does.
+    auto group = std::make_shared<ChannelsGroup>(
+        channel->GetParentId().value_or(-1), "", std::optional<int>{});
+    if (!channelsWindow->ActivateChannelOfGroup(group, channel))
+    {
+        // Not in the local tree - a server channel, or its group is gone. Play
+        // it directly; the tree keeps its old selection.
+        playerBarWindow->SetCurrentChannel(channel);
+        channelActivatedSignal(channel);
+    }
 }

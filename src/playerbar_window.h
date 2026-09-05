@@ -3,8 +3,10 @@
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/signals2.hpp>
 #include <chrono>
+#include <cstddef>
 #include <imgui.h>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "channels/channel.h"
@@ -59,6 +61,15 @@ public:
     }
 
     void SetCurrentChannel(ChannelPtr channel);
+    template <typename S>
+    void AddHistoryChannelSelectedListener(S slot)
+    {
+        historyChannelSelectedSignal.connect(slot);
+    }
+    // Step through the channel history without reordering it: back goes towards
+    // the older entries, forward towards the newer ones, both wrapping around.
+    void MoveBackInHistory();
+    void MoveForwardInHistory();
     bool IsChannelListPressed() const
     {
         return channelListPressed;
@@ -109,6 +120,8 @@ private:
     void loadChannelLogoData();
     void loadEpg(int retry);
     void loadEpgFromNetwork(int retry);
+    void recordChannelInHistory(const ChannelPtr& channel);
+    void selectHistoryEntry(std::size_t index, bool moveToFront);
 
 private:
     boost::asio::any_io_executor ui_executor;
@@ -117,6 +130,22 @@ private:
     float bgAlpha = 0.6f;
     ChannelPtr currentChannel;
     std::string channelsFilter;
+
+    // The last few watched channels, newest first. Holding ChannelPtr (and not
+    // DisplayChannel) is what makes this safe: Channel lives outside the display
+    // tree, so a channels reload or a server refresh can't pull an entry out
+    // from under us. Only ever touched on the UI thread.
+    static constexpr std::size_t kMaxChannelHistory = 10;
+    std::vector<ChannelPtr> channelHistory;
+    // Where currentChannel sits in channelHistory.
+    std::size_t historyIndex = 0;
+    // Set while a back/forward move is being applied, so SetCurrentChannel
+    // leaves the order alone instead of promoting the channel to the front.
+    bool preserveHistoryOrder = false;
+    // A combo pick, applied once the player bar window is closed.
+    std::optional<std::size_t> pendingHistorySelection;
+    using ChannelSelectedSignal = boost::signals2::signal<void(ChannelPtr)>;
+    ChannelSelectedSignal historyChannelSelectedSignal;
 
     using BasicOperationSignal = boost::signals2::signal<void()>;
     BasicOperationSignal previousChannelSignal;

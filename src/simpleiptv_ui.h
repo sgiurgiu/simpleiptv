@@ -117,6 +117,7 @@ public:
 
 private:
     void channelActivated(ChannelPtr channel);
+    void activateHistoryChannel(ChannelPtr channel);
     ImRect showDesktop();
 private:
     WorkersProvider* workersProvider;

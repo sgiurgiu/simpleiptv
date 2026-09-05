@@ -75,7 +75,7 @@ void DisplayRootChannelsGroup::loadChildren(
     }
 }
 
-void DisplayRootChannelsGroup::ActivateChannelOfGroup(ChannelsGroupPtr group,
+bool DisplayRootChannelsGroup::ActivateChannelOfGroup(ChannelsGroupPtr group,
                                                       ChannelPtr channel)
 {
     DisplayNodeType groupType = DisplayNodeType::GROUP;
@@ -126,7 +126,9 @@ void DisplayRootChannelsGroup::ActivateChannelOfGroup(ChannelsGroupPtr group,
             if (channel)
             {
                 channel->activate();
+                return true;
             }
         }
     }
+    return false;
 }
