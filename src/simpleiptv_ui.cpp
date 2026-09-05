@@ -190,7 +190,8 @@ void SimpleIPTVUI::activateHistoryChannel(ChannelPtr channel)
     // has no group of its own, so synthesise one from the channel's parent, the
     // same way the EPG search does.
     auto group = std::make_shared<ChannelsGroup>(
-        channel->GetParentId().value_or(-1), "", std::optional<int>{});
+        channel->IsFavourite() ? -1 : channel->GetParentId().value_or(-1), "",
+        std::optional<int>{});
     if (!channelsWindow->ActivateChannelOfGroup(group, channel))
     {
         // Not in the local tree - a server channel, or its group is gone. Play
