@@ -208,7 +208,19 @@ ImVec2 PlayerBarWindow::ShowWindow()
                 {
                     for (const auto& l : epgListings)
                     {
-                        ImGui::Text("%s", l.GetTimeAndProgram().c_str());
+                        auto text = l.GetTimeAndProgram();
+                        if (l.isListingCurrent())
+                        {
+                            auto textSize = ImGui::CalcTextSize(text.c_str());
+                            auto start = ImGui::GetCursorScreenPos();
+                            const auto& padding = ImGui::GetStyle().FramePadding;
+                            ImGui::GetWindowDrawList()->AddRectFilled(
+                                ImVec2(start.x - padding.x, start.y),
+                                ImVec2(start.x + textSize.x + padding.x,
+                                       start.y + textSize.y),
+                                ImGui::GetColorU32(ImGuiCol_Header));
+                        }
+                        ImGui::Text("%s", text.c_str());
                     }
                     ImGui::EndCombo();
                 }
