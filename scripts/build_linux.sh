@@ -33,14 +33,22 @@ fi
 # (20 chars). "/tmp/simpleiptv-workspace" is 25.
 workspace=/tmp/simpleiptv-workspace
 
+# vcpkg's binary cache lives on the host so built packages are reused between builds.
+# The container images set VCPKG_BINARY_SOURCES to point at /vcpkg-cache.
+# Lowercase :z because the cache is shared by every build container.
+cache_mount=()
+if [ -d /srv/vcpkg-cache ]; then
+    cache_mount=(-v /srv/vcpkg-cache:/vcpkg-cache:z)
+fi
+
 for distro in "${distros[@]}"
 do
     echo "Running podman to build for distribution ${distro}"
     container=$CONTAINER_REGISTRY/vcpkg_mpv_apps_$distro:build
-    # This is a prebuilt container that has installed and compiled the require vcpkg packages
     podman pull $container
     podman run --rm --privileged=true --name simpleiptv_build \
             -v "${root}":"${workspace}"/:Z \
+            "${cache_mount[@]}" \
             -e SIMPLEIPTV_VERSION="${SIMPLEIPTV_VERSION}" \
             $container \
             "${workspace}"/scripts/build_linux_app.sh $distro
