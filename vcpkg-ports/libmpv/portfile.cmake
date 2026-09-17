@@ -46,6 +46,28 @@ set(MESON_OPTIONS
     -Degl-angle-win32=disabled
     -Dgl-win32=disabled
     -Dd3d11=disabled
+    # Disabled to keep the Linux RPM installable across Fedora releases. vcpkg's own
+    # deps get linked statically, but anything mpv auto-detects from the build
+    # container stays a dynamic soname dep, and these bump between Fedora releases
+    # (vapoursynth went .so.71 -> .so.0 between F43 and F44, which made the F43 RPM
+    # uninstallable on F44). None of them are reachable from this app:
+    #   vapoursynth - .vpy filter bridge, an encoder tool
+    #   caca        - terminal ASCII-art VO; we set vo=libmpv, so no mpv VO is used
+    #   jack        - pro-audio server output; alsa/pulse/pipewire already cover us
+    #   zimg        - software scaler/colorspace conversion; libplacebo does this on GPU
+    #   rubberband  - pitch-corrected speed change (also drags in fftw3 + samplerate);
+    #                 the app exposes no speed control
+    #   uchardet    - charset guessing for non-UTF-8 external subtitles; the app only
+    #                 selects embedded tracks via sid and never loads a sub file
+    # NOTE: -Ddrm must stay enabled. It gates libdisplay-info, but vaapi-drm requires
+    # features['drm'] and (with wayland/x11 disabled above) is the only surviving VAAPI
+    # path, so disabling drm would silently kill hwdec=auto hardware decoding.
+    -Dvapoursynth=disabled
+    -Dcaca=disabled
+    -Djack=disabled
+    -Dzimg=disabled
+    -Drubberband=disabled
+    -Duchardet=disabled
 )
 
 set(MESON_ADDITIONAL_PROPERTIES "vulkan_headers_inc = '${CURRENT_INSTALLED_DIR}/include'")

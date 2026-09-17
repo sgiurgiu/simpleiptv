@@ -59,10 +59,16 @@ SET(CPACK_INCLUDE_SUBDIR TRUE)
 SET(CPACK_PACKAGE_VERSION ${SIMPLEIPTV_VERSION})
 SET(CPACK_PACKAGE_CONTACT "Sergiu Giurgiu <sgiurgiu11@gmail.com>")
 set(CPACK_RPM_PACKAGE_LICENSE "GPLv3")
+
+# volk dlopens the Vulkan loader, so there is no NEEDED entry for either rpm's
+# automatic dependency generator or dpkg-shlibdeps to find
+set(CPACK_RPM_PACKAGE_REQUIRES "libvulkan.so.1()(64bit)")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libvulkan1")
+
 SET(CPACK_PACKAGE_VENDOR "Sergiu Giurgiu <sgiurgiu11@gmail.com>")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libfreetype6")
-set(CPACK_FREEBSD_PACKAGE_MAINTAINER "Sergiu Giurgiu <sgiurgiu11@gmail.com>")
-set(CPACK_FREEBSD_PACKAGE_DEPS "security/openssl" "print/freetype2" "graphics/mesa-dri")
+# Generate the real dependency list from the binary instead of hand-maintaining one.
+# Needs dpkg-dev (for dpkg-shlibdeps) in the Debian build container.
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 set(CPACK_RPM_RELOCATION_PATHS "/${CMAKE_INSTALL_SYSCONFDIR}" "${CMAKE_INSTALL_BINDIR}")
 set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY 0) # don't prepend package name
 #set(CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})

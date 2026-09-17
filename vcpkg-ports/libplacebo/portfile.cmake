@@ -29,6 +29,10 @@ set(MESON_OPTIONS
     -Dbench=false
     -Dfuzz=false
     -Ddebug-abort=false
+    # Dolby Vision RPU parsing via the system libdovi. Disabled so the Linux RPM
+    # does not carry a libdovi.so.N dep that bumps between Fedora releases; HDR10
+    # and HLG tonemapping are unaffected.
+    -Dlibdovi=disabled
     -Dvk-proc-addr=disabled
 )
 

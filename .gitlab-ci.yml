@@ -123,9 +123,14 @@ publish-fedora-repo:
         echo "No Fedora RPMs produced; skipping repo publish."
         exit 0
       fi
-      echo "Publishing Fedora RPMs for Fedora ${OS_VERSION}"
-      RPM_DIR="packages"
-      REPO_PATH="/srv/rpmrepo/fedora/${OS_VERSION}/x86_64"
+      # Deliberately not split per Fedora release. Every soname this package depends on
+      # is one that does not bump across releases; the only release-sensitive
+      # requirements left are glibc/libstdc++ symbol versions, which anything newer
+      # than the build host satisfies. So one build serves the release it was built on
+      # and every release above it, and $releasever has no business in this path.
+      REPO_PATH="/srv/rpmrepo/fedora/x86_64"
+
+      echo "Publishing Fedora RPMs built on Fedora ${OS_VERSION} (installable on ${OS_VERSION} and newer)"
 
       ssh repo@fedora-repo "mkdir -p ${REPO_PATH}"
 

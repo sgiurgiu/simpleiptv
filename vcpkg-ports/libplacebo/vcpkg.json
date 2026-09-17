@@ -1,6 +1,7 @@
 {
   "name": "libplacebo",
   "version": "7.351.0",
+  "port-version": 1,
   "description": "A library of GPU-accelerated image/video processing primitives",
   "homepage": "https://code.videolan.org/videolan/libplacebo",
   "license": "LGPL-2.1-or-later",

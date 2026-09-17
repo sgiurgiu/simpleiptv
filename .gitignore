@@ -75,6 +75,7 @@ out/
 CMakeLists.txt.user
 CMakeSettings.json
 packages/
+build.env
 build_version
 build/
 .vscode/
