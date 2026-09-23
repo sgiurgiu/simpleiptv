@@ -235,6 +235,15 @@ void MpvPlayer::handleMpvEvent(mpv_event *event)
         }
         break;
     }
+    case MPV_EVENT_START_FILE:
+        videoReady = false;
+        break;
+    case MPV_EVENT_PLAYBACK_RESTART:
+        // Emitted only after the new file's first frame has been presented,
+        // so the render context no longer holds the previous file's frame.
+        videoReady = true;
+        Render();
+        break;
     case MPV_EVENT_VIDEO_RECONFIG:
     {
         /*double propValue;
@@ -446,7 +455,7 @@ void MpvPlayer::mpvRenderThread()
         // buffers at ~300fps, which makes the compositor's interactive resize
         // stutter. Coalesced wakeups (renderInProgress above) accumulate during
         // the sleep, so we still render the latest size when we wake.
-        if (playerState != PlayerState::PLAYING)
+        if (playerState != PlayerState::PLAYING || !videoReady)
         {
             const auto interval =
                 std::chrono::nanoseconds(idlePresentIntervalNs.load());
@@ -480,11 +489,11 @@ void MpvPlayer::mpvRenderThread()
             continue;
         }
 
-        // Always render video if playing, regardless of what triggered the render
+        // Always let mpv render so it keeps consuming frames, then cover it
+        // with the background when there's nothing current to show.
         mpvRenderFrame(&frame, windowBottomLeftPoint);
-        if (playerState != PlayerState::PLAYING)
+        if (playerState != PlayerState::PLAYING || !videoReady)
         {
-            // Not playing and UI-triggered render
             vulkanInstance->DrawBackgroundFrame(&frame);
         }
         vulkanInstance->DrawUI(&frame);

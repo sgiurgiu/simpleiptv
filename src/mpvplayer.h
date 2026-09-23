@@ -112,6 +112,10 @@ private:
     std::atomic_int height = 100;
 
     std::atomic<PlayerState> playerState = PlayerState::STOPPED;
+    // False from a file's START_FILE until its PLAYBACK_RESTART. mpv keeps the
+    // previous file's last frame across loadfile and redraws it until the new
+    // file's first frame is decoded, so video is hidden until then.
+    std::atomic_bool videoReady = false;
     mutable std::mutex currentlyPlayingChannelMutex;
     ChannelPtr currentlyPlayingChannel;
     std::atomic_uint64_t pendingLoadRequestId;
