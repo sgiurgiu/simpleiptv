@@ -11,6 +11,7 @@
 #include <mpv/render_placebo.h>
 
 #include <chrono>
+#include <optional>
 #include <stdexcept>
 
 #include <fmt/format.h>
@@ -428,6 +429,7 @@ void MpvPlayer::mpvRenderThread()
 {
 
     SetColorspace(GetDefaultColorspace());
+    std::optional<pl_color_space> hintedColorspace;
 
     while (!renderThreadQuit)
     {
@@ -475,10 +477,20 @@ void MpvPlayer::mpvRenderThread()
             needsResize = false;
         }
 
+        // Copy under the lock and hint outside it: the hint can recreate the
+        // swapchain, and SetColorspace() on the UI thread shouldn't wait on
+        // that. Only hint on change, the swapchain keeps the last one.
+        pl_color_space wantedColorspace;
         {
             std::lock_guard<std::mutex> lock(colorspaceMutex);
+            wantedColorspace = colorspace;
+        }
+        if (!hintedColorspace ||
+            !pl_color_space_equal(&*hintedColorspace, &wantedColorspace))
+        {
             pl_swapchain_colorspace_hint(vulkanInstance->GetPlSwapchain(),
-                                         &colorspace);
+                                         &wantedColorspace);
+            hintedColorspace = wantedColorspace;
         }
 
         pl_swapchain_frame frame = {};

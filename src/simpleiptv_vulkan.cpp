@@ -179,12 +179,14 @@ void SimpleIPTVVulkan::drawImgui(pl_swapchain_frame* frame)
 
     // These depend only on the frame, not on the individual draw command, so
     // compute them once instead of recomputing for every command each frame.
-    const bool is_srgb = frame->color_space.primaries == PL_COLOR_PRIM_BT_709 &&
-                         frame->color_space.transfer == PL_COLOR_TRC_SRGB;
+    // ImGui colors and textures are sRGB; map them into whatever the swapchain
+    // was configured as. libplacebo skips the map when the two are equal, and
+    // fills an unknown (passthrough) target from the source, so sRGB and
+    // passthrough swapchains cost nothing extra.
     struct pl_color_repr repr = pl_color_repr_rgb;
     pl_color_map_args map_args = {};
-    map_args.src = frame->color_space;
-    map_args.dst = is_srgb ? pl_color_space_srgb : frame->color_space;
+    map_args.src = pl_color_space_srgb;
+    map_args.dst = frame->color_space;
 
     // Draw straight from ImGui's draw lists. ImGui keeps this data valid from
     // ImGui::Render() until the next ImGui::NewFrame() (both run on this render
