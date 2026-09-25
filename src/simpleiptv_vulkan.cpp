@@ -16,8 +16,11 @@
 #include <libplacebo/vulkan.h>
 
 #include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <fstream>
 #include <imgui_impl_vulkan.h>
+#include <numbers>
 #include <spdlog/spdlog.h>
 #include <vulkan/vk_enum_string_helper.h>
 
@@ -60,6 +63,58 @@ void pllog_callback(void*, enum pl_log_level level, const char* msg)
         break;
     };
 }
+
+// The background animation repeats every this many seconds. The shader only
+// gets the position within the loop (as an angle), so float precision holds
+// no matter how long the app has been running.
+constexpr double BACKGROUND_LOOP_SECONDS = 40.0;
+
+// Inputs (#defined by pl_shader_custom, hence the bg_ prefix):
+//   bg_pos   - x in [0, aspect], y in [0, 1] from the top of the window
+//   bg_phase - goes from 0 to TAU once per loop
+// Anything multiplying the phase must be a whole number, otherwise the
+// animation jumps when the loop wraps around.
+// No dFdx/fwidth: libplacebo may run this as a compute shader.
+constexpr const char* BACKGROUND_SHADER_HEADER = R"(
+            // Height (0 = top, 1 = bottom) of a wave's crest at x. Two sines
+            // moving in opposite directions, so the crest changes shape
+            // instead of just sliding sideways.
+            float bgCrest(float x, float phase, float baseY, float amp,
+                          float freq, float speed, float offset)
+            {
+                return baseY
+                     + amp * sin(x * freq + speed * phase + offset)
+                     + amp * 0.4 * sin(x * freq * 2.3 - (speed + 1.0) * phase
+                                       + offset * 1.7);
+            }
+
+            vec4 backgroundColor(vec2 p, float phase)
+            {
+                // The light blue slowly breathes between two shades.
+                vec3 light = mix(vec3(0.40, 0.66, 0.92), vec3(0.52, 0.76, 0.98),
+                                 0.5 + 0.5 * sin(phase));
+                vec3 dark = vec3(0.02, 0.06, 0.20);
+
+                // Lighter at the top, deeper towards the bottom, and every
+                // wave crossed on the way down darkens it a bit more.
+                float depth = p.y * 0.3;
+                float glint = 0.0;
+                for (int i = 0; i < 4; i++)
+                {
+                    float fi = float(i);
+                    float crest = bgCrest(p.x, phase, 0.32 + 0.16 * fi,
+                                          0.04 - 0.005 * fi, 3.0 + 1.3 * fi,
+                                          1.0 + fi, 1.9 * fi);
+                    float below = smoothstep(crest - 0.004, crest + 0.004, p.y);
+                    depth += 0.17 * below;
+                    // Thin highlight riding on each crest.
+                    glint += exp(-abs(p.y - crest) * 150.0) * (0.12 - 0.02 * fi);
+                }
+
+                vec3 col = mix(light, dark, clamp(depth, 0.0, 1.0)) + glint;
+                return vec4(clamp(col, 0.0, 1.0), 1.0);
+            }
+            )";
 } // namespace
 
 int SimpleIPTVVulkan::debugCallback(
@@ -264,8 +319,74 @@ void SimpleIPTVVulkan::DrawUI(pl_swapchain_frame* frame)
 
 void SimpleIPTVVulkan::DrawBackgroundFrame(pl_swapchain_frame* frame)
 {
-    const float color[4] = { 0.3f, 0.3f, 0.3f, 1.0f };
-    pl_tex_clear(vulkan->gpu, frame->fbo, color);
+    const double seconds = std::chrono::duration<double>(
+                               std::chrono::steady_clock::now() - backgroundEpoch)
+                               .count();
+    const float phase =
+        (float)(2.0 * std::numbers::pi *
+                std::fmod(seconds, BACKGROUND_LOOP_SECONDS) /
+                BACKGROUND_LOOP_SECONDS);
+    pl_shader_var variables[1] = {};
+    variables[0].var = pl_var_float("bg_phase");
+    variables[0].data = &phase;
+    variables[0].dynamic = true;
+
+    // Interpolated across the target: the corners are given in row-wise order
+    // from the texture's top left. Scaling x by the aspect ratio keeps the
+    // waves' shape at any window size. Texture row 0 is the top of the window
+    // unless the frame is flipped.
+    const float aspect = (float)frame->fbo->params.w /
+                         (float)std::max(frame->fbo->params.h, 1);
+    const float y0 = frame->flipped ? 1.0f : 0.0f;
+    const float y1 = 1.0f - y0;
+    const float corners[4][2] = {
+        { 0.0f, y0 }, { aspect, y0 }, { 0.0f, y1 }, { aspect, y1 }
+    };
+    pl_shader_va vertexAttribs[1] = {};
+    vertexAttribs[0].attr.name = "bg_pos";
+    vertexAttribs[0].attr.fmt =
+        pl_find_vertex_fmt(vulkan->gpu, PL_FMT_FLOAT, 2);
+    for (int i = 0; i < 4; i++)
+    {
+        vertexAttribs[0].data[i] = corners[i];
+    }
+
+    pl_shader sh = pl_dispatch_begin(dispatch);
+
+    pl_custom_shader background = {};
+    background.description = "background";
+    background.input = PL_SHADER_SIG_NONE;
+    background.output = PL_SHADER_SIG_COLOR;
+    background.header = BACKGROUND_SHADER_HEADER;
+    background.body = R"(
+            color = backgroundColor(bg_pos, bg_phase);
+            )";
+    background.variables = variables;
+    background.num_variables = 1;
+    background.vertex_attribs = vertexAttribs;
+    background.num_vertex_attribs = 1;
+    pl_shader_custom(sh, &background);
+
+    // Same treatment as the UI: author in sRGB, map to whatever the swapchain
+    // currently is (it may still be HDR from the last video).
+    pl_color_map_args map_args = {};
+    map_args.src = pl_color_space_srgb;
+    map_args.dst = frame->color_space;
+    pl_shader_color_map_ex(sh, nullptr, &map_args);
+    struct pl_color_repr repr = pl_color_repr_rgb;
+    pl_shader_encode_color(sh, &repr);
+
+    // No blend params: overwrite the whole target, hiding whatever mpv left
+    // in it.
+    pl_dispatch_params params = {};
+    params.shader = &sh;
+    params.target = frame->fbo;
+    if (!pl_dispatch_finish(dispatch, &params))
+    {
+        // Never leave mpv's stale frame visible.
+        const float color[4] = { 0.3f, 0.3f, 0.3f, 1.0f };
+        pl_tex_clear(vulkan->gpu, frame->fbo, color);
+    }
 }
 
 void SimpleIPTVVulkan::ResizeSwapchain(int width, int height)

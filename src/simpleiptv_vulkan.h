@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <filesystem>
 #include <mutex>
 #include <string>
@@ -97,6 +98,9 @@ private:
     std::unordered_set<pl_tex> customTextures;
     pl_tex playerBarTexture = nullptr;
     pl_tex channelsLogosAtlas = nullptr;
+    // Time zero for the animated background.
+    std::chrono::steady_clock::time_point backgroundEpoch =
+        std::chrono::steady_clock::now();
 
     std::mutex imguiRenderMutex;
 };

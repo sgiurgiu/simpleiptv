@@ -504,7 +504,9 @@ void MpvPlayer::mpvRenderThread()
         // Always let mpv render so it keeps consuming frames, then cover it
         // with the background when there's nothing current to show.
         mpvRenderFrame(&frame, windowBottomLeftPoint);
-        if (playerState != PlayerState::PLAYING || !videoReady)
+        const bool showBackground =
+            playerState != PlayerState::PLAYING || !videoReady;
+        if (showBackground)
         {
             vulkanInstance->DrawBackgroundFrame(&frame);
         }
@@ -515,6 +517,13 @@ void MpvPlayer::mpvRenderThread()
         mpv_render_context_report_swap(mpvRenderContext);
         lastPresentTime = std::chrono::steady_clock::now();
         renderInProgress = false;
+
+        // The background is animated, so keep frames coming while it shows.
+        // The idle pacing above holds them to the display refresh rate.
+        if (showBackground)
+        {
+            shouldRender = true;
+        }
     }
 }
 
