@@ -11,6 +11,8 @@
 #include <mpv/render_placebo.h>
 
 #include <chrono>
+#include <cstdlib>
+#include <filesystem>
 #include <optional>
 #include <stdexcept>
 
@@ -28,6 +30,27 @@ constexpr std::chrono::duration OSD_DURATION = std::chrono::seconds{ 3 };
 constexpr uint64_t STOP_COMMAND_REPLY_USERDATA = 15;
 constexpr uint64_t SCREENSHOT_COMMAND_REPLY_USERDATA = 17;
 constexpr uint64_t LOADFILE_COMMAND_REPLY_USERDATA_BASE = 1000;
+
+#ifdef __linux__
+#ifdef STV_DEBUG
+constexpr const char *IPC_SOCKET_NAME = "simpleiptv-mpv-debug.sock";
+#else
+constexpr const char *IPC_SOCKET_NAME = "simpleiptv-mpv.sock";
+#endif
+
+// No fallback to /tmp when XDG_RUNTIME_DIR is missing: anyone could connect
+// to a socket there, and the IPC interface can run arbitrary commands.
+std::optional<std::string> ipcServerPath()
+{
+    const char *runtimeDir = std::getenv("XDG_RUNTIME_DIR");
+    if (!runtimeDir || !*runtimeDir)
+    {
+        spdlog::warn("XDG_RUNTIME_DIR is not set, mpv IPC server disabled");
+        return std::nullopt;
+    }
+    return (std::filesystem::path(runtimeDir) / IPC_SOCKET_NAME).string();
+}
+#endif
 
 } // namespace
 
@@ -57,10 +80,11 @@ MpvPlayer::MpvPlayer(boost::asio::any_io_executor ui_executor,
     mpv_set_property_string(mpv, "input-vo-keyboard", "no");
     mpv_set_property_string(mpv, "vo", "libmpv");
 
-#ifdef STV_UNIX
-    // mpv_set_property_string(mpv, "ao", "auto");
-#else
-    // mpv_set_property_string(mpv, "ao", "auto");
+#ifdef __linux__
+    if (auto ipcPath = ipcServerPath())
+    {
+        mpv_set_option_string(mpv, "input-ipc-server", ipcPath->c_str());
+    }
 #endif
     mpv_set_property_string(mpv, "hwdec", "auto");
     mpv_observe_property(mpv, 0, "height", MPV_FORMAT_DOUBLE);
