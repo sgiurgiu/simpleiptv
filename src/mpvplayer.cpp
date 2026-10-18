@@ -40,15 +40,15 @@ constexpr const char *IPC_SOCKET_NAME = "simpleiptv-mpv.sock";
 
 // No fallback to /tmp when XDG_RUNTIME_DIR is missing: anyone could connect
 // to a socket there, and the IPC interface can run arbitrary commands.
-std::optional<std::string> ipcServerPath()
+std::filesystem::path ipcServerPath()
 {
     const char *runtimeDir = std::getenv("XDG_RUNTIME_DIR");
     if (!runtimeDir || !*runtimeDir)
     {
         spdlog::warn("XDG_RUNTIME_DIR is not set, mpv IPC server disabled");
-        return std::nullopt;
+        return {};
     }
-    return (std::filesystem::path(runtimeDir) / IPC_SOCKET_NAME).string();
+    return std::filesystem::path(runtimeDir) / IPC_SOCKET_NAME;
 }
 #endif
 
@@ -81,9 +81,10 @@ MpvPlayer::MpvPlayer(boost::asio::any_io_executor ui_executor,
     mpv_set_property_string(mpv, "vo", "libmpv");
 
 #ifdef __linux__
-    if (auto ipcPath = ipcServerPath())
+    ipcSocketPath = ipcServerPath();
+    if (!ipcSocketPath.empty())
     {
-        mpv_set_option_string(mpv, "input-ipc-server", ipcPath->c_str());
+        mpv_set_option_string(mpv, "input-ipc-server", ipcSocketPath.c_str());
     }
 #endif
     mpv_set_property_string(mpv, "hwdec", "auto");
@@ -168,6 +169,12 @@ MpvPlayer::~MpvPlayer()
         // mpv_set_wakeup_callback(mpv, nullptr, nullptr);
         mpv_terminate_destroy(mpv);
         mpv = nullptr;
+    }
+    // mpv closes the IPC socket on shutdown but leaves the file behind.
+    if (!ipcSocketPath.empty())
+    {
+        std::error_code ec;
+        std::filesystem::remove(ipcSocketPath, ec);
     }
     workersProvider->GetSleepService()->enableComputerSleep();
     if (placeboOptions)

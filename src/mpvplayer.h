@@ -16,6 +16,7 @@
 #include <libplacebo/swapchain.h>
 
 #include <condition_variable>
+#include <filesystem>
 #include <functional>
 #include <mutex>
 #include <chrono>
@@ -102,6 +103,7 @@ private:
     boost::asio::steady_timer osdVolumeTimer;
     boost::asio::steady_timer osdScreenshotTimer;
     mpv_handle* mpv = nullptr;
+    std::filesystem::path ipcSocketPath;
     mpv_render_context* mpvRenderContext = nullptr;
     pl_options placeboOptions = nullptr;
     double volume = 100.0;
