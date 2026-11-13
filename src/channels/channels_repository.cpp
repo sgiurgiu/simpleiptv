@@ -251,6 +251,9 @@ void ChannelsRepository::GetFavouritesPage(
                 session << "SELECT COUNT(*) FROM CHANNELS WHERE FAVOURITE=TRUE",
                     soci::into(total);
 
+                // soci::use binds by reference, so it needs a named value
+                // that outlives the statement, not a temporary.
+                int offset = page * channelsPerPage;
                 soci::rowset<soci::row> rows = { (
                     session.prepare
                         << "SELECT CHANNEL_ID, NAME, URI, LOGO_URI, "
@@ -261,7 +264,7 @@ void ChannelsRepository::GetFavouritesPage(
                            "WHERE FAVOURITE=TRUE ORDER BY NAME LIMIT :size "
                            "OFFSET :offset",
                     soci::use(channelsPerPage),
-                    soci::use(page * channelsPerPage)) };
+                    soci::use(offset)) };
                 for (const auto& r : rows)
                 {
                     channels.push_back(self->loadChannel(r));
@@ -302,6 +305,7 @@ void ChannelsRepository::GetChannelsPage(
                            "GROUP_ID IS NULL, GROUP_ID=:id)",
                     soci::use(id, ind, "id"), soci::into(total);
 
+                int offset = page * channelsPerPage;
                 soci::rowset<soci::row> rows = { (
                     session.prepare << "SELECT CHANNEL_ID, NAME, URI, LOGO_URI, "
                                        "LOGO, EPG_CHANNEL_URI, "
@@ -313,7 +317,7 @@ void ChannelsRepository::GetChannelsPage(
                                        "NAME LIMIT :size "
                                        "OFFSET :offset",
                     soci::use(id, ind, "id"), soci::use(channelsPerPage, "size"),
-                    soci::use(page * channelsPerPage, "offset")) };
+                    soci::use(offset, "offset")) };
                 for (const auto& r : rows)
                 {
                     channels.push_back(self->loadChannel(r));
@@ -377,8 +381,9 @@ void ChannelsRepository::UpdateChannelFavouriteSync(int id, bool favourite)
 {
     auto session = DatabaseConnections::GetConnection();
 
+    int favouriteValue = favourite ? 1 : 0;
     session << "UPDATE CHANNELS SET FAVOURITE=:favourite WHERE CHANNEL_ID=:id",
-        soci::use(favourite ? 1 : 0, "favourite"), soci::use(id, "id");
+        soci::use(favouriteValue, "favourite"), soci::use(id, "id");
 }
 ChannelsGroupPtr ChannelsRepository::findGroup(const std::string& name)
 {
@@ -587,6 +592,10 @@ ChannelPtr ChannelsRepository::upsertChannel(ChannelPtr channel,
         break;
     }
 
+    // Named, not passed straight to soci::use: it binds by reference, so the
+    // values must outlive the statements below (and the INSERT's rowset).
+    int xstreamServerId = channel->GetXStreamServerId();
+    int groupId = parent->GetId();
     if (id)
     {
         session << "UPDATE CHANNELS SET NAME=:name, LOGO_URI = :logo_uri, "
@@ -599,8 +608,8 @@ ChannelPtr ChannelsRepository::upsertChannel(ChannelPtr channel,
             soci::use(channel->GetLogoUri(), "logo_uri"),
             soci::use(channel->GetEPGChannelUri(), "epg_uri"),
             soci::use(channel->GetEPGChannelId(), "epg_id"),
-            soci::use(channel->GetXStreamServerId(), "xstream_server_id"),
-            soci::use(parent->GetId(), "group_id"), soci::use(id.value(), "id");
+            soci::use(xstreamServerId, "xstream_server_id"),
+            soci::use(groupId, "group_id"), soci::use(id.value(), "id");
     }
     else
     {
@@ -615,8 +624,8 @@ ChannelPtr ChannelsRepository::upsertChannel(ChannelPtr channel,
                   soci::use(channel->GetLogoUri(), "logo_uri"),
                   soci::use(channel->GetEPGChannelUri(), "epg_uri"),
                   soci::use(channel->GetEPGChannelId(), "epg_id"),
-                  soci::use(channel->GetXStreamServerId(), "xstream_server_id"),
-                  soci::use(parent->GetId(), "group_id")) };
+                  soci::use(xstreamServerId, "xstream_server_id"),
+                  soci::use(groupId, "group_id")) };
         for (const auto& r : rows)
         {
             id = r.get<int>(0);

@@ -258,9 +258,10 @@ void ServersRepository::UpdateServerXmlTvUpdatedAt(const Server& server)
     try
     {
         auto session = DatabaseConnections::GetConnection();
+        int serverId = server.GetId();
         session << "UPDATE XSTREAM_SERVERS SET XMLTV_UPDATED_AT = :updated_at "
                    "WHERE SERVER_ID = :id",
-            soci::use(strSecs, "updated_at"), soci::use(server.GetId(), "id");
+            soci::use(strSecs, "updated_at"), soci::use(serverId, "id");
     }
     catch (const soci::soci_error& ex)
     {

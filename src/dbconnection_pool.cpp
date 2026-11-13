@@ -127,8 +127,9 @@ void DatabaseConnections::incrementSchemaVersion(soci::session& con, int& versio
     }
     else
     {
+        int newVersion = version + 1;
         con << "UPDATE SCHEMA_VERSION SET VERSION=:ver",
-            soci::use(version + 1, "ver");
-        version++;
+            soci::use(newVersion, "ver");
+        version = newVersion;
     }
 }

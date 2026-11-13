@@ -10,6 +10,10 @@ void WorkersProvider::StopWorkers()
         mprisService->Stop();
     }
 #endif
+    // Abort in-flight downloads first: a request to a host that never answers
+    // would otherwise hold its network thread, and so the join below, for as
+    // long as the kernel keeps retrying the connect (~2 minutes).
+    networkResourceProvider->Stop();
     // stop() cancels queued work; join() waits for in-flight handlers to finish
     // (their final posts land in the still-alive UI io_context for draining).
     networkPool.stop();

@@ -8,6 +8,8 @@
 #include "proxy_repository.h"
 #include "resource_cache.h"
 
+class ActiveNetworkRequests;
+
 class NetworkResourceProvider
 : public std::enable_shared_from_this<NetworkResourceProvider>
 {
@@ -37,6 +39,10 @@ public:
     void GetResourceStreaming(const std::string& url,
                               const boost::asio::any_io_executor& cb_executor,
                               ResourceLoadedCallback cb);
+    // Aborts every request in flight and refuses new ones, so the network
+    // pool can be joined right away at shutdown instead of waiting on a host
+    // that never answers. Aborted requests don't call their callbacks.
+    void Stop();
 
 private:
     void getResource(HttpProxy proxy,
@@ -54,4 +60,5 @@ private:
     std::shared_ptr<ProxyRepository> proxyRepository;
     boost::asio::ssl::context sslContext;
     ResourceCache<std::string, std::string> cache;
+    std::shared_ptr<ActiveNetworkRequests> activeRequests;
 };

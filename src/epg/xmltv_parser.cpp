@@ -80,13 +80,13 @@ bool XmlTvParser::Feed(const char* data, std::size_t len, bool isFinal)
         XML_STATUS_ERROR)
     {
         spdlog::error("XMLTV parse error at line {}, column {}: {}",
-                      XML_GetCurrentLineNumber(parser),
-                      XML_GetCurrentColumnNumber(parser),
+                      XML_GetCurrentLineNumber64(parser),
+                      XML_GetCurrentColumnNumber64(parser),
                       XML_ErrorString(XML_GetErrorCode(parser)));
         // XML_GetCurrentByteIndex is an offset into the whole document, not into
         // this chunk; map it back to a local position to dump real context.
         auto byteIndex =
-            static_cast<std::size_t>(XML_GetCurrentByteIndex(parser));
+            static_cast<std::size_t>(XML_GetCurrentByteIndex64(parser));
         if (byteIndex >= bytesConsumed && byteIndex - bytesConsumed <= len)
         {
             std::size_t local = byteIndex - bytesConsumed;

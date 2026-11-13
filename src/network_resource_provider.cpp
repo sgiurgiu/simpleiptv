@@ -1,7 +1,8 @@
 #include "network_resource_provider.h"
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/read_until.hpp>
-#include <boost/asio/strand.hpp>
+#include <boost/asio/write.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/core/error.hpp>
@@ -12,11 +13,56 @@
 #include <boost/url.hpp>
 #include <charconv>
 #include <fmt/format.h>
+#include <mutex>
+#include <optional>
 #include <spdlog/spdlog.h>
 #include <system_error>
+#include <unordered_set>
 
 #include "boost_error_code_converter.h"
 #include "sanitize_url.h"
+
+// The private io_context of every request currently running, so Stop() can
+// interrupt them all from the shutdown thread.
+class ActiveNetworkRequests
+{
+public:
+    // false once StopAll() has been called: the request must not start
+    bool Add(boost::asio::io_context* ioc)
+    {
+        std::lock_guard<std::mutex> _{ mutex };
+        if (stopping)
+        {
+            return false;
+        }
+        contexts.insert(ioc);
+        return true;
+    }
+    void Remove(boost::asio::io_context* ioc)
+    {
+        std::lock_guard<std::mutex> _{ mutex };
+        contexts.erase(ioc);
+    }
+    bool IsStopping()
+    {
+        std::lock_guard<std::mutex> _{ mutex };
+        return stopping;
+    }
+    void StopAll()
+    {
+        std::lock_guard<std::mutex> _{ mutex };
+        stopping = true;
+        for (auto* ioc : contexts)
+        {
+            ioc->stop();
+        }
+    }
+
+private:
+    std::mutex mutex;
+    std::unordered_set<boost::asio::io_context*> contexts;
+    bool stopping = false;
+};
 
 namespace
 {
@@ -63,17 +109,18 @@ protected:
 public:
     RequestSessionBase(boost::asio::ssl::context& sslContext,
                        const boost::asio::any_io_executor& executor,
+                       std::shared_ptr<ActiveNetworkRequests> activeRequests,
                        const HttpProxy& proxy,
                        const std::string& url,
                        NetworkResourceProvider::ResourceLoadedCallback cb)
     : sslContext{ sslContext }
     , executor{ executor }
-    , strand{ boost::asio::make_strand(this->executor) }
+    , activeRequests{ std::move(activeRequests) }
     , proxy{ proxy }
     , url{ url }
     , cb{ std::move(cb) }
-    , stream{ strand, this->sslContext }
-    , resolver{ strand }
+    , stream{ ioc, this->sslContext }
+    , resolver{ ioc }
     {
         auto url_parse_result = boost::urls::parse_uri(url);
         if (!url_parse_result)
@@ -105,8 +152,32 @@ public:
         request.prepare_payload();
     }
 
+    // Blocks the calling network-pool thread until the request is done, so
+    // the pool size stays the cap on concurrent downloads (thousands of logos
+    // get requested on a first load).
     void PerformRequest()
     {
+        // ioc is registered by address below, so this session must outlive the
+        // registration. Hold our own reference rather than rely on the caller's.
+        // `self` is declared first, so it is released only after `unregister`
+        // has run.
+        auto self = this->shared_from_this();
+        if (!activeRequests->Add(&ioc))
+        {
+            return; // shutting down
+        }
+        // Remove() takes the same lock as StopAll(), so once it returns no
+        // StopAll() can still be using &ioc.
+        struct Unregister
+        {
+            ActiveNetworkRequests& requests;
+            boost::asio::io_context& ioc;
+            ~Unregister()
+            {
+                requests.Remove(&ioc);
+            }
+        } unregister{ *activeRequests, ioc };
+
         if (proxy.use && !proxy.host.empty() && proxy.port > 0)
         {
             resolveProxy();
@@ -135,7 +206,9 @@ private:
     void resolveHost()
     {
         boost::system::error_code ec;
-        auto results = resolver.resolve(host, scheme, ec);
+        // port, not scheme: the scheme only maps to 80/443, which would
+        // ignore an explicit port in the URL (e.g. http://host:8080/...)
+        auto results = resolver.resolve(host, port, ec);
         if (ec)
         {
             handleError(ec);
@@ -145,11 +218,17 @@ private:
             connectToHost(std::move(results));
         }
     }
+    boost::system::error_code
+    connect(const boost::asio::ip::tcp::resolver::results_type& results)
+    {
+        auto& tcp = boost::beast::get_lowest_layer(stream);
+        tcp.expires_after(streamTimeout);
+        return runOperation([&](auto handler)
+                            { tcp.async_connect(results, std::move(handler)); });
+    }
     void connectToHost(boost::asio::ip::tcp::resolver::results_type results)
     {
-        boost::system::error_code ec;
-        boost::beast::get_lowest_layer(stream).expires_after(streamTimeout);
-        stream.next_layer().connect(results, ec);
+        auto ec = connect(results);
         if (ec)
         {
             handleError(ec);
@@ -159,11 +238,9 @@ private:
     }
     void connectToProxy(boost::asio::ip::tcp::resolver::results_type results)
     {
-        // we only support http proxies, we can do the connection and protocol
-        // synchronously
-        boost::system::error_code ec;
-        boost::beast::get_lowest_layer(stream).expires_after(streamTimeout);
-        stream.next_layer().connect(results, ec);
+        // we only support http proxies: open a tunnel with CONNECT, then
+        // carry on over it as if we were talking to the host directly
+        auto ec = connect(results);
         if (ec)
         {
             handleError(ec);
@@ -175,18 +252,28 @@ private:
                                        "Connection: close\r\n"
                                        "Host: {0}:{1}\r\n\r\n",
                                        host, port);
-        boost::asio::const_buffer writeBuffer(dataToWrite.data(),
-                                              dataToWrite.size());
-
-        boost::asio::write(stream.next_layer(), writeBuffer, ec);
+        auto& tcp = boost::beast::get_lowest_layer(stream);
+        tcp.expires_after(streamTimeout);
+        ec = runOperation(
+            [&](auto handler)
+            {
+                boost::asio::async_write(tcp, boost::asio::buffer(dataToWrite),
+                                         std::move(handler));
+            });
         if (ec)
         {
             handleError(ec);
             return;
         }
         boost::asio::streambuf streambuf;
-        boost::asio::read_until(stream.next_layer(), streambuf,
-                                std::string_view{ "\r\n\r\n" }, ec);
+        tcp.expires_after(streamTimeout);
+        ec = runOperation(
+            [&](auto handler)
+            {
+                boost::asio::async_read_until(tcp, streambuf,
+                                              std::string_view{ "\r\n\r\n" },
+                                              std::move(handler));
+            });
         if (ec)
         {
             handleError(ec);
@@ -235,8 +322,13 @@ private:
         }
         else
         {
-            boost::beast::error_code ec;
-            stream.handshake(boost::asio::ssl::stream_base::client, ec);
+            boost::beast::get_lowest_layer(stream).expires_after(streamTimeout);
+            auto ec = runOperation(
+                [&](auto handler)
+                {
+                    stream.async_handshake(boost::asio::ssl::stream_base::client,
+                                           std::move(handler));
+                });
             onHandshake(ec);
         }
     }
@@ -253,51 +345,52 @@ private:
     }
     void sendRequest()
     {
-        boost::beast::get_lowest_layer(stream).expires_after(streamTimeout);
-        using namespace std::placeholders;
         // Send the HTTP request to the remote host
-        std::size_t bytesTransferred = 0;
-        boost::system::error_code ec;
-        if (isSsl)
-        {
-            bytesTransferred = boost::beast::http::write(stream, request, ec);
-        }
-        else
-        {
-            bytesTransferred =
-                boost::beast::http::write(stream.next_layer(), request, ec);
-        }
-        onWrite(ec, bytesTransferred);
+        boost::beast::get_lowest_layer(stream).expires_after(streamTimeout);
+        auto ec = runOperation(
+            [&](auto handler)
+            {
+                if (isSsl)
+                {
+                    boost::beast::http::async_write(stream, request,
+                                                    std::move(handler));
+                }
+                else
+                {
+                    boost::beast::http::async_write(stream.next_layer(), request,
+                                                    std::move(handler));
+                }
+            });
+        onWrite(ec);
     }
-    void onWrite(const boost::system::error_code& ec, std::size_t bytesTransferred)
+    void onWrite(const boost::system::error_code& ec)
     {
-        boost::ignore_unused(bytesTransferred);
         if (ec)
         {
             handleError(ec);
             return;
         }
-        using namespace std::placeholders;
         boost::beast::get_lowest_layer(stream).expires_after(streamTimeout);
-        boost::system::error_code errorCode;
-        std::size_t readHeaderBytesTransferred = 0;
-        if (isSsl)
-        {
-            readHeaderBytesTransferred = boost::beast::http::read_header(
-                stream, readBuffer, responseParser, errorCode);
-        }
-        else
-        {
-            readHeaderBytesTransferred = boost::beast::http::read_header(
-                stream.next_layer(), readBuffer, responseParser, errorCode);
-        }
-        onReadHeader(errorCode, readHeaderBytesTransferred);
+        auto errorCode = runOperation(
+            [&](auto handler)
+            {
+                if (isSsl)
+                {
+                    boost::beast::http::async_read_header(
+                        stream, readBuffer, responseParser, std::move(handler));
+                }
+                else
+                {
+                    boost::beast::http::async_read_header(
+                        stream.next_layer(), readBuffer, responseParser,
+                        std::move(handler));
+                }
+            });
+        onReadHeader(errorCode);
     }
 
-    void onReadHeader(const boost::system::error_code& ec,
-                      std::size_t bytesTransferred)
+    void onReadHeader(const boost::system::error_code& ec)
     {
-        boost::ignore_unused(bytesTransferred);
         if (ec)
         {
             handleError(ec);
@@ -340,12 +433,68 @@ private:
     }
 
 protected:
+    /**
+     * Runs one async operation on this request's private io_context and waits
+     * for it to finish. The request still reads top to bottom like
+     * synchronous code, but unlike the synchronous calls, async operations
+     * honour the stream's expires_after() timeouts, and Stop() can interrupt
+     * them from another thread.
+     *
+     * If Stop() interrupts the operation, its handler is left pending and
+     * still refers to `result` on this stack frame. Every caller treats the
+     * returned error as fatal, so the io_context is never run again and the
+     * handler is only ever destroyed, never invoked.
+     */
+    template <typename Initiation>
+    boost::system::error_code runOperation(Initiation&& initiation)
+    {
+        ioc.restart();
+        // Checked after restart() so a Stop() that lands between two
+        // operations isn't wiped out by it.
+        if (activeRequests->IsStopping())
+        {
+            return boost::asio::error::operation_aborted;
+        }
+        std::optional<boost::system::error_code> result;
+        initiation([&result](boost::system::error_code ec, auto&&...)
+                   { result = ec; });
+        ioc.run();
+        return result.value_or(boost::asio::error::operation_aborted);
+    }
+
+    // Reads some of the body, waiting at most streamTimeout for it: a long
+    // download is fine as long as data keeps arriving.
+    boost::system::error_code readSomeBody()
+    {
+        boost::beast::get_lowest_layer(stream).expires_after(streamTimeout);
+        return runOperation(
+            [&](auto handler)
+            {
+                if (isSsl)
+                {
+                    boost::beast::http::async_read_some(
+                        stream, readBuffer, responseParser, std::move(handler));
+                }
+                else
+                {
+                    boost::beast::http::async_read_some(
+                        stream.next_layer(), readBuffer, responseParser,
+                        std::move(handler));
+                }
+            });
+    }
+
     void handleError(const boost::system::error_code& ec)
     {
+        // Aborted by Stop(): the app is shutting down and nobody is waiting
+        // for the result.
+        if (activeRequests->IsStopping())
+        {
+            return;
+        }
         cb("", BoostToErrorCode(ec));
     }
 
-protected:
     // Close this session and start a fresh one for the redirect target.
     // The Location header may be relative, so resolve it against the URL we
     // originally requested. Bail out once we have followed too many hops.
@@ -372,8 +521,8 @@ protected:
                     }
                 }
                 auto session = std::make_shared<Derived>(
-                    self->sslContext, self->executor, self->proxy,
-                    std::move(location), std::move(self->cb));
+                    self->sslContext, self->executor, self->activeRequests,
+                    self->proxy, std::move(location), std::move(self->cb));
                 session->redirects = self->redirects + 1;
                 session->PerformRequest();
             });
@@ -383,11 +532,15 @@ protected:
 protected:
     int redirects = 0;
     boost::asio::ssl::context& sslContext;
+    // The network pool; only used to hand a redirect over to a new session.
     boost::asio::any_io_executor executor;
-    boost::asio::strand<boost::asio::any_io_executor> strand;
+    std::shared_ptr<ActiveNetworkRequests> activeRequests;
     HttpProxy proxy;
     std::string url;
     NetworkResourceProvider::ResourceLoadedCallback cb;
+    // Private to this request and run only by PerformRequest's thread.
+    // Declared before the I/O objects that use it, so it outlives them.
+    boost::asio::io_context ioc;
     stream_t stream;
     response_parser_t responseParser;
     request_t request;
@@ -410,23 +563,14 @@ public:
 private:
     void readBody() override
     {
-        boost::beast::get_lowest_layer(stream).expires_after(streamTimeout);
-        boost::system::error_code errorCode;
-        if (isSsl)
+        while (!responseParser.is_done())
         {
-            boost::beast::http::read(stream, readBuffer, responseParser,
-                                     errorCode);
-        }
-        else
-        {
-            boost::beast::http::read(stream.next_layer(), readBuffer,
-                                     responseParser, errorCode);
-        }
-
-        if (errorCode)
-        {
-            handleError(errorCode);
-            return;
+            auto errorCode = readSomeBody();
+            if (errorCode)
+            {
+                handleError(errorCode);
+                return;
+            }
         }
         // we got our response
         std::string body = responseParser.get().body();
@@ -450,17 +594,22 @@ private:
             responseParser.get().body().data = buffer;
             responseParser.get().body().size = sizeof(buffer);
             boost::beast::get_lowest_layer(stream).expires_after(streamTimeout);
-            boost::system::error_code errorCode;
-            if (isSsl)
-            {
-                boost::beast::http::read(stream, readBuffer, responseParser,
-                                         errorCode);
-            }
-            else
-            {
-                boost::beast::http::read(stream.next_layer(), readBuffer,
-                                         responseParser, errorCode);
-            }
+            auto errorCode = runOperation(
+                [&](auto handler)
+                {
+                    if (isSsl)
+                    {
+                        boost::beast::http::async_read(stream, readBuffer,
+                                                       responseParser,
+                                                       std::move(handler));
+                    }
+                    else
+                    {
+                        boost::beast::http::async_read(stream.next_layer(),
+                                                       readBuffer, responseParser,
+                                                       std::move(handler));
+                    }
+                });
 
             if (errorCode == boost::beast::http::error::need_buffer)
             {
@@ -494,6 +643,7 @@ NetworkResourceProvider::NetworkResourceProvider(
 : executor{ executor }
 , proxyRepository{ std::move(proxyRepository) }
 , sslContext{ boost::asio::ssl::context::tls_client }
+, activeRequests{ std::make_shared<ActiveNetworkRequests>() }
 {
     sslContext.set_options(boost::asio::ssl::context::default_workarounds);
     sslContext.set_verify_mode(boost::asio::ssl::verify_peer);
@@ -509,6 +659,11 @@ NetworkResourceProvider::Create(const boost::asio::any_io_executor& executor,
 {
     return std::make_shared<NetworkResourceProvider>(Key{}, executor,
                                                      std::move(proxyRepository));
+}
+
+void NetworkResourceProvider::Stop()
+{
+    activeRequests->StopAll();
 }
 
 void NetworkResourceProvider::GetResource(
@@ -551,7 +706,7 @@ void NetworkResourceProvider::getResource(HttpProxy proxy,
         {
             spdlog::debug("Downloading {}", url);
             auto request = std::make_shared<RequestSession>(
-                sslContext, executor, proxy, url,
+                sslContext, executor, activeRequests, proxy, url,
                 [weak = weak_from_this(), url, cb_executor, cb = std::move(cb),
                  cacheResource](std::string body, std::error_code ec) mutable
                 {
@@ -605,7 +760,7 @@ void NetworkResourceProvider::getResourceStreaming(
     {
         spdlog::debug("Downloading {}", url);
         auto request = std::make_shared<RequestSessionStream>(
-            sslContext, executor, proxy, url,
+            sslContext, executor, activeRequests, proxy, url,
             [url, cb_executor, cb = std::move(cb)](std::string body,
                                                    std::error_code ec) mutable
             {
