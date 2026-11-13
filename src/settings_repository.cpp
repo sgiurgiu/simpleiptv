@@ -69,6 +69,24 @@ void SettingsRepository::SetScreenshotFileTemplate(const std::string& fileTempla
     SetStringValue("SCREENSHOT_FILE_TEMPLATE", fileTemplate);
 }
 
+bool SettingsRepository::GetPlayLastChannelOnStartup(bool defaultValue)
+{
+    return GetIntValue("PLAY_LAST_CHANNEL_ON_STARTUP", defaultValue ? 1 : 0) != 0;
+}
+void SettingsRepository::SetPlayLastChannelOnStartup(bool value)
+{
+    SetIntValue("PLAY_LAST_CHANNEL_ON_STARTUP", value ? 1 : 0);
+}
+
+std::string SettingsRepository::GetLastChannel()
+{
+    return GetStringValue("LAST_CHANNEL", "");
+}
+void SettingsRepository::SetLastChannel(const std::string& snapshot)
+{
+    SetStringValue("LAST_CHANNEL", snapshot);
+}
+
 std::string SettingsRepository::GetStringValue(const std::string& key,
                                                const std::string& defaultValue)
 {

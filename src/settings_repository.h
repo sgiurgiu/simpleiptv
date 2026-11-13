@@ -29,6 +29,11 @@ public:
     void SetScreenshotFormat(const std::string& format);
     std::string GetScreenshotFileTemplate(const std::string& defaultValue);
     void SetScreenshotFileTemplate(const std::string& fileTemplate);
+    bool GetPlayLastChannelOnStartup(bool defaultValue);
+    void SetPlayLastChannelOnStartup(bool value);
+    // The last channel played, as a Channel::ToJson() snapshot; empty if none.
+    std::string GetLastChannel();
+    void SetLastChannel(const std::string& snapshot);
 
 private:
     int GetIntValue(const std::string& key, int defaultValue);

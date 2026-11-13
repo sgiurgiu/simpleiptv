@@ -64,6 +64,13 @@ public:
     {
         takeScreenshotSignal.connect(slot);
     }
+    // Fired on the UI thread every time the local channels tree has been
+    // (re)built from the database.
+    template <typename S>
+    void AddLocalChannelsLoadedListener(S slot)
+    {
+        localChannelsLoadedSignal.connect(slot);
+    }
     void ActivateNextChannel();
     void ActivatePreviousChannel();
     // Returns whether the channel was found in the local channels tree and
@@ -109,10 +116,13 @@ private:
     ScreenshotSettingsChangedSignal screenshotSettingsChangedSignal;
     using TakeScreenshotSignal = boost::signals2::signal<void()>;
     TakeScreenshotSignal takeScreenshotSignal;
+    using LocalChannelsLoadedSignal = boost::signals2::signal<void()>;
+    LocalChannelsLoadedSignal localChannelsLoadedSignal;
     // Weak, not raw: the activated channel is destroyed out from under us by a
     // channels reload, a "Remove Favourite", or a server refresh.
     std::weak_ptr<DisplayChannel> activatedChannel;
     bool pinned = false;
+    bool playLastChannelOnStartup = false;
     ColorspaceDialog colorspaceDialog;
     std::shared_ptr<HTTPProxyDialog> httpProxyDialog;
     std::shared_ptr<ScreenshotDialog> screenshotDialog;

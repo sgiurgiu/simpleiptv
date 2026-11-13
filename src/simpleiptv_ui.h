@@ -118,6 +118,8 @@ public:
 private:
     void channelActivated(ChannelPtr channel);
     void activateHistoryChannel(ChannelPtr channel);
+    void rememberLastChannel(const ChannelPtr& channel);
+    void playLastChannel();
     ImRect showDesktop();
 private:
     WorkersProvider* workersProvider;
@@ -136,6 +138,9 @@ private:
     GetPlayerSignal getPlayerSignal;
     bool quit = false;
     bool showChannels = true;
+    // The local channels tree is rebuilt on every edit; only the first load
+    // should auto-play the last channel. UI thread only.
+    bool startupChannelRestored = false;
     // Desired fullscreen state. Written on the render thread (key handling in
     // showDesktop), polled by the main loop which applies the actual GLFW
     // window change (glfwSetWindowMonitor is main-thread only).

@@ -78,6 +78,9 @@ ChannelsWindow::ChannelsWindow(Key,
 , aboutWindow{ vulkanInstance }
 {
     width = workersProvider->GetSettingsRepository()->GetChannelsWindowWidth(300);
+    playLastChannelOnStartup =
+        workersProvider->GetSettingsRepository()->GetPlayLastChannelOnStartup(
+            false);
 }
 
 void ChannelsWindow::initialize()
@@ -361,6 +364,7 @@ void ChannelsWindow::loadLocalChannels()
                 "done loading channels. duration: {} ms",
                 std::chrono::duration_cast<std::chrono::milliseconds>(duration)
                     .count());
+            self->localChannelsLoadedSignal();
         },
         ui_executor);
 }
@@ -403,6 +407,14 @@ void ChannelsWindow::showMenu()
             {
                 screenshotDialog->SetShowScreenshotDialog(true);
             }
+            ImGui::Separator();
+            if (ImGui::Checkbox("Play last channel on startup",
+                                &playLastChannelOnStartup))
+            {
+                workersProvider->GetSettingsRepository()
+                    ->SetPlayLastChannelOnStartup(playLastChannelOnStartup);
+            }
+            ImGui::Separator();
 
             if (ImGui::BeginMenu("Colorspace"))
             {

@@ -37,6 +37,18 @@ SimpleIPTVUI::SimpleIPTVUI(boost::asio::any_io_executor ui_executor,
     channelsWindow->AddScreenshotSettingsChangedListener(
         [this]() { screenshotSettingsChangedSignal(); });
     channelsWindow->AddTakeScreenshotListener([this]() { screenshotSignal(); });
+    channelsWindow->AddLocalChannelsLoadedListener(
+        [this]()
+        {
+            if (startupChannelRestored)
+                return;
+            startupChannelRestored = true;
+            playLastChannel();
+        });
+    // Every way of starting a channel (tree, next/prev, EPG search, history,
+    // MPRIS) ends up emitting channelActivatedSignal, so this catches them all.
+    channelActivatedSignal.connect([this](ChannelPtr channel)
+                                   { rememberLastChannel(channel); });
 
     channelsWindow->GetPlayerSignal().connect(
         [this]() -> MpvPlayer*
@@ -199,4 +211,32 @@ void SimpleIPTVUI::activateHistoryChannel(ChannelPtr channel)
         playerBarWindow->SetCurrentChannel(channel);
         channelActivatedSignal(channel);
     }
+}
+
+void SimpleIPTVUI::rememberLastChannel(const ChannelPtr& channel)
+{
+    if (!channel)
+        return;
+    // Snapshot on this thread, write on the DB thread: activation usually
+    // happens on the render thread, which shouldn't wait on an SQLite fsync.
+    // The DB pool has a single thread, so the writes land in order.
+    boost::asio::post(workersProvider->GetDBExecutor(),
+                      [repo = workersProvider->GetSettingsRepository(),
+                       snapshot = channel->ToJson()]()
+                      { repo->SetLastChannel(snapshot); });
+}
+
+void SimpleIPTVUI::playLastChannel()
+{
+    auto repo = workersProvider->GetSettingsRepository();
+    if (!repo->GetPlayLastChannelOnStartup(false))
+        return;
+    auto channel = Channel::FromJson(repo->GetLastChannel());
+    if (!channel)
+        return;
+    spdlog::debug("auto-playing last channel {}", channel->GetName());
+    // Same path as picking it out of the history: highlight it in the local
+    // tree if it's there, otherwise (server channel, or since removed) play
+    // the snapshot directly.
+    activateHistoryChannel(std::move(channel));
 }

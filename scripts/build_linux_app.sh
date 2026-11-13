@@ -43,6 +43,18 @@ then
     fi
 fi
 
+# Use the vcpkg release this project is pinned to (vcpkg-configuration.json)
+baseline=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["default-registry"]["baseline"])' \
+    "${workspace}"/vcpkg-configuration.json)
+if [[ "$(git -C "${VCPKG_ROOT}" rev-parse HEAD)" != "${baseline}" ]]; then
+    echo "Moving ${VCPKG_ROOT} from $(git -C "${VCPKG_ROOT}" describe --tags --always) to ${baseline}"
+    git -C "${VCPKG_ROOT}" fetch --quiet origin "${baseline}" || git -C "${VCPKG_ROOT}" fetch --quiet origin
+    git -C "${VCPKG_ROOT}" checkout --quiet --force --detach "${baseline}"
+    "${VCPKG_ROOT}"/bootstrap-vcpkg.sh -disableMetrics
+fi
+"${VCPKG_ROOT}"/vcpkg version | head -n 1
+
+
 cmake_exe=$(find /opt/ -name cmake -type f -executable -print | sort | head -n 1)
 if [[ -z ${cmake_exe} ]]
 then

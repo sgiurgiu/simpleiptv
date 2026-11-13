@@ -89,6 +89,15 @@ public:
         favourite = value;
     }
 
+    /**
+     * A JSON snapshot of everything needed to play the channel again later,
+     * even if it isn't in the CHANNELS table (server channels have id -1).
+     * The logo blob is left out; it can be re-fetched from the logo URI.
+     */
+    std::string ToJson() const;
+    // nullptr if the snapshot is malformed or has no URI to play.
+    static std::shared_ptr<Channel> FromJson(const std::string& json);
+
 private:
     int id;
     std::string name;

@@ -98,9 +98,12 @@ bool DisplayRootChannelsGroup::ActivateChannelOfGroup(ChannelsGroupPtr group,
                     foundNode = child.get();
                     break;
                 }
-                else
+                foundNode = self(self, child.get());
+                if (foundNode)
                 {
-                    foundNode = self(self, child.get());
+                    // Found in a nested group; stop before a later sibling
+                    // overwrites it.
+                    break;
                 }
             }
             return foundNode;
@@ -108,10 +111,24 @@ bool DisplayRootChannelsGroup::ActivateChannelOfGroup(ChannelsGroupPtr group,
         return doFindNode(doFindNode, node);
     };
 
-    auto foundGroup = findGroup(this);
+    // Channels without a group (and without a favourite flag routing them to
+    // the favourites node) live directly under the root.
+    DisplayNode* foundGroup = nullptr;
+    if (group->GetId() < 0 && groupType == DisplayNodeType::GROUP)
+    {
+        foundGroup = this;
+    }
+    else
+    {
+        foundGroup = findGroup(this);
+    }
     if (foundGroup)
     {
-        foundGroup->isOpen = true;
+        // Open the whole chain so a channel in a nested group is visible.
+        for (DisplayNode* n = foundGroup; n; n = n->parent)
+        {
+            n->isOpen = true;
+        }
         auto channelIt =
             std::find_if(foundGroup->children.begin(), foundGroup->children.end(),
                          [id = channel->GetId()](const auto& c)
